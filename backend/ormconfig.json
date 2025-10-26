@@ -1,0 +1,19 @@
+{
+  "type": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "username": "statsvision_user",
+  "password": "statsvision_password",
+  "database": "statsvision_db",
+  "synchronize": true,
+  "logging": false,
+  "entities": [
+    "src/**/*.ts"
+  ],
+  "migrations": [
+    "src/migration/**/*.ts"
+  ],
+  "subscribers": [
+    "src/subscriber/**/*.ts"
+  ]
+}

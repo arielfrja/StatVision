@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase ID Token Getter</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #tokenDisplay { word-break: break-all; background-color: #f0f0f0; padding: 10px; border: 1px solid #ccc; }
+        #statusDisplay { color: blue; }
+        #errorDisplay { color: red; } /* Style for error display */
+    </style>
+</head>
+<body>
+    <h1>Firebase ID Token Getter</h1>
+    <p>Attempting to fetch ID token for test@test.com automatically...</p>
+
+    <p id="statusDisplay"></p>
+    <div id="errorDisplay"></div>
+    <div id="tokenDisplay"></div>
+
+    <script type="module">
+        // Import the Firebase configuration
+        import firebaseConfig from './firebase-config.js';
+
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let idToken = null;
+
+        // Function to handle login (now called automatically)
+        const handleLogin = async () => {
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const statusDisplay = document.getElementById('statusDisplay');
+            const errorDisplay = document.getElementById('errorDisplay');
+
+            statusDisplay.textContent = 'Logging in...';
+            tokenDisplay.textContent = '';
+            errorDisplay.textContent = ''; // Clear previous errors
+
+            const email = 'test@test.com'; // Hardcoded email
+            const password = 'testTest'; // Hardcoded password
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                statusDisplay.textContent = `Logged in as: ${user.email}`;
+
+                // Get the ID token
+                idToken = await user.getIdToken();
+                tokenDisplay.textContent = `ID Token: ${idToken}`;
+                console.log('Firebase ID Token:', idToken);
+
+            } catch (error: any) {
+                statusDisplay.textContent = `Login failed.`;
+                errorDisplay.textContent = `Error: ${error.message}`;
+                console.error('Login error:', error);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Attempt to log in automatically on page load
+            await handleLogin();
+
+            // Listen for auth state changes to automatically get token if already logged in
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    statusDisplay.textContent = `Already logged in as: ${user.email}`;
+                    idToken = await user.getIdToken();
+                    tokenDisplay.textContent = `ID Token: ${idToken}`;
+                    console.log('Firebase ID Token:', idToken);
+                } else {
+                    statusDisplay.textContent = 'Not logged in.';
+                    tokenDisplay.textContent = '';
+                }
+                errorDisplay.textContent = ''; // Clear errors on auth state change
+            });
+        });
+    </script>
+</body>
+</html>
