@@ -8,10 +8,22 @@ export default function Header() {
   const { isAuthenticated, logout } = useAuth0();
 
   return (
-    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: '#f5f5f5' }}>
-      <h1>StatVision</h1>
+    <header style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 'var(--spacing-sm) var(--spacing-md)',
+      backgroundColor: 'var(--md-sys-color-primary)',
+      color: 'var(--md-sys-color-on-primary)',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      minHeight: '64px',
+    }}>
+      <h1 style={{ margin: 0, fontSize: '1.5rem' }}>StatVision</h1>
       {isAuthenticated && (
-        <md-outlined-button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}>
+        <md-outlined-button
+          onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+          style={{ '--md-sys-color-primary': 'var(--md-sys-color-on-primary)' } as React.CSSProperties}
+        >
           Logout
         </md-outlined-button>
       )}

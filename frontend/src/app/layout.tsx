@@ -32,6 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="stylesheet" href="/material-symbols.css" />
+      </head>
       <UserProviderWrapper>
         <body className={`${geistSans.variable} ${geistMono.variable}`}>
           <ErudaInit />
