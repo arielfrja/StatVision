@@ -7,6 +7,10 @@
 - [ ] **[DEVOPS-04]** Set up a Pub/Sub topic for upload events.
 - [ ] **[DEVOPS-05]** Configure CI/CD pipeline for deploying the Next.js frontend to Vercel.
 - [ ] **[DEVOPS-06]** Configure CI/CD pipeline for building and deploying the backend services (API, Worker) as containers to Google Cloud Run.
+- [ ] **[DEVOPS-07]** Implement centralized logging for backend services using Winston, capturing request/response details and errors.
+
+### [EPIC] Backend Architecture Refinement
+- [ ] **[BE-001]** Refactor `app.ts` into modular route files (e.g., `authRoutes.ts`, `teamRoutes.ts`, `playerRoutes.ts`) to improve maintainability and organization.
 
 ### [EPIC] User Authentication
 - [ ] **[STORY]** As a new user, I want to register for an account so I can use the service.

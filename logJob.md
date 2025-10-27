@@ -30,3 +30,7 @@ This document logs the key actions and decisions made during the development of 
 
 ## Next Steps
 - Proposed next sprint focusing on completing user authentication backend and core data management backend (Teams & Players).
+
+## Backend Enhancements
+- Implemented centralized logging for backend services using Winston, capturing request/response details and errors.
+- Refactored `app.ts` into modular route files (`authRoutes.ts`, `teamRoutes.ts`, `playerRoutes.ts`) to improve maintainability and organization.
