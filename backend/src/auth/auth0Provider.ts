@@ -1,19 +1,23 @@
-import { Request, Response, NextFunction } from 'express';
-import { auth } from 'express-oauth2-jwt-bearer';
-import { IAuthProvider } from './authProvider';
-import * as jwt from 'jsonwebtoken';
-
-const AUTH0_DOMAIN = 'dev-3os8m0zyfxmx60nn.us.auth0.com';
-const AUTH0_AUDIENCE = 'basetball-analyzer';
+import logger from "../config/logger";
+import { Request, Response, NextFunction } from "express";
+import { expressjwt as jwt } from "express-jwt";
+import { JwksClient } from "jwks-rsa";
+import { IAuthProvider } from "./authProvider";
 
 export class Auth0Provider implements IAuthProvider {
     private jwtCheck;
 
     constructor() {
-        this.jwtCheck = auth({
-            audience: AUTH0_AUDIENCE,
-            issuerBaseURL: `https://${AUTH0_DOMAIN}/`,
-            tokenSigningAlg: 'RS256'
+        this.jwtCheck = jwt({
+            secret: JwksClient.expressJwtSecret({
+                cache: true,
+                rateLimit: true,
+                jwksRequestsPerMinute: 5,
+                jwksUri: process.env.AUTH0_JWKS_URI || "",
+            }),
+            audience: process.env.AUTH0_AUDIENCE,
+            issuer: process.env.AUTH0_ISSUER,
+            algorithms: ["RS256"],
         });
     }
 
@@ -23,19 +27,19 @@ export class Auth0Provider implements IAuthProvider {
             const token = authHeader.split("Bearer ")[1];
             try {
                 const decodedHeader = jwt.decode(token, { complete: true })?.header;
-                console.log("Auth0Provider: Incoming Token KID:", decodedHeader?.kid);
+                logger.debug("Auth0Provider: Incoming Token KID:", decodedHeader?.kid);
             } catch (decodeError) {
-                console.error("Auth0Provider: Error decoding token header:", decodeError);
+                logger.error("Auth0Provider: Error decoding token header:", decodeError);
             }
         }
 
         this.jwtCheck(req, res, (err?: any) => {
             if (err) {
-                console.error("Auth0Provider: Token verification failed. Full error object:", JSON.stringify(err, null, 2));
+                logger.error("Auth0Provider: JWT Check Error:", err);
                 return res.status(err.status || 401).json({ message: err.message || "Unauthorized" });
             }
             if (req.auth && req.auth.payload) {
-                console.log("Auth0Provider: Decoded JWT Payload:", req.auth.payload);
+                logger.debug("Auth0Provider: Decoded JWT Payload:", req.auth.payload);
                 req.user = { uid: req.auth.payload.sub as string, email: req.auth.payload.email as string || '' };
             }
             next();
