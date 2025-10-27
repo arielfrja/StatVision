@@ -1,3 +1,4 @@
+import logger from "../config/logger";
 import { PlayerRepository } from "../repository/PlayerRepository";
 import { Team } from "../Team";
 import { Player } from "../Player";
@@ -6,6 +7,7 @@ export class PlayerService {
     constructor(private playerRepository: PlayerRepository) {}
 
     async createPlayer(name: string, jerseyNumber: number, team: Team): Promise<Player> {
+        logger.info(`PlayerService: Creating player ${name} (#${jerseyNumber}) for team ${team.id}`);
         if (!name || name.trim() === "") {
             throw new Error("Player name cannot be empty.");
         }
@@ -22,14 +24,17 @@ export class PlayerService {
     }
 
     async getPlayersByTeam(teamId: string): Promise<Player[]> {
+        logger.info(`PlayerService: Getting players for team: ${teamId}`);
         return this.playerRepository.findPlayersByTeam(teamId);
     }
 
     async getPlayerByIdAndTeam(playerId: string, teamId: string): Promise<Player | null> {
+        logger.info(`PlayerService: Getting player ${playerId} for team: ${teamId}`);
         return this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
     }
 
     async updatePlayer(playerId: string, teamId: string, newName: string, newJerseyNumber: number): Promise<Player> {
+        logger.info(`PlayerService: Updating player ${playerId} in team ${teamId} to name: ${newName}, jersey: ${newJerseyNumber}`);
         const player = await this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
         if (!player) {
             throw new Error("Player not found or you do not have permission to update it.");
@@ -53,6 +58,7 @@ export class PlayerService {
     }
 
     async deletePlayer(playerId: string, teamId: string): Promise<void> {
+        logger.info(`PlayerService: Deleting player ${playerId} from team: ${teamId}`);
         const player = await this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
         if (!player) {
             throw new Error("Player not found or you do not have permission to delete it.");

@@ -1,3 +1,4 @@
+import logger from "./config/logger";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { User } from "./User";
@@ -22,9 +23,9 @@ const AppDataSource = new DataSource({
 
 AppDataSource.initialize()
     .then(() => {
-        console.log("Data Source has been initialized!");
+        logger.info("Data Source has been initialized!");
         // Here you can start your Express server or run other logic
     })
     .catch((err) => {
-        console.error("Error during Data Source initialization:", err);
+        logger.error("Error during Data Source initialization:", err);
     });

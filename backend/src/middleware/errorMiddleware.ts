@@ -1,0 +1,9 @@
+import { Request, Response, NextFunction } from 'express';
+import logger from '../config/logger';
+
+const errorMiddleware = (err: Error, req: Request, res: Response, next: NextFunction) => {
+  logger.error(err.stack);
+  res.status(500).send('Something broke!');
+};
+
+export default errorMiddleware;
