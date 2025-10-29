@@ -1,7 +1,10 @@
 import winston from 'winston';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const logLevel = isProduction ? 'info' : 'debug'; // 'debug' for dev, 'info' for prod
+
 const logger = winston.createLogger({
-  level: 'info',
+  level: logLevel,
   format: winston.format.json(),
   transports: [
     new winston.transports.Console({
@@ -10,7 +13,8 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== 'production') {
+// Add file transports only in non-production environments
+if (!isProduction) {
   logger.add(
     new winston.transports.File({ filename: 'error.log', level: 'error' })
   );
