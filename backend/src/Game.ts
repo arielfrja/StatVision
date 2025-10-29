@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { User } from "./User";
 import { Team } from "./Team";
 import { GameEvent } from "./GameEvent";
@@ -6,8 +6,9 @@ import { GameEvent } from "./GameEvent";
 export enum GameStatus {
     UPLOADED = "UPLOADED",
     PROCESSING = "PROCESSING",
-    PENDING_ASSIGNMENT = "PENDING_ASSIGNMENT",
-    COMPLETE = "COMPLETE",
+    ANALYZED = "ANALYZED",
+    ASSIGNMENT_PENDING = "ASSIGNMENT_PENDING",
+    COMPLETED = "COMPLETED",
     FAILED = "FAILED",
 }
 
@@ -16,21 +17,29 @@ export class Game {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @ManyToOne(() => User, user => user.games)
+    @JoinColumn({ name: "user_id" })
+    user: User;
+
     @Column({ name: "user_id" })
     userId: string;
 
-    @Column({
-        type: "enum",
-        enum: GameStatus,
-        default: GameStatus.UPLOADED,
-    })
+    @Column({ type: "enum", enum: GameStatus, default: GameStatus.UPLOADED })
     status: GameStatus;
 
-    @Column({ name: "video_url" })
-    videoUrl: string;
+    @Column({ name: "video_url", nullable: true })
+    videoUrl: string; // Local path or GCS URL
+
+    @ManyToOne(() => Team)
+    @JoinColumn({ name: "assigned_team_a_id" })
+    assignedTeamA: Team;
 
     @Column({ name: "assigned_team_a_id", nullable: true })
     assignedTeamAId: string;
+
+    @ManyToOne(() => Team)
+    @JoinColumn({ name: "assigned_team_b_id" })
+    assignedTeamB: Team;
 
     @Column({ name: "assigned_team_b_id", nullable: true })
     assignedTeamBId: string;
@@ -38,24 +47,6 @@ export class Game {
     @CreateDateColumn({ name: "uploaded_at" })
     uploadedAt: Date;
 
-    @CreateDateColumn({ name: "created_at" })
-    createdAt: Date;
-
-    @UpdateDateColumn({ name: "updated_at" })
-    updatedAt: Date;
-
-    @ManyToOne(() => User, user => user.games)
-    @JoinColumn({ name: "user_id" })
-    user: User;
-
-    @ManyToOne(() => Team, team => team.gamesA)
-    @JoinColumn({ name: "assigned_team_a_id" })
-    assignedTeamA: Team;
-
-    @ManyToOne(() => Team, team => team.gamesB)
-    @JoinColumn({ name: "assigned_team_b_id" })
-    assignedTeamB: Team;
-
     @OneToMany(() => GameEvent, gameEvent => gameEvent.game)
-    gameEvents: GameEvent[];
+    events: GameEvent[];
 }

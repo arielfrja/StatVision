@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm";
 import { Game } from "./Game";
 import { Team } from "./Team";
 import { Player } from "./Player";
@@ -8,11 +8,23 @@ export class GameEvent {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @ManyToOne(() => Game, game => game.events)
+    @JoinColumn({ name: "game_id" })
+    game: Game;
+
     @Column({ name: "game_id" })
     gameId: string;
 
+    @ManyToOne(() => Team)
+    @JoinColumn({ name: "assigned_team_id" })
+    assignedTeam: Team;
+
     @Column({ name: "assigned_team_id", nullable: true })
     assignedTeamId: string;
+
+    @ManyToOne(() => Player)
+    @JoinColumn({ name: "assigned_player_id" })
+    assignedPlayer: Player;
 
     @Column({ name: "assigned_player_id", nullable: true })
     assignedPlayerId: string;
@@ -27,32 +39,14 @@ export class GameEvent {
     eventType: string;
 
     @Column({ type: "jsonb", name: "event_details", nullable: true })
-    eventDetails: object;
+    eventDetails: any;
 
-    @Column({ type: "float", name: "absolute_timestamp" })
-    absoluteTimestamp: number;
+    @Column({ name: "absolute_timestamp", type: "float" })
+    absoluteTimestamp: number; // Time in seconds from video start
 
-    @Column({ type: "float", name: "video_clip_start_time" })
+    @Column({ name: "video_clip_start_time", type: "float" })
     videoClipStartTime: number;
 
-    @Column({ type: "float", name: "video_clip_end_time" })
+    @Column({ name: "video_clip_end_time", type: "float" })
     videoClipEndTime: number;
-
-    @CreateDateColumn({ name: "created_at" })
-    createdAt: Date;
-    
-    @UpdateDateColumn({ name: "updated_at" })
-    updatedAt: Date;
-
-    @ManyToOne(() => Game, game => game.gameEvents)
-    @JoinColumn({ name: "game_id" })
-    game: Game;
-
-    @ManyToOne(() => Team, team => team.gameEvents)
-    @JoinColumn({ name: "assigned_team_id" })
-    assignedTeam: Team;
-
-    @ManyToOne(() => Player, player => player.gameEvents)
-    @JoinColumn({ name: "assigned_player_id" })
-    assignedPlayer: Player;
 }
