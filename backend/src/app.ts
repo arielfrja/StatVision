@@ -21,6 +21,8 @@ import { TeamRepository } from "./repository/TeamRepository";
 import { TeamService } from "./service/TeamService";
 import { PlayerRepository } from "./repository/PlayerRepository";
 import { PlayerService } from "./service/PlayerService";
+import { GameRepository } from "./repository/GameRepository";
+import { GameService } from "./service/GameService";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import { getAuthProvider } from "./auth/authProviderFactory";
@@ -28,6 +30,7 @@ import { authMiddleware } from './middleware/authMiddleware';
 import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
 import { playerRoutes } from "./routes/playerRoutes";
+import { gameRoutes } from "./routes/gameRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { IAuthProvider } from "./auth/authProvider";
@@ -110,6 +113,34 @@ const swaggerOptions = {
             bearerAuth: [],
         }],
         schemas: {
+            Game: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    userId: { type: 'string', example: 'firebaseUid123' },
+                    status: { type: 'string', enum: ['UPLOADED', 'PROCESSING', 'ANALYZED', 'ASSIGNMENT_PENDING', 'COMPLETED', 'FAILED'] },
+                    videoUrl: { type: 'string', nullable: true, example: '/path/to/local/video.mp4' },
+                    assignedTeamAId: { type: 'string', format: 'uuid', nullable: true },
+                    assignedTeamBId: { type: 'string', format: 'uuid', nullable: true },
+                    uploadedAt: { type: 'string', format: 'date-time' },
+                },
+            },
+            GameEvent: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    gameId: { type: 'string', format: 'uuid' },
+                    assignedTeamId: { type: 'string', format: 'uuid', nullable: true },
+                    assignedPlayerId: { type: 'string', format: 'uuid', nullable: true },
+                    identifiedTeamColor: { type: 'string', nullable: true },
+                    identifiedJerseyNumber: { type: 'number', nullable: true },
+                    eventType: { type: 'string' },
+                    eventDetails: { type: 'object', nullable: true, description: 'JSONB field for event-specific data' },
+                    absoluteTimestamp: { type: 'number', format: 'float' },
+                    videoClipStartTime: { type: 'number', format: 'float' },
+                    videoClipEndTime: { type: 'number', format: 'float' },
+                },
+            },
             Team: {
                 type: 'object',
                 properties: {
@@ -160,6 +191,11 @@ AppDataSource.initialize()
             issuer
         );
 
+        // Instantiate Repositories and Services
+        const gameRepository = new GameRepository(AppDataSource);
+        const userRepository = AppDataSource.getRepository(User); // Get the base User repository
+        const gameService = new GameService(gameRepository, userRepository);
+
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
 
@@ -167,6 +203,7 @@ AppDataSource.initialize()
         app.use("/", authRoutes(AppDataSource));
         app.use("/teams", teamRoutes(AppDataSource));
         app.use("/teams/:teamId/players", playerRoutes(AppDataSource));
+        app.use("/games", gameRoutes(AppDataSource, gameService));
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
