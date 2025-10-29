@@ -38,11 +38,8 @@ export class Auth0Provider implements IAuthProvider {
     }
 
     async verifyToken(req: Request, res: Response, next: NextFunction): Promise<void> {
-        logger.debug("Auth0Provider: Starting JWT verification process.");
-        logger.debug("Auth0Provider: Incoming Request Headers:", req.headers); // Log all incoming headers
-        logger.debug("Auth0Provider: Incoming Authorization Header in verifyToken:", req.headers.authorization);
-        this.jwtCheck(req, res, (err?: any) => {
-            if (err) {
+            logger.debug("Auth0Provider: Starting JWT verification process.");
+            this.jwtCheck(req, res, (err?: any) => {            if (err) {
                 logger.error("Auth0Provider: JWT Check Error:", {
                     name: err.name,
                     message: err.message,
@@ -59,7 +56,6 @@ export class Auth0Provider implements IAuthProvider {
             }
             logger.debug("Auth0Provider: JWT Check successful."); // New log
             if (req.auth) {
-                logger.debug("Auth0Provider: req.auth:", req.auth); // Log the full auth object
                 const uid = req.auth.sub as string;
                 const email = req.auth.email as string || null;
                 logger.debug(`Auth0Provider: Extracted UID: ${uid}, Email: ${email}`); // Log extracted values

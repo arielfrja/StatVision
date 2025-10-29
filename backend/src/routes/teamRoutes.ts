@@ -95,7 +95,6 @@ export const teamRoutes = (AppDataSource: DataSource) => {
      *         description: Internal server error creating team.
      */
     router.post("/", async (req, res) => {
-        logger.info("POST /teams: req.user", req.user);
         const { name } = req.body;
         try {
             const providerUid = req.user?.uid;
@@ -104,7 +103,6 @@ export const teamRoutes = (AppDataSource: DataSource) => {
                 return res.status(401).send("Unauthorized: User ID not found.");
             }
             const user = await userRepository.findOneBy({ providerUid });
-            logger.info("POST /teams: user from DB", user);
             if (!user) {
                 return res.status(404).send("User not found in database.");
             }

@@ -32,17 +32,16 @@ import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { IAuthProvider } from "./auth/authProvider";
 
-logger.info("Environment Variables Loaded:");
-logger.info(`PORT: ${process.env.PORT}`);
-logger.info(`NODE_ENV: ${process.env.NODE_ENV}`);
-logger.info(`AUTH0_JWKS_URI: ${process.env.AUTH0_JWKS_URI}`);
-logger.info(`AUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}`);
-logger.info(`AUTH0_ISSUER: ${process.env.AUTH0_ISSUER}`);
-logger.info(`DB_HOST: ${process.env.DB_HOST}`);
-logger.info(`DB_PORT: ${process.env.DB_PORT}`);
-logger.info(`DB_USERNAME: ${process.env.DB_USERNAME}`);
-logger.info(`DB_DATABASE: ${process.env.DB_DATABASE}`);
-
+  logger.debug("Environment Variables Loaded:");
+  logger.debug(`PORT: ${process.env.PORT}`);
+  logger.debug(`NODE_ENV: ${process.env.NODE_ENV}`);
+  logger.debug(`AUTH0_JWKS_URI: ${process.env.AUTH0_JWKS_URI}`);
+  logger.debug(`AUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}`);
+  logger.debug(`AUTH0_ISSUER: ${process.env.AUTH0_ISSUER}`);
+  logger.debug(`DB_HOST: ${process.env.DB_HOST}`);
+  logger.debug(`DB_PORT: ${process.env.DB_PORT}`);
+  logger.debug(`DB_USERNAME: ${process.env.DB_USERNAME}`);
+  logger.debug(`DB_DATABASE: ${process.env.DB_DATABASE}`);
 
 // Extend the Request type to include the user property
 declare global {

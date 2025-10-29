@@ -49,7 +49,6 @@ export const authMiddleware = (AppDataSource: DataSource, authProvider: IAuthPro
           }
         } else {
           logger.warn("AuthMiddleware: req.user is not populated after token verification.");
-          logger.debug("AuthMiddleware: Full request object when user is not populated:", req);
         }
         next();
     };
