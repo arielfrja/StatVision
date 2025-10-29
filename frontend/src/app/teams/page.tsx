@@ -251,29 +251,32 @@ function TeamsPage() {
                 {players.map(player => (
                   <md-list-item key={player.id}>
                     {editingPlayerId === player.id ? (
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      // Edit State: Use a single div to manage the layout of inputs
+                      <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 'var(--spacing-sm)' }}>
                         <md-filled-text-field
                           value={editedPlayerName}
                           onInput={(e: any) => setEditedPlayerName(e.target.value)}
-                          style={{ flexGrow: 1, marginRight: 'var(--spacing-sm)' }}
+                          style={{ flexGrow: 1 }}
                         ></md-filled-text-field>
                         <md-filled-text-field
                           value={editedPlayerJersey}
                           type="number"
                           onInput={(e: any) => setEditedPlayerJersey(Number(e.target.value))}
-                          style={{ width: '60px', marginRight: 'var(--spacing-sm)' }}
+                          style={{ width: '60px' }}
                         ></md-filled-text-field>
                         <md-filled-icon-button onClick={() => handleSavePlayer(player.id)}><md-icon filled>save</md-icon></md-filled-icon-button>
                         <md-filled-icon-button onClick={handleCancelEdit}><md-icon filled>cancel</md-icon></md-filled-icon-button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <div slot="headline" style={{ color: 'var(--md-sys-color-on-surface)' }}>{player.name} (#{player.jerseyNumber})</div>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                      // Display State: Use slots for idiomatic Material Design
+                      <>
+                        <div slot="headline">{player.name}</div>
+                        <div slot="supporting-text">#{player.jerseyNumber}</div>
+                        <div slot="end" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                           <md-filled-icon-button onClick={() => handleEditPlayer(player)}><md-icon filled>edit</md-icon></md-filled-icon-button>
                           <md-filled-icon-button onClick={() => handleDeletePlayer(player.id)}><md-icon filled>delete</md-icon></md-filled-icon-button>
                         </div>
-                      </div>
+                      </>
                     )}
                   </md-list-item>
                 ))}

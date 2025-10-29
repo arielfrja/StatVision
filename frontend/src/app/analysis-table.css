@@ -1,0 +1,60 @@
+/* frontend/src/app/analysis-table.css */
+
+/* Base Table Styling */
+.md-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-geist-sans);
+    color: var(--md-sys-color-on-surface);
+}
+
+/* Table Header */
+.md-table thead th {
+    text-align: left;
+    padding: 16px 20px; /* Increased padding */
+    background-color: var(--md-sys-color-surface-container-low); /* Light background for header */
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: var(--md-sys-typescale-label-large-weight);
+    font-size: var(--md-sys-typescale-label-large-size);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+/* Table Body Rows */
+.md-table tbody tr {
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    transition: background-color 0.2s ease-in-out;
+}
+
+.md-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.md-table tbody tr.interactive {
+    cursor: pointer;
+}
+
+.md-table tbody tr.interactive:hover {
+    background-color: var(--md-sys-color-surface-container-high);
+}
+
+/* Selected Row (Optional) */
+.md-table tbody tr.selected {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+/* Table Cells */
+.md-table td {
+    padding: 16px 20px; /* Increased padding */
+    font-size: var(--md-sys-typescale-body-medium-size);
+}
+
+/* Styling for the Box Score Table (more compact) */
+.md-box-score-table {
+    font-size: var(--md-sys-typescale-body-small-size);
+}
+
+.md-box-score-table thead th,
+.md-box-score-table td {
+    padding: 8px 12px;
+}
