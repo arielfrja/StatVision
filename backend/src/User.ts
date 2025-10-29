@@ -10,8 +10,8 @@ export class User {
     @Column({ unique: true, name: "provider_uid" })
     providerUid: string;
 
-    @Column({ unique: true })
-    email: string;
+    @Column({ type: "varchar", nullable: true })
+    email: string | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;

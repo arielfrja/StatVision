@@ -1,3 +1,13 @@
+import dotenv from 'dotenv';
+import path from 'path';
+import logger from "./config/logger";
+
+const envPath = path.resolve(__dirname, '../../.env');
+dotenv.config({ path: envPath });
+
+logger.info(`Attempting to load .env from: ${envPath}`);
+logger.info(`PORT after dotenv.config(): ${process.env.PORT}`);
+
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
@@ -13,41 +23,43 @@ import { PlayerRepository } from "./repository/PlayerRepository";
 import { PlayerService } from "./service/PlayerService";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
-import { Auth0Provider } from "./auth/auth0Provider";
+import { getAuthProvider } from "./auth/authProviderFactory";
+import { authMiddleware } from './middleware/authMiddleware';
 import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
 import { playerRoutes } from "./routes/playerRoutes";
+import loggingMiddleware from './middleware/loggingMiddleware';
+import errorMiddleware from './middleware/errorMiddleware';
+import { IAuthProvider } from "./auth/authProvider";
+
+logger.info("Environment Variables Loaded:");
+logger.info(`PORT: ${process.env.PORT}`);
+logger.info(`NODE_ENV: ${process.env.NODE_ENV}`);
+logger.info(`AUTH0_JWKS_URI: ${process.env.AUTH0_JWKS_URI}`);
+logger.info(`AUTH0_AUDIENCE: ${process.env.AUTH0_AUDIENCE}`);
+logger.info(`AUTH0_ISSUER: ${process.env.AUTH0_ISSUER}`);
+logger.info(`DB_HOST: ${process.env.DB_HOST}`);
+logger.info(`DB_PORT: ${process.env.DB_PORT}`);
+logger.info(`DB_USERNAME: ${process.env.DB_USERNAME}`);
+logger.info(`DB_DATABASE: ${process.env.DB_DATABASE}`);
+
 
 // Extend the Request type to include the user property
 declare global {
     namespace Express {
         interface Request {
-            user?: { uid: string; email: string; }; // Generic user info
+            user?: { uid: string; email: string | null; }; // Generic user info
         }
     }
 }
 
-// Instantiate the Auth0 provider
-const authProvider = new Auth0Provider();
-
-// Define the authMiddleware function
-const authMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // Allow /register and /api-docs to bypass authentication
-    if (req.path === "/register" || req.path.startsWith("/api-docs")) {
-        return next();
-    }
-
-    // Use the selected authentication provider to verify the token
-    await authProvider.verifyToken(req, res, next);
-};
-
 const AppDataSource = new DataSource({
     type: "postgres",
-    host: "localhost",
-    port: 5432,
-    username: "statsvision",
-    password: "statsvision",
-    database: "statsvision_db",
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    username: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
     synchronize: true, // Use migrations in production
     logging: false,
     entities: [User, Team, Player, Game, GameEvent],
@@ -56,17 +68,17 @@ const AppDataSource = new DataSource({
 });
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:3001' }));
+app.use(cors({ origin: (origin, callback) => callback(null, origin), credentials: true }));
 app.use(express.json()); // Enable JSON body parser
 
-import loggingMiddleware from './middleware/loggingMiddleware';
-import errorMiddleware from './middleware/errorMiddleware';
+// Middleware to log all incoming request headers
+app.use((req, res, next) => {
+    logger.debug("Incoming Request Headers:", req.headers);
+    next();
+});
 
 // Log all incoming requests
 app.use(loggingMiddleware);
-
-// Apply authMiddleware globally
-app.use(authMiddleware);
 
 // Error handling middleware
 app.use(errorMiddleware);
@@ -128,14 +140,29 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Initialize Data Source and start the server
-import logger from "./config/logger";
-
-// ... (keep the existing code until the next change)
+let authProvider: IAuthProvider; // Declare authProvider here
 
 AppDataSource.initialize()
     .then(() => {
         logger.info("Data Source has been initialized!");
+
+        const jwksUri = process.env.AUTH0_JWKS_URI;
+        const audience = process.env.AUTH0_AUDIENCE;
+        const issuer = process.env.AUTH0_ISSUER;
+
+        if (!jwksUri || !audience || !issuer) {
+            throw new Error("Missing Auth0 environment variables: AUTH0_JWKS_URI, AUTH0_AUDIENCE, or AUTH0_ISSUER.");
+        }
+
+        // Instantiate the Auth0 provider using the factory
+        authProvider = getAuthProvider(
+            jwksUri,
+            audience,
+            issuer
+        );
+
+        // Apply authMiddleware globally
+        app.use(authMiddleware(AppDataSource, authProvider));
 
         // Import and use routes
         app.use("/", authRoutes(AppDataSource));
@@ -147,6 +174,6 @@ AppDataSource.initialize()
             logger.info(`Server is running on port ${PORT}`);
         });
     })
-    .catch((err) => {
+    .catch((err: any) => {
         logger.error("Error during Data Source initialization:", err);
     });
