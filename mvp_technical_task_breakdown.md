@@ -7,32 +7,32 @@
 - [ ] **[DEVOPS-04]** Set up a Pub/Sub topic for upload events.
 - [ ] **[DEVOPS-05]** Configure CI/CD pipeline for deploying the Next.js frontend to Vercel.
 - [ ] **[DEVOPS-06]** Configure CI/CD pipeline for building and deploying the backend services (API, Worker) as containers to Google Cloud Run.
-- [ ] **[DEVOPS-07]** Implement centralized logging for backend services using Winston, capturing request/response details and errors.
+- [x] **[DEVOPS-07]** Implement centralized logging for backend services using Winston, capturing request/response details and errors.
 
 ### [EPIC] Backend Architecture Refinement
-- [ ] **[BE-001]** Refactor `app.ts` into modular route files (e.g., `authRoutes.ts`, `teamRoutes.ts`, `playerRoutes.ts`) to improve maintainability and organization.
+- [x] **[BE-001]** Refactor `app.ts` into modular route files (e.g., `authRoutes.ts`, `teamRoutes.ts`, `playerRoutes.ts`) to improve maintainability and organization.
 
 ### [EPIC] User Authentication
 - [ ] **[STORY]** As a new user, I want to register for an account so I can use the service.
-    - [ ] **[BE-101]** Create the `users` table schema and migration in PostgreSQL (using `provider_uid`).
-    - [ ] **[BE-102]** Implement an API endpoint to create a new user record in PostgreSQL, to be called by the frontend after a new user signs up via Auth0. (Note: This approach is used for low-budget/free tiers. A webhook or server-side rule is a better approach for higher budgets.)
+    - [x] **[BE-101]** Create the `users` table schema and migration in PostgreSQL (using `provider_uid`).
+    - [x] **[BE-102]** Implement an API endpoint to create a new user record in PostgreSQL, to be called by the frontend after a new user signs up via Auth0. (Note: This approach is used for low-budget/free tiers. A webhook or server-side rule is a better approach for higher budgets.)
     - [ ] **[FE-101]** Create the Register page UI component in Next.js.
     - [ ] **[FE-102]** Integrate the Auth0 SDK for user registration.
     - [ ] **[FE-102.1]** After successful Auth0 registration, call the backend API to create the user record in PostgreSQL.
 - [ ] **[STORY]** As a returning user, I want to log in to access my data.
-    - [ ] **[BE-103]** Implement API middleware to validate the Auth0 JWT on incoming requests and attach user info to the request object (using a modular authentication provider).
+    - [x] **[BE-103]** Implement API middleware to validate the Auth0 JWT on incoming requests and attach user info to the request object (using a modular authentication provider).
     - [ ] **[FE-103]** Create the Login page UI component.
-    - [ ] **[FE-104]** Integrate the Auth0 SDK for login and token management.
-    - [ ] **[FE-105]** Implement global state management (e.g., in a React Context) to track auth status across the app.
+    - [x] **[FE-104]** Integrate the Auth0 SDK for login and token management.
+    - [x] **[FE-105]** Implement global state management (e.g., in a React Context) to track auth status across the app.
 
 ### [EPIC] Core Data Management
 - [ ] **[STORY]** As an Analyst, I want to manage my teams and players so I can use them in game assignments.
-    - [ ] **[BE-201]** Create `teams` and `players` table schemas and migrations.
-    - [ ] **[BE-202]** Implement the Service and Repository layers for `Teams`.
-    - [ ] **[BE-203]** Implement the Service and Repository layers for `Players`.
-    - [ ] **[BE-204]** Create the API endpoints (`GET /teams`, `POST /teams`, `POST /teams/{id}/players`).
+    - [x] **[BE-201]** Create `teams` and `players` table schemas and migrations.
+    - [x] **[BE-202]** Implement the Service and Repository layers for `Teams`.
+    - [x] **[BE-203]** Implement the Service and Repository layers for `Players`.
+    - [x] **[BE-204]** Create the API endpoints (`GET /teams`, `POST /teams`, `POST /teams/{id}/players`).
     - [ ] **[FE-201]** Build the "My Teams" page UI with its two-column layout.
-    - [ ] **[FE-202]** Implement the client-side logic to fetch, display, and create teams and players by calling the API.
+    - [x] **[FE-202]** Implement the client-side logic to fetch, display, and create teams and players by calling the API.
 
 ### [EPIC] Core Analysis Pipeline
 - [ ] **[STORY]** As an Analyst, I want to upload a video to have it analyzed by the AI.

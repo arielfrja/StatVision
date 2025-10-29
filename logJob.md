@@ -34,3 +34,15 @@ This document logs the key actions and decisions made during the development of 
 ## Backend Enhancements
 - Implemented centralized logging for backend services using Winston, capturing request/response details and errors.
 - Refactored `app.ts` into modular route files (`authRoutes.ts`, `teamRoutes.ts`, `playerRoutes.ts`) to improve maintainability and organization.
+
+## Authentication Debugging and Resolution
+- **Issue:** Persistent 401 Unauthorized errors and users not being added to the database despite successful Auth0 login.
+- **Root Cause:** A misunderstanding of how the `express-jwt` middleware populates the `req` object. It was assumed the decoded JWT payload would be nested under `req.auth.payload`, but `express-jwt` places it directly onto `req.auth`.
+- **Impact:** `req.user` was not being populated, leading to authentication middleware failures, 401 errors, and skipped user creation logic.
+- **Resolution:**
+    1.  Corrected TypeScript `declare global` type definitions in `backend/src/auth/auth0Provider.ts`, `backend/src/middleware/authMiddleware.ts`, and `backend/src/app.ts` to reflect `req.auth` directly containing the JWT payload properties (`sub`, `email`).
+    2.  Modified `backend/src/auth/auth0Provider.ts` to access JWT claims directly from `req.auth` (e.g., `req.auth.sub`, `req.auth.email`).
+    3.  Ensured all frontend `axios` calls in `frontend/src/app/teams/page.tsx` correctly included the `Authorization: Bearer <token>` header.
+    4.  Made the `email` column in `backend/src/User.ts` nullable and updated its TypeScript type to `string | null` to handle cases where Auth0 might not provide an email claim.
+
+This resolution ensures that the backend correctly processes authenticated requests and creates user records in the database upon their first interaction with a protected endpoint. For a more detailed explanation of the mistake, refer to `debugging_auth_issues.md`.

@@ -53,3 +53,48 @@ The backend API is consistently rejecting authenticated requests with either an 
     *   Verified network connectivity from Termux to Auth0's JWKS endpoint (`curl -v https://dev-3os8m0zyfxmx60nn.us.auth0.com/.well-known/jwks.json`) – it succeeded.
     *   Checked (and removed) `allowMultiAudiences: true` as it was an invalid configuration option.
     *   Added logging for `kid` from the token header and `Auth0Provider` error details to pinpoint the exact failure.
+
+### 3. Resolution of `req.user` Population Issue
+
+**The Mistake:**
+The core mistake stemmed from a misunderstanding of how the `express-jwt` middleware populates the `req` object after successfully verifying a JSON Web Token (JWT).
+
+**Developer's Assumption (and my initial assumption):**
+The assumption was that `express-jwt`, upon successful verification of a JWT, would attach the decoded payload to a nested `payload` property within `req.auth`. That is, the developer expected to access the JWT claims (like `sub` for user ID and `email`) via `req.auth.payload.sub` and `req.auth.payload.email`. This assumption was reflected in the initial TypeScript `declare global` block for `Express.Request.auth`:
+
+```typescript
+declare global {
+  namespace Express {
+    interface Request {
+      auth?: {
+        payload: { // Assumed payload would be nested here
+          sub: string;
+          email?: string;
+          [key: string]: any;
+        };
+      };
+    }
+  }
+}
+```
+
+**Actual Behavior of `express-jwt`:**
+In reality, `express-jwt` (and similar JWT middleware) directly assigns the *decoded JWT payload* to the `req.auth` property. This means `req.auth` itself *is* the payload object, containing claims like `sub`, `email`, `aud`, `iss`, etc., directly as its properties.
+
+**The Discrepancy and its Impact:**
+Because the code was looking for `req.auth.payload`, and `req.auth.payload` did not exist (as the payload was directly on `req.auth`), the conditional check `if (req.auth && req.auth.payload)` always evaluated to `false`.
+
+This had several critical consequences:
+
+1.  **`req.user` Not Populated**: The code block responsible for extracting `uid` and `email` from the payload and assigning them to `req.user` was never executed. Consequently, `req.user` remained `undefined`.
+2.  **Authentication Middleware Failure**: The `authMiddleware` relies on `req.user` being populated to identify the authenticated user and to perform the database lookup/creation logic. Since `req.user` was `undefined`, the middleware could not proceed with user identification or creation.
+3.  **401 Unauthorized Errors**: Without a recognized authenticated user, all requests to protected backend routes resulted in a 401 Unauthorized error.
+4.  **User Creation Failure**: The logic to create a new user in the database if they didn't exist was never reached, as it depended on `req.user` being populated.
+
+**The Fix:**
+The solution involved two main steps to align the code with the actual behavior of `express-jwt`:
+
+1.  **Correcting Type Definitions**: The `declare global` block for `Express.Request.auth` was updated to reflect that `req.auth` directly holds the payload properties (`sub`, `email`, etc.), rather than nesting them under a `payload` property.
+2.  **Correcting Code Access**: The code in `Auth0Provider.verifyToken` was changed to access the claims directly from `req.auth` (e.g., `req.auth.sub`, `req.auth.email`) instead of `req.auth.payload.sub` and `req.auth.payload.email`.
+
+By making these corrections, `req.user` is now correctly populated after JWT verification, allowing the authentication middleware to function as intended, identify the user, and proceed with the request or create the user in the database if necessary.
