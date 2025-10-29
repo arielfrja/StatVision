@@ -37,7 +37,7 @@ The backend will be composed of two main services deployed as separate serverles
     *   **Responsibility:** Handles all synchronous HTTP requests from the frontend, including creating user records in PostgreSQL after Auth0 registration.
     *   **Flow:** Receives a request (e.g., user creation, or other API calls) -> Verifies Auth0 JWT (using a modular authentication provider) -> Calls the Service Layer -> The Service Layer uses the injected Repository to interact with PostgreSQL -> Returns a response.
 
-2.  **Worker Service (Background Processor):**
-    *   **Responsibility:** Executes the long-running video analysis task.
-    *   **Trigger:** A message containing the temporary video path is published to a Pub/Sub topic by the API Service. The Worker service subscribes to this topic.
-    *   **Flow:** Receives message (with temporary video path) -> Calls `GameService` to update status -> Accesses temporary video -> Calls Gemini API -> Uses `GameEventRepository` to save results to PostgreSQL -> Updates game status -> Deletes temporary video file.
+2.  **Local Video Processor Service (In-Process Worker):**
+    *   **Responsibility:** Executes the long-running video analysis task. This component is designed with a clear interface (Service/Repository pattern) to facilitate its extraction into a separate **Worker Service** when scaling is required.
+    *   **Trigger:** Directly called by the API Service after a successful video upload.
+    *   **Flow:** Called by API Service (with local video path) -> Calls `GameService` to update status -> Accesses local video -> Calls Gemini API -> Uses `GameEventRepository` to save results to PostgreSQL -> Updates game status -> **Deletes local video file (MVP Scope)**.

@@ -1,7 +1,6 @@
 #### 1.3 Definitions, Acronyms, and Abbreviations
 *   **AI:** Artificial Intelligence
 *   **API:** Application Programming Interface
-*   **GCS:** Google Cloud Storage
 *   **JWT:** JSON Web Token
 *   **ORM:** Object-Relational Mapper
 *   **PBP:** Play-by-Play
@@ -16,7 +15,7 @@
 StatVision is a cloud-native web application composed of several decoupled services. It is a self-contained system that relies on the following managed services:
 *   **Authentication:** Auth0 (generous free tier available), configured as a modular authentication provider.
 *   **Database:** A PostgreSQL instance, which can be self-hosted (e.g., on a local machine or a free-tier VM) or use managed services with free tiers (e.g., Supabase, ElephantSQL).
-*   **Temporary File Storage:** The API Service will temporarily store video files during the analysis workflow.
+*   **File Storage:** The API Service will temporarily store video files on the local server filesystem during the analysis workflow.
 *   **AI Service:** An external video intelligence API (e.g., Gemini) (generous free tier available).
 
 #### 2.2 Product Functions
@@ -49,9 +48,9 @@ Primary users are coaches, players, and analysts who are computer-literate but n
 *   **FR-201: CRUD for Teams & Players:** The system shall provide full Create, Read, Update, and Delete functionality for a user's teams and players.
 
 ##### Module 3: Game Analysis Workflow
-*   **FR-301: Video Upload:** The user shall upload video files to the API Service, which will temporarily store them for processing.
-*   **FR-302: Asynchronous Processing:** A successful upload shall trigger an asynchronous background process to analyze the video.
-*   **FR-303: AI Video Analysis:** The background process shall call the external AI service and persist the results as `GameEvent` records in the PostgreSQL database.
+*   **FR-301: Video Upload:** The user shall upload video files directly to the API Service, which will store them on the local server filesystem for processing. **(Note: In the MVP, the video file is deleted after analysis; only the analysis data (timestamps, events) is persisted.)**
+*   **FR-302: In-Process Processing:** A successful upload shall trigger an in-process, synchronous call to the Local Video Processor Service to analyze the video.
+*   **FR-303: AI Video Analysis:** The Local Video Processor Service shall call the external AI service and persist the results as `GameEvent` records in the PostgreSQL database.
 
 ##### Module 4: Data Assignment
 *   **FR-401: Assignment UI:** A dedicated interface shall allow users to assign AI-identified teams and players to their official rosters.

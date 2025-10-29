@@ -3,59 +3,52 @@
 ### 1. Architectural Vision & Style
 The StatVision platform is designed as a **decoupled, service-oriented system**. The primary communication between the long-running analysis process and the main application will be **event-driven**, using a message queue. This approach was chosen to meet the core requirements of **Modularity, Scalability, and Resilience**.
 
-### 2. High-Level Architectural Diagram
+### 2. High-Level Architectural Diagram (Local MVP)
+The Worker Service is currently implemented as an in-process component within the API Service.
+
 ```
 +------------------+ +---------------------+ +------------------------+
 | |----->| Auth0 |<-----| |
 | Frontend App | | (Managed Service) | | API Service |
-| (Next.js) | +---------------------+ | (e.g., Node.js/Express)| 
+| (Next.js) | +---------------------+ | (Node.js/Express) | 
 | (User's Browser) | | (Synchronous Logic) |
 +--------+---------+ +---------------------+ +----------+-------------+
-| (3) | API Service         | (5) | (4)
-| Upload | (Temporary Storage) |<------------------+ Handle Upload
-| Video +----------+----------+ |
-+------------------------->| |
-| (6) Upload Event      |
-v v (7) DB Ops
-+---------------------+ +------------------------+
-| Message Queue | | |
-| (e.g., Pub/Sub) |--------->| PostgreSQL Database |
-+---------+-----------+ (8) | (Managed Service) |
-| +----------+-------------+
-| New Job ^
-v | (10) Write Results
-+---------------------+ |
-| Worker Service |-------------------+
-| (e.g., Cloud Run) |
-| (Asynchronous Logic)|
-+---------+-----------+
-|
-| (9) Call AI
-v
-+---------------------+
-| Gemini AI API |
-| (External Service) |
-+---------------------+
+| (3) | | (4)
+| Upload | | Handle Upload
+| Video +------------------------->| |
+| | | (5) Trigger Local Processor
+| | v
+| | +------------------------+
+| | | Local Video Processor |
+| | | (In-Process Worker) |
+| | +----------+-------------+
+| | | (6) Call AI | (7) Write Results
+| | v v
+| | +---------------------+ +------------------------+
+| | | Gemini AI API | | PostgreSQL Database |
+| | | (External Service) | | (Managed Service) |
+| | +---------------------+ +------------------------+
++------------------+
 ```
 ### 3. Component Breakdown and Responsibilities
 
 #### 3.1 Frontend Application (The Client)
 *   **Technology:** Next.js (React)
 *   **Responsibility:** Renders the UI, manages client-side state, and communicates with backend services.
-*   **Interactions:** Authenticates users via the **Auth0 Client SDK**. Makes authenticated API calls to the **API Service** using an Auth0 JWT. Uploads files to the **API Service**, which temporarily stores them.
+*   **Interactions:** Authenticates users via the **Auth0 Client SDK**. Makes authenticated API calls to the **API Service** using an Auth0 JWT. Uploads files directly to the **API Service**.
 
-#### 3.2 API Service (The Synchronous Backend)
-*   **Technology:** Any backend framework (e.g., Node.js/Express, .NET, Go). Deployed as a serverless container on platforms with generous free tiers (e.g., Google Cloud Run, Render, Vercel for serverless functions).
-*   **Responsibility:** Handles all fast, synchronous user requests (CRUD operations, temporary video uploads). It **never** performs long-running tasks. It uses a **modular authentication provider** to verify JWTs.
-*   **Interactions:** Verifies Auth0 JWTs. Communicates with the **PostgreSQL Database** for data operations. Publishes messages to the **Message Queue** to trigger background work, including the path to the temporarily stored video.
+#### 3.2 API Service (The Backend)
+*   **Technology:** Node.js/Express. Deployed as a single serverless container.
+*   **Responsibility:** Handles all user requests (CRUD operations, video uploads). It contains the **Local Video Processor Service** as an in-process component. It is designed to be easily split into a separate API and Worker service later.
+*   **Interactions:** Verifies Auth0 JWTs. Communicates with the **PostgreSQL Database** for data operations. Upon video upload, it triggers the **Local Video Processor Service** directly.
 
-#### 3.3 Worker Service (The Asynchronous Backend)
-*   **Technology:** Containerized application (e.g., using Docker) deployed on a service with a generous free tier like Google Cloud Run.
-*   **Responsibility:** Performs the heavy, long-running task of video analysis.
-*   **Interactions:** Subscribes to the **Message Queue**. When a job is received, it accesses the temporarily stored video (path provided in the message queue), calls the external **Gemini AI API**, writes the results to the **PostgreSQL Database**, and then deletes the temporary video file.
+#### 3.3 Local Video Processor Service (The In-Process Worker)
+*   **Technology:** Node.js component running within the API Service process.
+*   **Responsibility:** Performs the heavy, long-running task of video analysis. This component is designed with a clear interface (Service/Repository pattern) to facilitate its extraction into a separate **Worker Service** when scaling is required.
+*   **Interactions:** Accesses the locally stored video, calls the external **Gemini AI API**, and writes the results to the **PostgreSQL Database**.
 
 #### 3.4 Managed & External Services
 *   **Auth0:** Manages user identity (generous free tier available). Configured as a modular authentication provider.
-*   **PostgreSQL Database:** The single source of truth for all structured application data. Can be self-hosted (e.g., on a local machine or a free-tier VM) or use managed services with free tiers (e.g., Supabase, ElephantSQL).
-*   **Message Queue (e.g., Google Pub/Sub):** Decouples the API Service from the Worker Service (generous free tier available).
+*   **PostgreSQL Database:** The single source of truth for all structured application data.
 *   **Gemini AI API:** An external AI service for video analysis (generous free tier available).
+*   **Future Video Storage (GCS/S3):** In the MVP, video files are processed locally and deleted. For future versions, a cloud storage solution (e.g., Google Cloud Storage or AWS S3) will be integrated to store video files for archival and interactive playback.
