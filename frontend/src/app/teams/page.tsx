@@ -13,6 +13,9 @@ import '@material/web/button/outlined-button.js';
 import '@material/web/iconbutton/filled-icon-button.js';
 import '@material/web/icon/icon.js';
 
+import axios from 'axios';
+import { appLogger } from '@/utils/Logger';
+
 function TeamsPage() {
   const { getAccessTokenSilently } = useAuth0();
   const [teams, setTeams] = useState<any[]>([]);
@@ -29,8 +32,10 @@ function TeamsPage() {
   const [areMdcComponentsReady, setAreMdcComponentsReady] = useState(false);
 
   useEffect(() => {
+    const startTime = Date.now();
     const checkMdcComponents = () => {
       if (customElements.get('md-list') && customElements.get('md-list-item') && customElements.get('md-filled-text-field') && customElements.get('md-filled-button') && customElements.get('md-outlined-button') && customElements.get('md-filled-icon-button') && customElements.get('md-icon')) {
+        console.log(`TeamsPage: MDC components ready after ${Date.now() - startTime}ms.`);
         setAreMdcComponentsReady(true);
       } else {
         setTimeout(checkMdcComponents, 50);
@@ -58,9 +63,9 @@ function TeamsPage() {
     try {
       console.log("TeamsPage: Attempting to get access token silently.");
       const token = await getAccessTokenSilently();
-      console.log("TeamsPage: Successfully fetched token.");
+      console.log("TeamsPage: Successfully fetched token:", token);
 
-      const response = await fetch('http://localhost:3000/teams', {
+      const response = await axios.get('http://localhost:3000/teams', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -68,13 +73,7 @@ function TeamsPage() {
 
       console.log("TeamsPage: API response status:", response.status);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("TeamsPage: API fetch failed with status", response.status, "and message:", errorText);
-        throw new Error(`Failed to fetch teams: ${errorText}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log("TeamsPage: Successfully fetched teams data:", data);
       setTeams(data);
     } catch (error: any) {
@@ -89,15 +88,12 @@ function TeamsPage() {
   const fetchPlayers = async (teamId: string) => {
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:3000/teams/${teamId}/players`, {
+      const response = await axios.get(`http://localhost:3000/teams/${teamId}/players`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) {
-        throw new Error('Failed to fetch players');
-      }
-      const data = await response.json();
+      const data = response.data;
       setPlayers(data);
     } catch (error: any) {
       setError(error.message);
@@ -108,17 +104,12 @@ function TeamsPage() {
     if (!newTeamName) return;
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch('http://localhost:3000/teams', {
-        method: 'POST',
+      await axios.post('http://localhost:3000/teams', { name: newTeamName }, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: newTeamName }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to create team');
-      }
       setNewTeamName('');
       fetchTeams(); // Refresh the list
     } catch (error: any) {
@@ -130,17 +121,12 @@ function TeamsPage() {
     if (!selectedTeam || !newPlayerName || !newPlayerJersey) return;
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:3000/teams/${selectedTeam.id}/players`, {
-        method: 'POST',
+      await axios.post(`http://localhost:3000/teams/${selectedTeam.id}/players`, { name: newPlayerName, jerseyNumber: newPlayerJersey }, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: newPlayerName, jerseyNumber: newPlayerJersey }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to create player');
-      }
       setNewPlayerName('');
       setNewPlayerJersey('');
       fetchPlayers(selectedTeam.id); // Refresh the player list
@@ -159,17 +145,12 @@ function TeamsPage() {
     if (!selectedTeam || !editedPlayerName || !editedPlayerJersey) return;
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, {
-        method: 'PUT',
+      await axios.put(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, { name: editedPlayerName, jerseyNumber: editedPlayerJersey }, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: editedPlayerName, jerseyNumber: editedPlayerJersey }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to update player');
-      }
       setEditingPlayerId(null);
       fetchPlayers(selectedTeam.id); // Refresh the player list
     } catch (error: any) {
@@ -188,15 +169,11 @@ function TeamsPage() {
     if (!confirm('Are you sure you want to delete this player?')) return;
     try {
       const token = await getAccessTokenSilently();
-      const response = await fetch(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, {
-        method: 'DELETE',
+      await axios.delete(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      if (!response.ok) {
-        throw new Error('Failed to delete player');
-      }
       fetchPlayers(selectedTeam.id); // Refresh the player list
     } catch (error: any) {
       setError(error.message);
@@ -312,5 +289,8 @@ function TeamsPage() {
 }
 
 export default withAuthenticationRequired(TeamsPage, {
-  onRedirecting: () => <Loader />,
+  onRedirecting: () => {
+    console.log("TeamsPage: onRedirecting called.");
+    return <Loader />;
+  },
 });
