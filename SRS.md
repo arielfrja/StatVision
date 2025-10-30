@@ -34,6 +34,7 @@ Primary users are coaches, players, and analysts who are computer-literate but n
 *   **C-2:** The backend architecture must be modular and service-oriented. The business logic must be decoupled from the data access layer.
 *   **C-3:** User data must be strictly isolated at the database level.
 *   **C-4:** The UI must clearly communicate the status of long-running, asynchronous tasks.
+*   **C-5 (Statistical Flexibility):** The system must be designed to handle sparse statistical data. The data pipeline shall not require all pro-level metrics to be present or calculated for a game to be considered valid or analyzed.
 
 ---
 
@@ -45,12 +46,12 @@ Primary users are coaches, players, and analysts who are computer-literate but n
 *   **FR-101: User Registration/Login:** The system shall use Auth0 (generous free tier available) for user registration and login. After successful Auth0 registration/login, the frontend will call the backend API to create the user record in PostgreSQL. (Note: This approach is used for low-budget/free tiers. A webhook or server-side rule is a better approach for higher budgets.)
 
 ##### Module 2: Team and Player Management
-*   **FR-201: CRUD for Teams & Players:** The system shall provide full Create, Read, Update, and Delete functionality for a user's teams and players.
+*   **FR-201: CRUD for Teams & Players:** The system shall provide full Create, Read, Update, and Delete functionality for a user's teams and players. The system shall use a **PlayerTeamHistory** junction table to track player jersey numbers and tenure across teams.
 
 ##### Module 3: Game Analysis Workflow
 *   **FR-301: Video Upload:** The user shall upload video files directly to the API Service, which will store them on the local server filesystem for processing. **(Note: In the MVP, the video file is deleted after analysis; only the analysis data (timestamps, events) is persisted.)**
 *   **FR-302: In-Process Processing:** A successful upload shall trigger an in-process, synchronous call to the Local Video Processor Service to analyze the video.
-*   **FR-303: AI Video Analysis:** The Local Video Processor Service shall call the external AI service and persist the results as `GameEvent` records in the PostgreSQL database.
+*   **FR-303: AI Video Analysis:** The Local Video Processor Service shall call the external AI service and persist the results as detailed `GameEvent` records, including spatial (`x_coord`, `y_coord`) and temporal (`period`, `timeRemaining`) data, in the PostgreSQL database.
 
 ##### Module 4: Data Assignment
 *   **FR-401: Assignment UI:** A dedicated interface shall allow users to assign AI-identified teams and players to their official rosters.

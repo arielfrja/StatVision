@@ -23,14 +23,16 @@ To achieve modularity, the backend will be built using a combination of establis
 
 ### 4. Backend Design
 
-#### 4.1 PostgreSQL Database Schema
+#### 4.1 PostgreSQL Database Schema (Advanced)
+
 *   **`users` table:** `id` (PK), `provider_uid` (UNIQUE), `email` (UNIQUE), `created_at`
 *   **`teams` table:** `id` (PK), `user_id` (FK to users), `name`
-*   **`players` table:** `id` (PK), `team_id` (FK to teams), `name`, `jersey_number`, `UNIQUE(team_id, jersey_number)`
-*   **`games` table:** `id` (PK), `user_id` (FK to users), `status`, `video_url`, `assigned_team_a_id` (FK to teams), `assigned_team_b_id` (FK to teams), `uploaded_at`
-*   **`game_team_stats` table:** `id` (PK), `game_id` (FK to games, UNIQUE with team_id), `team_id` (FK to teams, UNIQUE with game_id), `points`, `rebounds`, `assists`, `details` (JSONB)
-*   **`game_player_stats` table:** `id` (PK), `game_id` (FK to games, UNIQUE with player_id), `player_id` (FK to players, UNIQUE with game_id), `points`, `rebounds`, `assists`, `details` (JSONB)
-*   **`game_events` table:** `id` (PK), `game_id` (FK to games), `assigned_team_id` (FK to teams), `assigned_player_id` (FK to players), `identified_team_color`, `identified_jersey_number`, `event_type`, `event_details` (JSONB), `absolute_timestamp`, `video_clip_start_time`, `video_clip_end_time`
+*   **`players` table:** `id` (PK), `name`, `position`, `height`, `weight`, `is_active` (Note: Team relation moved to history table)
+*   **`player_team_history` table:** `id` (PK), `player_id` (FK to players), `team_id` (FK to teams), `jersey_number`, `start_date`, `end_date` (Junction table for M:N relationship over time)
+*   **`games` table:** `id` (PK), `user_id` (FK to users), `status`, `video_url`, `home_team_id` (FK to teams), `away_team_id` (FK to teams), `game_date`, `location`, `opponent_name`, `quarter_duration`, `uploaded_at`
+*   **`game_events` table:** `id` (PK), `game_id` (FK to games), `team_id` (FK to teams), `player_id` (FK to players), `event_type`, `event_sub_type`, `is_successful`, `period`, `time_remaining`, `x_coord`, `y_coord`, `related_event_id`, `on_court_player_ids` (Array), `event_details` (JSONB), `absolute_timestamp`, `video_clip_start_time`, `video_clip_end_time`
+*   **`game_team_stats` table:** `id` (PK), `game_id` (FK to games), `team_id` (FK to teams), `points`, `assists`, `offensive_rebounds`, `defensive_rebounds`, `field_goals_made/attempted`, `three_pointers_made/attempted`, `free_throws_made/attempted`, `steals`, `blocks`, `turnovers`, `fouls`, `effective_field_goal_percentage`, `true_shooting_percentage`, `details` (JSONB)
+*   **`game_player_stats` table:** `id` (PK), `game_id` (FK to games), `player_id` (FK to players), `minutes_played`, `plus_minus`, (All other detailed stats from `game_team_stats`)
 
 #### 4.2 Backend Services & Logic
 The backend will be composed of two main services deployed as separate serverless containers (e.g., Google Cloud Run).
@@ -43,3 +45,5 @@ The backend will be composed of two main services deployed as separate serverles
     *   **Responsibility:** Executes the long-running video analysis task. This component is designed with a clear interface (Service/Repository pattern) to facilitate its extraction into a separate **Worker Service** when scaling is required.
     *   **Trigger:** Directly called by the API Service after a successful video upload.
     *   **Flow:** Called by API Service (with local video path) -> Calls `GameService` to update status -> Accesses local video -> Calls Gemini API -> Uses `GameEventRepository` to save results to PostgreSQL -> Updates game status -> **Deletes local video file (MVP Scope)**.
+
+    **Statistical Flexibility Constraint:** The `GameStatsService` must be robust against sparse event data. It will calculate only the metrics possible based on the available events, defaulting uncalculated advanced metrics to zero or null. This ensures the system supports minimal statistical capture (e.g., Points only) without requiring a full pro-level data set.

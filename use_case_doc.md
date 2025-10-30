@@ -29,9 +29,9 @@ This document provides a detailed description of the user interactions with the 
 *   **Actor:** Analyst
 *   **Preconditions:** The Analyst is logged into the system.
 *   **Main Success Scenario:**
-    1.  The Analyst navigates to the "My Teams" section.
-    2.  The Analyst creates a new team by providing a name.
-    3.  The Analyst selects the team and adds players one by one, providing a name and jersey number for each.
+    1.  The Analyst navigates to the "My Players" section and creates a new Player record, providing timeless attributes (Name, Position, Height, Weight).
+    2.  The Analyst navigates to the "My Teams" section and creates a new team by providing a name.
+    3.  The Analyst assigns the Player to the Team, providing a **jersey number** and a **start date** for their tenure.
     4.  The saved roster is now available for future game assignments.
 *   **Alternative Paths:** The system prevents the creation of players with duplicate jersey numbers within the same team.
 
@@ -43,7 +43,7 @@ This document provides a detailed description of the user interactions with the 
     1.  The Analyst initiates the "Analyze New Game" process from the Dashboard.
     2.  The Analyst selects and uploads the video file. The system displays progress.
     3.  Upon successful upload, the game appears on the Dashboard with a `PROCESSING ⚙️` status.
-    4.  **[System Action]** The system processes the video asynchronously.
+    4.  **[System Action]** The system processes the video asynchronously, capturing granular event data (including spatial coordinates and temporal details) and calculating detailed materialized statistics. The system adheres to the **Statistical Flexibility Constraint**, ensuring the process completes even if only minimal event data is captured.
     5.  When complete, the game's status updates to `PENDING_ASSIGNMENT ✏️`.
     6.  The Analyst selects the game and enters the Assignment Screen.
     7.  The Analyst assigns the AI-identified teams to their pre-defined teams.

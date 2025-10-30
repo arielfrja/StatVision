@@ -27,7 +27,7 @@
 
 ### [EPIC] Core Data Management
 - [ ] **[STORY]** As an Analyst, I want to manage my teams and players so I can use them in game assignments.
-    - [x] **[BE-201]** Create `teams` and `players` table schemas and migrations.
+    - [x] **[BE-201]** Create `teams`, `players` (with new metadata: position, height, weight), and the **`player_team_history`** junction table schemas and migrations.
     - [x] **[BE-202]** Implement the Service and Repository layers for `Teams`.
     - [x] **[BE-203]** Implement the Service and Repository layers for `Players`.
     - [x] **[BE-204]** Create the API endpoints (`GET /teams`, `POST /teams`, `POST /teams/{id}/players`).
@@ -36,12 +36,12 @@
 
 ### [EPIC] Core Analysis Pipeline (Local MVP)
 - [ ] **[STORY]** As an Analyst, I want to upload a video to have it analyzed by the AI.
-    - [x] **[BE-301]** Create `games` and `game_events` table schemas and migrations.
+    - [x] **[BE-301]** Create `games` (with new metadata: date, location, opponent) and `game_events` (with new granular fields: x/y coords, period, time remaining) table schemas and migrations.
     - [ ] **[BE-302]** Implement the API endpoint `POST /games/upload` to handle direct video upload to the local server filesystem.
     - [ ] **[BE-303]** Implement the **Local Video Processor Service** (In-Process Worker) with a clear interface, responsible for video processing, chunking, calling the Gemini API, and parsing the response. (Designed for easy migration to a separate Worker Service later).
     - [ ] **[BE-304]** Implement the Repository layer for `GameEvents` to allow for batch insertion of parsed data into PostgreSQL.
     - [x] **[BE-305]** Implement the logic to update the game status in the database at each stage of the process.
-    - [ ] **[BE-305.1]** Implement logic to calculate and store derived stats (Box Score) in the `game_team_stats` and `game_player_stats` tables after event insertion.
+    - [ ] **[BE-305.1]** Implement logic to calculate and store **detailed derived stats** (including shooting splits, turnovers, fouls, and efficiency metrics) in the `game_team_stats` and `game_player_stats` tables after event insertion. **(Must adhere to Statistical Flexibility Constraint)**
     - [ ] **[FE-301]** Build the "Analyze New Game" UI component with a standard file upload form.
     - [ ] **[FE-302]** Implement the client-side logic to perform the direct upload to the API endpoint.
 

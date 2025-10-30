@@ -52,3 +52,11 @@ The Worker Service is currently implemented as an in-process component within th
 *   **PostgreSQL Database:** The single source of truth for all structured application data.
 *   **Gemini AI API:** An external AI service for video analysis (generous free tier available).
 *   **Future Video Storage (GCS/S3):** In the MVP, video files are processed locally and deleted. For future versions, a cloud storage solution (e.g., Google Cloud Storage or AWS S3) will be integrated to store video files for archival and interactive playback.
+
+#### 3.5 Data Model Principles
+
+The data architecture is built on two core principles:
+
+1.  **Materialized Statistics (BE-305.1):** Raw event data is processed by the Local Video Processor Service, and the results (Box Scores, Player Stats) are materialized into separate database entities (`GameTeamStats`, `GamePlayerStats`). This ensures fast query performance for reporting and multi-game statistics.
+2.  **Statistical Flexibility (New Constraint):** The system is designed to handle varying levels of statistical detail. The data pipeline is robust against sparse event data, calculating only the metrics possible and defaulting others to zero/null. This allows the system to support both minimal (e.g., Points only) and maximal (pro-level) statistical capture without breaking the core architecture.
+3.  **Roster Management:** The direct Player-Team relationship has been replaced by a `PlayerTeamHistory` junction table to accurately track player jersey numbers and tenure across multiple teams and seasons.
