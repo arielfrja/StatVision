@@ -17,8 +17,8 @@ export const authMiddleware = (AppDataSource: DataSource, authProvider: IAuthPro
   const userRepository = AppDataSource.getRepository(User);
 
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Allow /api-docs and temporary unauthenticated routes to bypass authentication
-    if (req.path.startsWith("/api-docs") || req.path.startsWith("/games/create-dummy")) {
+    // Allow /api-docs to bypass authentication
+    if (req.path.startsWith("/api-docs")) {
         return next();
     }
 

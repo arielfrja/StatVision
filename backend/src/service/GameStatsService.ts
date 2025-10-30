@@ -40,9 +40,17 @@ export class GameStatsService {
         // 2. Initialize Stats Aggregators
         const teamStatsMap = new Map<string, { points: number, rebounds: number, assists: number }>();
         
-        // Initialize teams if assigned (required for calculation)
-        if (game.assignedTeamAId) teamStatsMap.set(game.assignedTeamAId, { points: 0, rebounds: 0, assists: 0 });
-        if (game.assignedTeamBId) teamStatsMap.set(game.assignedTeamBId, { points: 0, rebounds: 0, assists: 0 });
+        // Initialize map with all unique team IDs from events
+        const uniqueTeamIds = new Set<string>();
+        game.events.forEach(event => {
+            if (event.assignedTeamId) {
+                uniqueTeamIds.add(event.assignedTeamId);
+            }
+        });
+
+        uniqueTeamIds.forEach(teamId => {
+            teamStatsMap.set(teamId, { points: 0, rebounds: 0, assists: 0 });
+        });
 
         // 3. Aggregate Stats from Events
         for (const event of game.events) {

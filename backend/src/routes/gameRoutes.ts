@@ -15,39 +15,6 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
     const gameEventRepository = new GameEventRepository(AppDataSource);
     const userRepository = AppDataSource.getRepository(User);
 
-    // TEMPORARY: Endpoint to create a dummy game record for testing purposes
-    router.post("/create-dummy", async (req, res) => {
-        const { userId } = req.body;
-
-        if (!userId) {
-            return res.status(400).json({ message: "Missing userId in body." });
-        }
-
-        try {
-            // 1. Ensure User exists (to satisfy foreign key constraint)
-            let user = await userRepository.findOne({ where: { providerUid: userId } });
-            if (!user) {
-                user = userRepository.create({ providerUid: userId });
-                await userRepository.save(user);
-                logger.info(`Temporary user created for dummy game: ${userId}`);
-            }
-
-            // 2. Create Game
-            const newGame = gameRepository.create({
-                userId: user.id, // FIX: Use the User's UUID (user.id) instead of the Auth0 ID (userId)
-                videoUrl: "/tmp/dummy_video.mp4",
-                status: GameStatus.UPLOADED,
-            });
-
-            await gameRepository.save(newGame);
-            logger.info(`Dummy game created for user ${userId}: ${newGame.id}`);
-            res.status(201).json({ message: "Dummy game created.", gameId: newGame.id, userId: newGame.userId });
-        } catch (error) {
-            logger.error("Error creating dummy game:", error);
-            res.status(500).json({ message: "Internal server error." });
-        }
-    });
-
     /**
      * @swagger
      * /games:

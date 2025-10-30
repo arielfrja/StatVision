@@ -47,7 +47,9 @@ export class GameRepository implements IGameRepository {
                 "assignedTeamA", // Team A details
                 "assignedTeamB", // Team B details
                 "teamStats", // GameTeamStats
+                "teamStats.team", // Load team details for the stats record
                 "playerStats", // GamePlayerStats
+                "playerStats.player", // Load player details for the stats record
             ],
             order: {
                 events: {

@@ -1,5 +1,5 @@
 import { Router, Request } from 'express';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { User } from '../User';
 import { TeamRepository } from '../repository/TeamRepository';
 import { TeamService } from '../service/TeamService';
@@ -18,12 +18,18 @@ interface PlayerRequestParams extends Request {
 
 const router = Router({ mergeParams: true }); // mergeParams to access teamId from parent route
 
-export const playerRoutes = (AppDataSource: DataSource): Router => {
+export const playerRoutes = (AppDataSource: DataSource) => {
     const userRepository = AppDataSource.getRepository(User);
-    const teamRepository = new TeamRepository(AppDataSource.getRepository(Team));
-    const teamService = new TeamService(teamRepository);
-    const playerRepository = new PlayerRepository(AppDataSource.getRepository(Player));
-    const playerService = new PlayerService(playerRepository);
+    const teamRepository = AppDataSource.getRepository(Team);
+    const playerRepository = AppDataSource.getRepository(Player) as Repository<Player>;
+    
+    // Instantiate custom repositories
+    const customTeamRepository = new TeamRepository(teamRepository);
+    const customPlayerRepository = new PlayerRepository(playerRepository);
+
+    // Instantiate services
+    const teamService = new TeamService(customTeamRepository);
+    const playerService = new PlayerService(customPlayerRepository);
 
     /**
      * @swagger
@@ -396,5 +402,5 @@ export const playerRoutes = (AppDataSource: DataSource): Router => {
                     }
                 });
             
-                return router;
-            };
+    return router;
+};
