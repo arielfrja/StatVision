@@ -5,6 +5,7 @@ import { useAuth0, withAuthenticationRequired } from '@auth0/auth0-react';
 import Loader from '@/components/Loader';
 import { Game, GameStatus } from '@/types/game'; // Import Game type and status
 import axios from 'axios';
+import { useRouter } from 'next/navigation'; // New Import
 
 import '@material/web/button/filled-button.js';
 import '@material/web/list/list.js';
@@ -14,6 +15,7 @@ import '@material/web/iconbutton/icon-button.js';
 
 function GamesPage() {
   const { getAccessTokenSilently } = useAuth0();
+  const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +130,7 @@ function GamesPage() {
                   <tr 
                     key={game.id} 
                     className="interactive" 
-                    onClick={() => alert(`Navigating to Game Details for: ${game.id}`)}
+                    onClick={() => router.push(`/games/${game.id}`)}
                   >
                     <td>{uploadedDate}</td>
                     <td style={{ fontWeight: 'bold' }}>{teamA} vs {teamB}</td>

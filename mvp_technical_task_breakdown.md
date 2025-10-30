@@ -41,6 +41,7 @@
     - [ ] **[BE-303]** Implement the **Local Video Processor Service** (In-Process Worker) with a clear interface, responsible for video processing, chunking, calling the Gemini API, and parsing the response. (Designed for easy migration to a separate Worker Service later).
     - [ ] **[BE-304]** Implement the Repository layer for `GameEvents` to allow for batch insertion of parsed data into PostgreSQL.
     - [x] **[BE-305]** Implement the logic to update the game status in the database at each stage of the process.
+    - [ ] **[BE-305.1]** Implement logic to calculate and store derived stats (Box Score) in the `game_team_stats` and `game_player_stats` tables after event insertion.
     - [ ] **[FE-301]** Build the "Analyze New Game" UI component with a standard file upload form.
     - [ ] **[FE-302]** Implement the client-side logic to perform the direct upload to the API endpoint.
 
@@ -56,6 +57,6 @@
     - [x] **[FE-500]** Build the "Game Management Dashboard" UI to list all games and their current status.
     - [x] **[BE-501]** Implement the API endpoint `GET /games/{id}` that returns all game details and its associated events.
     - [x] **[FE-501]** Build the "Analysis Screen" UI with its multi-panel layout.
-    - [ ] **[FE-502]** Implement the `VideoPlayer` component with methods to control playback.
-    - [ ] **[FE-503]** Implement the `PlayByPlayFeed` component, including the logic for making rows clickable and triggering the video player.
-    - [ ] **[FE-504]** Implement the `BoxScoreTable` component.
+    - [x] **[FE-502]** Implement the `VideoPlayer` component with methods to control playback.
+    - [x] **[FE-503]** Implement the `PlayByPlayFeed` component, including the logic for making rows clickable and triggering the video player.
+    - [x] **[FE-504]** Implement the `BoxScoreTable` component.

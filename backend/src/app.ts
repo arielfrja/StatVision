@@ -17,12 +17,17 @@ import { Team } from "./Team";
 import { Player } from "./Player";
 import { Game } from "./Game";
 import { GameEvent } from "./GameEvent";
+import { GameTeamStats } from "./GameTeamStats";
+import { GamePlayerStats } from "./GamePlayerStats";
 import { TeamRepository } from "./repository/TeamRepository";
 import { TeamService } from "./service/TeamService";
 import { PlayerRepository } from "./repository/PlayerRepository";
 import { PlayerService } from "./service/PlayerService";
 import { GameRepository } from "./repository/GameRepository";
 import { GameService } from "./service/GameService";
+import { GameStatsService } from "./service/GameStatsService";
+import { GameTeamStatsRepository } from "./repository/GameTeamStatsRepository";
+import { GamePlayerStatsRepository } from "./repository/GamePlayerStatsRepository";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import { getAuthProvider } from "./auth/authProviderFactory";
@@ -64,7 +69,7 @@ const AppDataSource = new DataSource({
     database: process.env.DB_DATABASE,
     synchronize: true, // Use migrations in production
     logging: false,
-    entities: [User, Team, Player, Game, GameEvent],
+    entities: [User, Team, Player, Game, GameEvent, GameTeamStats, GamePlayerStats],
     subscribers: [],
     migrations: [],
 });
@@ -194,7 +199,15 @@ AppDataSource.initialize()
         // Instantiate Repositories and Services
         const gameRepository = new GameRepository(AppDataSource);
         const userRepository = AppDataSource.getRepository(User); // Get the base User repository
-        const gameService = new GameService(gameRepository, userRepository);
+        const teamStatsRepository = new GameTeamStatsRepository(AppDataSource);
+        const playerStatsRepository = new GamePlayerStatsRepository(AppDataSource);
+        
+        const gameService = new GameService(gameRepository, userRepository); // Refactored
+        const gameStatsService = new GameStatsService( // New
+            gameRepository,
+            teamStatsRepository,
+            playerStatsRepository
+        );
 
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
@@ -203,7 +216,7 @@ AppDataSource.initialize()
         app.use("/", authRoutes(AppDataSource));
         app.use("/teams", teamRoutes(AppDataSource));
         app.use("/teams/:teamId/players", playerRoutes(AppDataSource));
-        app.use("/games", gameRoutes(AppDataSource, gameService));
+        app.use("/games", gameRoutes(AppDataSource, gameService, gameStatsService));
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {

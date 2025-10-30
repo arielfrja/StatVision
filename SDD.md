@@ -28,6 +28,8 @@ To achieve modularity, the backend will be built using a combination of establis
 *   **`teams` table:** `id` (PK), `user_id` (FK to users), `name`
 *   **`players` table:** `id` (PK), `team_id` (FK to teams), `name`, `jersey_number`, `UNIQUE(team_id, jersey_number)`
 *   **`games` table:** `id` (PK), `user_id` (FK to users), `status`, `video_url`, `assigned_team_a_id` (FK to teams), `assigned_team_b_id` (FK to teams), `uploaded_at`
+*   **`game_team_stats` table:** `id` (PK), `game_id` (FK to games, UNIQUE with team_id), `team_id` (FK to teams, UNIQUE with game_id), `points`, `rebounds`, `assists`, `details` (JSONB)
+*   **`game_player_stats` table:** `id` (PK), `game_id` (FK to games, UNIQUE with player_id), `player_id` (FK to players, UNIQUE with game_id), `points`, `rebounds`, `assists`, `details` (JSONB)
 *   **`game_events` table:** `id` (PK), `game_id` (FK to games), `assigned_team_id` (FK to teams), `assigned_player_id` (FK to players), `identified_team_color`, `identified_jersey_number`, `event_type`, `event_details` (JSONB), `absolute_timestamp`, `video_clip_start_time`, `video_clip_end_time`
 
 #### 4.2 Backend Services & Logic

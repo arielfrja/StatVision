@@ -7,6 +7,9 @@ export interface IGameRepository {
     // Method to find a game with all related details (events, teams, players)
     findOneWithDetails(gameId: string, userId: string): Promise<Game | null>;
 
+    // Internal method to find a game with all related details (used by services)
+    findOneWithDetailsInternal(gameId: string): Promise<Game | null>;
+
     // Method to find all games for a given user ID
     findAllByUserId(userId: string): Promise<Game[]>;
 

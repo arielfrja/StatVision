@@ -8,7 +8,10 @@ export class GameService {
     private gameRepository: IGameRepository;
     private userRepository: Repository<User>;
 
-    constructor(gameRepository: IGameRepository, userRepository: Repository<User>) {
+    constructor(
+        gameRepository: IGameRepository, 
+        userRepository: Repository<User>
+    ) {
         this.gameRepository = gameRepository;
         this.userRepository = userRepository;
     }

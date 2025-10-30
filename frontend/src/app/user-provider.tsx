@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { Auth0Provider, AppState } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
-import '@material/web/progress/circular-progress.js';
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,9 +11,11 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
+
   useEffect(() => {
     // This empty useEffect ensures these imports are client-side only.
   }, []);
+
 
   if (!domain || !clientId || !baseUrl) {
     console.error('Auth0 environment variables are not set.');
@@ -37,6 +38,8 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
         audience: audience,
       }}
       onRedirectCallback={onRedirectCallback}
+      useRefreshTokens={true}
+      cacheLocation="localstorage"
     >
       {children}
     </Auth0Provider>

@@ -1,4 +1,5 @@
 import { Team } from "./team";
+import { GameTeamStats, GamePlayerStats } from "./stats";
 
 export enum GameStatus {
     UPLOADED = "UPLOADED",
@@ -18,5 +19,7 @@ export interface Game {
     assignedTeamBId: string | null;
     assignedTeamA: Team | null;
     assignedTeamB: Team | null;
+    teamStats: GameTeamStats[];
+    playerStats: GamePlayerStats[];
     uploadedAt: Date;
 }

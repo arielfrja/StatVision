@@ -1,7 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from "typeorm";
 import { User } from "./User";
 import { Team } from "./Team";
 import { GameEvent } from "./GameEvent";
+import { GameTeamStats } from "./GameTeamStats";
+import { GamePlayerStats } from "./GamePlayerStats";
 
 export enum GameStatus {
     UPLOADED = "UPLOADED",
@@ -49,4 +51,10 @@ export class Game {
 
     @OneToMany(() => GameEvent, gameEvent => gameEvent.game)
     events: GameEvent[];
+
+    @OneToMany(() => GameTeamStats, stats => stats.game)
+    teamStats: GameTeamStats[];
+
+    @OneToMany(() => GamePlayerStats, stats => stats.game)
+    playerStats: GamePlayerStats[];
 }

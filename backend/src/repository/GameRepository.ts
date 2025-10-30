@@ -46,10 +46,32 @@ export class GameRepository implements IGameRepository {
                 "events.assignedPlayer", // Player assigned to the event
                 "assignedTeamA", // Team A details
                 "assignedTeamB", // Team B details
+                "teamStats", // GameTeamStats
+                "playerStats", // GamePlayerStats
             ],
             order: {
                 events: {
                     absoluteTimestamp: "ASC", // Order events chronologically
+                }
+            }
+        });
+    }
+
+    async findOneWithDetailsInternal(gameId: string): Promise<Game | null> {
+        return this.repository.findOne({
+            where: { id: gameId },
+            relations: [
+                "events",
+                "events.assignedTeam",
+                "events.assignedPlayer",
+                "assignedTeamA",
+                "assignedTeamB",
+                "teamStats",
+                "playerStats",
+            ],
+            order: {
+                events: {
+                    absoluteTimestamp: "ASC",
                 }
             }
         });
