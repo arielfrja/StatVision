@@ -58,3 +58,40 @@
 .md-box-score-table td {
     padding: 8px 12px;
 }
+
+/* Responsive Analysis Grid */
+.analysis-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--spacing-lg);
+    height: calc(100vh - 200px); /* Desktop height */
+}
+
+@media (max-width: 768px) {
+    .analysis-grid {
+        grid-template-columns: 1fr; /* Stack columns */
+        height: auto; /* Remove fixed height */
+        gap: var(--spacing-md);
+    }
+}
+
+/* Ensure Play-by-Play feed scrolls on mobile */
+@media (max-width: 768px) {
+    .analysis-grid > div:nth-child(2) { /* Target the Play-by-Play panel */
+        max-height: 400px; /* Give it a max height to scroll */
+    }
+}
+
+/* Responsive Main Content Container */
+.main-content-container {
+    padding: var(--spacing-md);
+    max-width: 900px;
+    margin: auto;
+}
+
+@media (max-width: 768px) {
+    .main-content-container {
+        padding: var(--spacing-sm); /* Reduce padding on mobile */
+        max-width: 100%; /* Allow full width */
+    }
+}

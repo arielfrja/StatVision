@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
@@ -30,13 +30,12 @@ const VideoPlayer = ({ videoUrl, playerRef }: { videoUrl: string | null, playerR
     }
 
     return (
-        <div style={{ position: 'relative', paddingTop: '56.25%', height: 0 }}>
+        <div style={{ width: '100%', height: '100%' }}>
             <ClientVideoPlayer
                 ref={playerRef}
                 url={videoUrl}
                 width='100%'
                 height='100%'
-                style={{ position: 'absolute', top: 0, left: 0 }}
                 controls={true}
                 config={{
                     file: {
@@ -132,27 +131,13 @@ function AnalysisPage() {
     const [isDataLoading, setIsDataLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Manual Authentication Check
-    if (isLoading) {
-        return (
-            <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-                <Loader />
-            </main>
-        );
-    }
-
-    if (!isAuthenticated) {
-        router.push('/'); // Redirect to home/login page
-        return null;
-    }
-
     const handleSeek = (time: number) => {
-        if (playerRef.current) {
+        if (playerRef.current && typeof (playerRef.current as any).seekTo === 'function') {
             (playerRef.current as any).seekTo(time, 'seconds');
         }
     };
 
-    const fetchGameDetails = async () => {
+    const fetchGameDetails = useCallback(async () => {
         if (!gameId) {
             setError("Game ID is missing.");
             setIsDataLoading(false);
@@ -176,15 +161,25 @@ function AnalysisPage() {
         } finally {
             setIsDataLoading(false);
         }
-    };
-
-    useEffect(() => {
-        fetchGameDetails();
     }, [gameId, getAccessTokenSilently]);
 
     useEffect(() => {
         fetchGameDetails();
-    }, [gameId, getAccessTokenSilently]);
+    }, [fetchGameDetails]);
+
+    // Manual Authentication Check
+    if (isLoading) {
+        return (
+            <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+                <Loader />
+            </main>
+        );
+    }
+
+    if (!isAuthenticated) {
+        router.push('/'); // Redirect to home/login page
+        return null;
+    }
 
     if (isDataLoading) {
         return (
@@ -212,7 +207,7 @@ function AnalysisPage() {
             <p style={{ marginBottom: 'var(--spacing-lg)', color: 'var(--md-sys-color-on-surface-variant)' }}>Status: {game.status}</p>
 
             {/* Multi-Panel Layout (FE-501) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--spacing-lg)', height: 'calc(100vh - 200px)' }}>
+            <div className="analysis-grid">
                 
                 {/* Left Panel: Video Player */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>

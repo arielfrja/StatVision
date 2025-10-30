@@ -92,7 +92,7 @@ function GamesPage() {
   }
 
   return (
-    <main style={{ padding: 'var(--spacing-md)', maxWidth: '900px', margin: 'auto' }}>
+    <main className="main-content-container">
       <h1 style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)', color: 'var(--md-sys-color-primary)' }}>Game Management Dashboard</h1>
       
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
