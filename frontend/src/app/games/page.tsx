@@ -115,55 +115,56 @@ function GamesPage() {
           </div>
 
           {games.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--spacing-md)' }}>
-          <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>sports_basketball</md-icon>
-          <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No games found. Upload a video to start analyzing!</p>
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto', borderRadius: 'var(--spacing-md)', border: '1px solid var(--md-sys-color-outline)' }}>
-          <table className="md-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Teams</th>
-                <th>Status</th>
-                <th>ID</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {games.map(game => {
-                const statusInfo = getStatusIcon(game.status);
-                const uploadedDate = new Date(game.uploadedAt).toLocaleDateString();
-                const teamA = game.assignedTeamA?.name || 'Team A (Unassigned)';
-                const teamB = game.assignedTeamB?.name || 'Team B (Unassigned)';
-
-                return (
-                  <tr 
-                    key={game.id} 
-                    className="interactive" 
-                    onClick={() => router.push(`/games/${game.id}`)}
-                  >
-                    <td>{uploadedDate}</td>
-                    <td style={{ fontWeight: 'bold' }}>{teamA} vs {teamB}</td>
-                    <td style={{ color: statusInfo.color, display: 'flex', alignItems: 'center' }}>
-                      <md-icon style={{ fontSize: '16px', marginRight: '4px' }}>{statusInfo.icon}</md-icon>
-                      {game.status}
-                    </td>
-                    <td style={{ fontSize: 'var(--md-sys-typescale-body-small-size)', color: 'var(--md-sys-color-on-surface-variant)' }}>{game.id.substring(0, 8)}...</td>
-                    <td>
-                      <md-icon-button>
-                        <md-icon>chevron_right</md-icon>
-                      </md-icon-button>
-                    </td>
+            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--spacing-md)' }}>
+              <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>sports_basketball</md-icon>
+              <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No games found. Upload a video to start analyzing!</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', borderRadius: 'var(--spacing-md)', border: '1px solid var(--md-sys-color-outline)' }}>
+              <table className="md-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Teams</th>
+                    <th>Status</th>
+                    <th>ID</th>
+                    <th></th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {games.map(game => {
+                    const statusInfo = getStatusIcon(game.status);
+                    const uploadedDate = new Date(game.uploadedAt).toLocaleDateString();
+                    const teamA = game.assignedTeamA?.name || 'Team A (Unassigned)';
+                    const teamB = game.assignedTeamB?.name || 'Team B (Unassigned)';
+
+                    return (
+                      <tr 
+                        key={game.id} 
+                        className="interactive" 
+                        onClick={() => router.push(`/games/${game.id}`)}
+                      >
+                        <td>{uploadedDate}</td>
+                        <td style={{ fontWeight: 'bold' }}>{teamA} vs {teamB}</td>
+                        <td style={{ color: statusInfo.color, display: 'flex', alignItems: 'center' }}>
+                          <md-icon style={{ fontSize: '16px', marginRight: '4px' }}>{statusInfo.icon}</md-icon>
+                          {game.status}
+                        </td>
+                        <td style={{ fontSize: 'var(--md-sys-typescale-body-small-size)', color: 'var(--md-sys-color-on-surface-variant)' }}>{game.id.substring(0, 8)}...</td>
+                        <td>
+                          <md-icon-button>
+                            <md-icon>chevron_right</md-icon>
+                          </md-icon-button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
-    </>
     </main>
   );
 }

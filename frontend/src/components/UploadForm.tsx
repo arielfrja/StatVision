@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
-import logger from '@/utils/Logger';
+import { appLogger as logger } from '@/utils/Logger';
 
 import '@material/web/button/filled-button.js';
 import '@material/web/textfield/filled-text-field.js';
