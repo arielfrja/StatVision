@@ -34,7 +34,7 @@ The Worker Service is currently implemented as an in-process component within th
 
 #### 3.1 Frontend Application (The Client)
 *   **Technology:** Next.js (React)
-*   **Responsibility:** Renders the UI, manages client-side state, and communicates with backend services.
+*   **Responsibility:** Renders the UI, manages client-side state, and communicates with backend services. The UI employs a responsive navigation pattern (SideNav on desktop, BottomNav on mobile) for core application routing.
 *   **Interactions:** Authenticates users via the **Auth0 Client SDK**. Makes authenticated API calls to the **API Service** using an Auth0 JWT. Uploads files directly to the **API Service**.
 
 #### 3.2 API Service (The Backend)

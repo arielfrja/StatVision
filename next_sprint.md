@@ -1,14 +1,10 @@
-# Next Sprint Plan (Sprint 1)
+# Next Sprint Plan: Responsive Navigation & Dashboard
 
-**Goal:** Implement the full user flow for uploading a game video file to the backend server.
+**Goal:** Implement a responsive, persistent navigation structure and establish the main authenticated dashboard view.
 
-**Tasks:**
+## Tasks
 
-*   **[BE-302]** Implement the API endpoint `POST /games/upload` to handle direct video upload to the local server filesystem. (Epic: Core Analysis Pipeline)
-*   **[FE-301]** Build the "Analyze New Game" UI component with a standard file upload form. (Epic: Core Analysis Pipeline)
-*   **[FE-302]** Implement the client-side logic to perform the direct upload to the API endpoint. (Epic: Core Analysis Pipeline)
-
-**Out of Scope for this Sprint:**
-
-*   All video processing logic (BE-303, BE-304, BE-305.1).
-*   All other Epics.
+*   **[FE-601]** Create a new `SideNav.tsx` component for persistent desktop navigation.
+*   **[FE-602]** Create a new `BottomNav.tsx` component for responsive mobile navigation.
+*   **[FE-603]** Integrate navigation components into `frontend/src/app/layout.tsx` with responsive logic.
+*   **[FE-604]** Refactor the home page (`/app/page.tsx`) to serve as the main authenticated Dashboard.

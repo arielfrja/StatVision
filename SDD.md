@@ -19,6 +19,7 @@ To achieve modularity, the backend will be built using a combination of establis
 ### 3. Frontend Design (Next.js)
 *   **Framework:** Next.js with the App Router.
 *   **Key Components:** `DashboardPage`, `TeamsPage`, `AssignmentPage`, and `AnalysisPage` (containing `VideoPlayer`, `PlayByPlayFeed`, `BoxScoreTable`).
+*   **Navigation:** The application will use a responsive navigation system: a persistent `SideNav` on desktop and a `BottomNav` on mobile, both featuring text and icons.
 *   **Authentication:** The frontend will use the **Auth0 Client SDK** to manage user authentication and retrieve the JWT token for API calls.
 
 ### 4. Backend Design

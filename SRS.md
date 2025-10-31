@@ -58,6 +58,6 @@ Primary users are coaches, players, and analysts who are computer-literate but n
 *   **FR-402: Automatic Player Matching:** The system shall attempt to auto-assign players based on jersey numbers stored in the database.
 
 ##### Module 5: Analysis and Visualization
-*   **FR-501: Dashboard View:** The dashboard shall list all user games and their status from the database.
+*   **FR-501: Dashboard View:** The dashboard shall list all user games, including their **title/name**, and their status from the database.
 *   **FR-502: Interactive Playback:** Every event in the analysis view must be linked to its corresponding video clip.
 *   **FR-503: Accessing Past Games:** Users must be able to access any previously completed game analysis from their dashboard at any time.
