@@ -7,6 +7,24 @@ import { User } from '../User';
 import { GameService } from '../service/GameService';
 import { GameStatsService } from '../service/GameStatsService';
 import logger from '../config/logger';
+import multer from 'multer';
+import path from 'path';
+import * as fs from 'fs';
+
+const UPLOAD_DIR = '/data/data/com.termux/files/home/data/development/StatVision/uploads';
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, UPLOAD_DIR);
+    },
+    filename: (req, file, cb) => {
+        // Use a unique name, e.g., gameId-originalName
+        const gameId = req.body.gameId || Date.now(); // Fallback if gameId is not provided in body
+        cb(null, `${gameId}-${file.originalname}`);
+    }
+});
+
+const upload = multer({ storage: storage });
 
 const router = Router();
 
@@ -46,6 +64,59 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             res.status(200).json(games);
         } catch (error) {
             logger.error("Error retrieving games for user:", error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    /**
+     * @swagger
+     * /games:
+     *   post:
+     *     summary: Create a new game record.
+     *     description: Creates a new game record with an initial status, typically before a video file is uploaded.
+     *     tags: [Game]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               name:
+     *                 type: string
+     *                 description: The user-provided name for the game.
+     *     responses:
+     *       201:
+     *         description: Game created successfully.
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Game'
+     *       400:
+     *         description: Invalid request body.
+     *       401:
+     *         description: Unauthorized.
+     *       500:
+     *         description: Internal server error.
+     */
+    router.post("/", async (req, res) => {
+        if (!req.user || !req.user.uid) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { name } = req.body;
+
+        if (!name) {
+            return res.status(400).json({ message: "Missing game name in body." });
+        }
+
+        try {
+            const newGame = await gameService.createGame(req.user.uid, name);
+            res.status(201).json(newGame);
+        } catch (error) {
+            logger.error("Error creating new game:", error);
             res.status(500).json({ message: "Internal server error." });
         }
     });
@@ -96,6 +167,89 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             res.status(200).json(game);
         } catch (error) {
             logger.error(`Error retrieving game ${gameId} details:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    /**
+     * @swagger
+     * /games/upload:
+     *   post:
+     *     summary: Upload a video file for game analysis.
+     *     description: Handles the direct upload of a video file to the local server filesystem.
+     *     tags: [Game]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         multipart/form-data:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               video:
+     *                 type: string
+     *                 format: binary
+     *                 description: The video file to upload.
+     *               gameId:
+     *                 type: string
+     *                 format: uuid
+     *                 description: The ID of the game record created prior to upload.
+     *     responses:
+     *       200:
+     *         description: File uploaded successfully.
+     *       401:
+     *         description: Unauthorized.
+     *       500:
+     *         description: Internal server error.
+     */
+    router.post("/upload", upload.single('video'), async (req, res) => {
+        if (!req.user || !req.user.uid) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: "No file uploaded." });
+        }
+
+        const { gameId } = req.body;
+        const filePath = req.file.path;
+
+        try {
+            // 1. Ensure the game exists and belongs to the user (basic check)
+            const user = await userRepository.findOne({ where: { providerUid: req.user.uid } });
+            if (!user) {
+                // Clean up the uploaded file if the user record is missing
+                await fs.promises.unlink(filePath);
+                return res.status(404).json({ message: "User record not found in local database." });
+            }
+            const userUuid = user.id;
+
+            const game = await gameRepository.findOne({ where: { id: gameId, userId: userUuid } });
+            if (!game) {
+                // Clean up the uploaded file if the game record is missing
+                await fs.promises.unlink(filePath);
+                return res.status(404).json({ message: "Game not found or does not belong to user." });
+            }
+
+            // 2. Update the game record with the file path and set status to UPLOADED
+            await gameService.updateGameFilePathAndStatus(gameId, filePath, GameStatus.UPLOADED);
+
+            res.status(200).json({
+                message: "File uploaded successfully. Processing will begin shortly.",
+                filePath: filePath,
+                gameId: gameId
+            });
+        } catch (error) {
+            logger.error("Error during file upload and game update:", error);
+            // Attempt to clean up the file on error
+            if (filePath) {
+                try {
+                    await fs.promises.unlink(filePath);
+                } catch (cleanupError) {
+                    logger.error("Failed to clean up uploaded file after error:", cleanupError);
+                }
+            }
             res.status(500).json({ message: "Internal server error." });
         }
     });

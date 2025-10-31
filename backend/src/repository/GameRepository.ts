@@ -10,6 +10,11 @@ export class GameRepository implements IGameRepository {
         this.repository = dataSource.getRepository(Game);
     }
 
+    async create(game: Game): Promise<Game> {
+        logger.info(`Creating new game record for user ${game.userId}`);
+        return this.repository.save(game);
+    }
+
     async findOneByIdAndUserId(gameId: string, userId: string): Promise<Game | null> {
         return this.repository.findOne({ where: { id: gameId, userId: userId } });
     }
@@ -28,6 +33,23 @@ export class GameRepository implements IGameRepository {
         }
         logger.info(`Game ${gameId} status successfully updated to ${status}.`);
     }
+
+    async updateFilePathAndStatus(gameId: string, filePath: string, status: GameStatus): Promise<void> {
+        logger.info(`Updating game ${gameId} file path to ${filePath} and status to ${status}`);
+        
+        // Note: The 'filePath' property maps to the 'video_url' column in the database.
+        const result = await this.repository.update(
+            { id: gameId },
+            { filePath: filePath, status: status }
+        );
+
+        if (result.affected === 0) {
+            logger.warn(`Game file path and status update failed: Game ${gameId} not found.`);
+            throw new Error(`Game ${gameId} not found for file path and status update.`);
+        }
+        logger.info(`Game ${gameId} file path and status successfully updated.`);
+    }
+
 
     async findAllByUserId(userId: string): Promise<Game[]> {
         return this.repository.find({

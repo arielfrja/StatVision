@@ -17,6 +17,28 @@ export class GameService {
     }
 
     /**
+     * Creates a new Game record with a default status.
+     * @param auth0Uid The Auth0 UID from the JWT.
+     * @param gameName The name/description of the game.
+     * @returns A promise that resolves to the newly created Game entity.
+     */
+    async createGame(auth0Uid: string, gameName: string): Promise<Game> {
+        const user = await this.userRepository.findOne({ where: { providerUid: auth0Uid } });
+
+        if (!user) {
+            logger.error(`GameService: Cannot create game, user not found for Auth0 UID: ${auth0Uid}`);
+            throw new Error("User not found in local database.");
+        }
+
+        const newGame = new Game();
+        newGame.userId = user.id;
+        newGame.name = gameName;
+        newGame.status = GameStatus.UPLOADED; // Initial status before file upload is confirmed
+
+        return this.gameRepository.create(newGame);
+    }
+
+    /**
      * Implements BE-305: Updates the status of a game record.
      * @param gameId The ID of the game to update.
      * @param newStatus The new status to set.
@@ -30,6 +52,21 @@ export class GameService {
         await this.gameRepository.updateStatus(gameId, newStatus);
         
         logger.info(`GameService: Status update successful for game ${gameId}.`);
+    }
+
+    /**
+     * Implements BE-305: Updates the file path and status of a game record.
+     * @param gameId The ID of the game to update.
+     * @param filePath The local file path of the uploaded video.
+     * @param newStatus The new status to set (should be UPLOADED).
+     */
+    async updateGameFilePathAndStatus(gameId: string, filePath: string, newStatus: GameStatus): Promise<void> {
+        logger.info(`GameService: Attempting to update game ${gameId} file path and status to ${newStatus}.`);
+        
+        // This method assumes the repository has a method to update both fields.
+        await this.gameRepository.updateFilePathAndStatus(gameId, filePath, newStatus);
+        
+        logger.info(`GameService: File path and status update successful for game ${gameId}.`);
     }
 
     /**

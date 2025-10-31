@@ -19,6 +19,9 @@ export class Game {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @Column({ nullable: false, default: 'Untitled Game' })
+    name: string;
+
     @ManyToOne(() => User, user => user.games)
     @JoinColumn({ name: "user_id" })
     user: User;
@@ -30,7 +33,7 @@ export class Game {
     status: GameStatus;
 
     @Column({ name: "video_url", nullable: true })
-    videoUrl: string; // Local path or GCS URL
+    filePath: string; // Local path to the uploaded video file.
 
     @ManyToOne(() => Team)
     @JoinColumn({ name: "assigned_team_a_id" })

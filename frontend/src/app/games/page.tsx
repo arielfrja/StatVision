@@ -6,6 +6,7 @@ import Loader from '@/components/Loader';
 import { Game, GameStatus } from '@/types/game'; // Import Game type and status
 import axios from 'axios';
 import { useRouter } from 'next/navigation'; // New Import
+import UploadForm from '@/components/UploadForm'; // New Import
 
 import '@material/web/button/filled-button.js';
 import '@material/web/list/list.js';
@@ -20,6 +21,7 @@ function GamesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [areMdcComponentsReady, setAreMdcComponentsReady] = useState(false);
+  const [isUploadMode, setIsUploadMode] = useState(false); // New state for upload mode
 
   // Utility to check if Material Web Components are ready (copied from teams/page.tsx)
   useEffect(() => {
@@ -95,14 +97,24 @@ function GamesPage() {
     <main className="main-content-container">
       <h1 style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)', color: 'var(--md-sys-color-primary)' }}>Game Management Dashboard</h1>
       
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
-        <md-filled-button onClick={() => alert('Navigate to Upload Page (FE-301)')}>
-          <md-icon slot="icon">upload</md-icon>
-          Analyze New Game
-        </md-filled-button>
-      </div>
+      {isUploadMode ? (
+        <UploadForm 
+          onUploadComplete={() => {
+            setIsUploadMode(false);
+            fetchGames(); // Refresh the list of games
+          }}
+          onCancel={() => setIsUploadMode(false)}
+        />
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
+            <md-filled-button onClick={() => setIsUploadMode(true)}>
+              <md-icon slot="icon">upload</md-icon>
+              Analyze New Game
+            </md-filled-button>
+          </div>
 
-      {games.length === 0 ? (
+          {games.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--spacing-md)' }}>
           <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>sports_basketball</md-icon>
           <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No games found. Upload a video to start analyzing!</p>
@@ -151,6 +163,7 @@ function GamesPage() {
           </table>
         </div>
       )}
+    </>
     </main>
   );
 }
