@@ -62,7 +62,7 @@
     - [x] **[FE-504]** Implement the `BoxScoreTable` component.
 
 ### [EPIC] Responsive Navigation & Dashboard
-- [ ] **[FE-601]** Create a new `SideNav.tsx` component for persistent desktop navigation.
-- [ ] **[FE-602]** Create a new `BottomNav.tsx` component for responsive mobile navigation.
-- [ ] **[FE-603]** Integrate navigation components into `frontend/src/app/layout.tsx` with responsive logic.
-- [ ] **[FE-604]** Refactor the home page (`/app/page.tsx`) to serve as the main authenticated Dashboard.
+- [x] **[FE-601]** Create a new `SideNav.tsx` component for persistent desktop navigation.
+- [x] **[FE-602]** Create a new `BottomNav.tsx` component for responsive mobile navigation.
+- [x] **[FE-603]** Integrate navigation components into `frontend/src/app/layout.tsx` with responsive logic.
+- [x] **[FE-604]** Refactor the home page (`/app/page.tsx`) to serve as the main authenticated Dashboard.
