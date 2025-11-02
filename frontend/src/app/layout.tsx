@@ -1,9 +1,12 @@
 import Header from '@/components/Header';
 import ErudaInit from './eruda-init';
 import UserProviderWrapper from './user-provider';
+import SideNav from '@/components/SideNav';
+import BottomNav from '@/components/BottomNav';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
 import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
 
 if (typeof window !== 'undefined') {
@@ -38,9 +41,11 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <UserProviderWrapper>
           <ErudaInit />
-          <Header />
-          {children}
-        </UserProviderWrapper>
+                    <SideNav />
+                    <div className="main-content-wrapper">
+                      {children}
+                    </div>
+                    <BottomNav />        </UserProviderWrapper>
       </body>
     </html>
   );

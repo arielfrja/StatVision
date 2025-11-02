@@ -6,6 +6,7 @@ import Loader from '@/components/Loader';
 import { Game, GameStatus } from '@/types/game'; // Import Game type and status
 import axios from 'axios';
 import { useRouter } from 'next/navigation'; // New Import
+import ResponsiveFab from '@/components/ResponsiveFab';
 import UploadForm from '@/components/UploadForm'; // New Import
 
 import '@material/web/button/filled-button.js';
@@ -107,63 +108,66 @@ function GamesPage() {
         />
       ) : (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--spacing-md)' }}>
-            <md-filled-button onClick={() => setIsUploadMode(true)}>
-              <md-icon slot="icon">upload</md-icon>
-              Analyze New Game
-            </md-filled-button>
-          </div>
-
           {games.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--spacing-md)' }}>
+            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
               <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>sports_basketball</md-icon>
               <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No games found. Upload a video to start analyzing!</p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto', borderRadius: 'var(--spacing-md)', border: '1px solid var(--md-sys-color-outline)' }}>
-              <table className="md-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Teams</th>
-                    <th>Status</th>
-                    <th>ID</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {games.map(game => {
-                    const statusInfo = getStatusIcon(game.status);
-                    const uploadedDate = new Date(game.uploadedAt).toLocaleDateString();
-                    const teamA = game.assignedTeamA?.name || 'Team A (Unassigned)';
-                    const teamB = game.assignedTeamB?.name || 'Team B (Unassigned)';
+            // Universal Card View
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
+              {games.map(game => {
+                const statusInfo = getStatusIcon(game.status);
+                const uploadedDate = new Date(game.uploadedAt).toLocaleDateString();
+                const teamA = game.assignedTeamA?.name || 'Team A (Unassigned)';
+                const teamB = game.assignedTeamB?.name || 'Team B (Unassigned)';
 
-                    return (
-                      <tr 
-                        key={game.id} 
-                        className="interactive" 
-                        onClick={() => router.push(`/games/${game.id}`)}
-                      >
-                        <td>{uploadedDate}</td>
-                        <td style={{ fontWeight: 'bold' }}>{teamA} vs {teamB}</td>
-                        <td style={{ color: statusInfo.color, display: 'flex', alignItems: 'center' }}>
+                return (
+                  <div 
+                    key={game.id} 
+                    onClick={() => router.push(`/games/${game.id}`)}
+                    style={{ 
+                      padding: 'var(--spacing-md)', 
+                      backgroundColor: 'var(--md-sys-color-surface-container-low)', 
+                      borderRadius: 'var(--border-radius-md)', 
+                      boxShadow: 'var(--shadow-elevation-1)',
+                      cursor: 'pointer',
+                      borderLeft: `4px solid ${statusInfo.color}`,
+                      transition: 'transform 0.1s ease-in-out',
+                    }}
+                    // @ts-ignore
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    // @ts-ignore
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                      <h3 style={{ fontWeight: 'bold', fontSize: 'var(--md-sys-typescale-title-medium-size)' }}>{teamA} vs {teamB}</h3>
+                      <md-icon style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>chevron_right</md-icon>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--md-sys-typescale-body-small-size)' }}>
+                      <p>
+                        <span style={{ color: statusInfo.color, display: 'flex', alignItems: 'center' }}>
                           <md-icon style={{ fontSize: '16px', marginRight: '4px' }}>{statusInfo.icon}</md-icon>
                           {game.status}
-                        </td>
-                        <td style={{ fontSize: 'var(--md-sys-typescale-body-small-size)', color: 'var(--md-sys-color-on-surface-variant)' }}>{game.id.substring(0, 8)}...</td>
-                        <td>
-                          <md-icon-button>
-                            <md-icon>chevron_right</md-icon>
-                          </md-icon-button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </span>
+                      </p>
+                      <p style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>{uploadedDate}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>
+      )}
+
+      {/* Responsive FAB for Analyze New Game (Mobile) */}
+      {!isUploadMode && (
+        <ResponsiveFab
+          label="Analyze New Game"
+          icon="upload"
+          onClick={() => setIsUploadMode(true)}
+        />
       )}
     </main>
   );
