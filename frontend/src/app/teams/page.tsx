@@ -1,41 +1,40 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { withAuthenticationRequired } from '@auth0/auth0-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth0, withAuthenticationRequired } from '@auth0/auth0-react';
 import Loader from '@/components/Loader';
+import { Team } from '@/types/team';
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
+import ResponsiveFab from '@/components/ResponsiveFab';
+import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 
+// Import Material Web Components
 import '@material/web/button/filled-button.js';
 import '@material/web/textfield/filled-text-field.js';
 import '@material/web/list/list.js';
 import '@material/web/list/list-item.js';
-import '@material/web/button/outlined-button.js';
-import '@material/web/iconbutton/filled-icon-button.js';
 import '@material/web/icon/icon.js';
+import '@material/web/dialog/dialog.js';
+import '@material/web/button/text-button.js';
 
-import axios from 'axios';
-import { appLogger } from '@/utils/Logger';
 
 function TeamsPage() {
   const { getAccessTokenSilently } = useAuth0();
-  const [teams, setTeams] = useState<any[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<any | null>(null);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [newTeamName, setNewTeamName] = useState('');
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [newPlayerJersey, setNewPlayerJersey] = useState<number | ''>('');
-  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
-  const [editedPlayerName, setEditedPlayerName] = useState('');
-  const [editedPlayerJersey, setEditedPlayerJersey] = useState<number | ''>('');
+  const router = useRouter();
+  const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [areMdcComponentsReady, setAreMdcComponentsReady] = useState(false);
+  
+  const [newTeamName, setNewTeamName] = useState('');
+  const addTeamDialogRef = useRef<any>(null);
 
+
+  // Utility to check if Material Web Components are ready
   useEffect(() => {
-    const startTime = Date.now();
     const checkMdcComponents = () => {
-      if (customElements.get('md-list') && customElements.get('md-list-item') && customElements.get('md-filled-text-field') && customElements.get('md-filled-button') && customElements.get('md-outlined-button') && customElements.get('md-filled-icon-button') && customElements.get('md-icon')) {
-        console.log(`TeamsPage: MDC components ready after ${Date.now() - startTime}ms.`);
+      if (customElements.get('md-list') && customElements.get('md-list-item') && customElements.get('md-filled-button') && customElements.get('md-icon') && customElements.get('md-dialog') && customElements.get('md-text-button') && customElements.get('md-filled-text-field')) {
         setAreMdcComponentsReady(true);
       } else {
         setTimeout(checkMdcComponents, 50);
@@ -45,25 +44,15 @@ function TeamsPage() {
   }, []);
 
   useEffect(() => {
-    console.log("TeamsPage: useEffect triggered.");
-    fetchTeams();
-  }, [getAccessTokenSilently]);
-
-  useEffect(() => {
-    if (selectedTeam) {
-      fetchPlayers(selectedTeam.id);
-    } else {
-      setPlayers([]);
+    if (areMdcComponentsReady) {
+        fetchTeams();
     }
-  }, [selectedTeam]);
+  }, [getAccessTokenSilently, areMdcComponentsReady]);
 
   const fetchTeams = async () => {
-    console.log("TeamsPage: fetchTeams called.");
     setIsLoading(true);
     try {
-      console.log("TeamsPage: Attempting to get access token silently.");
       const token = await getAccessTokenSilently();
-      console.log("TeamsPage: Successfully fetched token:", token);
 
       const response = await axios.get('http://localhost:3000/teams', {
         headers: {
@@ -71,37 +60,20 @@ function TeamsPage() {
         },
       });
 
-      console.log("TeamsPage: API response status:", response.status);
-
-      const data = response.data;
-      console.log("TeamsPage: Successfully fetched teams data:", data);
-      setTeams(data);
+      setTeams(response.data);
     } catch (error: any) {
-      console.error("TeamsPage: An error occurred in fetchTeams:", error);
+      console.error("An error occurred in fetchTeams:", error);
       setError(error.message);
     } finally {
-      console.log("TeamsPage: fetchTeams finished, setting isLoading to false.");
       setIsLoading(false);
     }
   };
 
-  const fetchPlayers = async (teamId: string) => {
-    try {
-      const token = await getAccessTokenSilently();
-      const response = await axios.get(`http://localhost:3000/teams/${teamId}/players`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = response.data;
-      setPlayers(data);
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
   const handleCreateTeam = async () => {
-    if (!newTeamName) return;
+    if (!newTeamName) {
+        setError('Team name is required.');
+        return;
+    }
     try {
       const token = await getAccessTokenSilently();
       await axios.post('http://localhost:3000/teams', { name: newTeamName }, {
@@ -111,74 +83,21 @@ function TeamsPage() {
         },
       });
       setNewTeamName('');
+      addTeamDialogRef.current?.close();
       fetchTeams(); // Refresh the list
     } catch (error: any) {
       setError(error.message);
     }
   };
-
-  const handleCreatePlayer = async () => {
-    if (!selectedTeam || !newPlayerName || !newPlayerJersey) return;
-    try {
-      const token = await getAccessTokenSilently();
-      await axios.post(`http://localhost:3000/teams/${selectedTeam.id}/players`, { name: newPlayerName, jerseyNumber: newPlayerJersey }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setNewPlayerName('');
-      setNewPlayerJersey('');
-      fetchPlayers(selectedTeam.id); // Refresh the player list
-    } catch (error: any) {
-      setError(error.message);
+  
+  const handleShowAddTeamDialog = () => {
+    if (addTeamDialogRef.current && typeof addTeamDialogRef.current.show === 'function') {
+      addTeamDialogRef.current.show();
+    } else {
+      console.error("Dialog ref is not ready or does not have a show() method.");
     }
   };
 
-  const handleEditPlayer = (player: any) => {
-    setEditingPlayerId(player.id);
-    setEditedPlayerName(player.name);
-    setEditedPlayerJersey(player.jerseyNumber);
-  };
-
-  const handleSavePlayer = async (playerId: string) => {
-    if (!selectedTeam || !editedPlayerName || !editedPlayerJersey) return;
-    try {
-      const token = await getAccessTokenSilently();
-      await axios.put(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, { name: editedPlayerName, jerseyNumber: editedPlayerJersey }, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setEditingPlayerId(null);
-      fetchPlayers(selectedTeam.id); // Refresh the player list
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingPlayerId(null);
-    setEditedPlayerName('');
-    setEditedPlayerJersey('');
-  };
-
-  const handleDeletePlayer = async (playerId: string) => {
-    if (!selectedTeam) return;
-    if (!confirm('Are you sure you want to delete this player?')) return;
-    try {
-      const token = await getAccessTokenSilently();
-      await axios.delete(`http://localhost:3000/teams/${selectedTeam.id}/players/${playerId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      fetchPlayers(selectedTeam.id); // Refresh the player list
-    } catch (error: any) {
-      setError(error.message);
-    }
-  };
 
   if (isLoading || !areMdcComponentsReady) {
     return (
@@ -198,102 +117,100 @@ function TeamsPage() {
   }
 
   return (
-    <main style={{ padding: 'var(--spacing-md)', maxWidth: '1200px', margin: 'auto' }}>
+    <main className="main-content-container">
       <h1 style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)', color: 'var(--md-sys-color-primary)' }}>Team Management</h1>
-      <div className="teams-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-md)' }}>
-        <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--md-sys-color-surface-variant)', borderRadius: 'var(--spacing-md)', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ color: 'var(--md-sys-color-on-surface)', marginBottom: 'var(--spacing-md)' }}>My Teams</h2>
-          <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+      
+      {/* Add Team Dialog */}
+      <md-dialog ref={addTeamDialogRef}>        
+        <div slot="headline">Create a New Team</div>
+        <div slot="content">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <md-filled-text-field
-              label="New Team Name"
+              label="Team Name (Required)"
               value={newTeamName}
-              style={{ flexGrow: 1 }}
               onInput={(e: any) => setNewTeamName(e.target.value)}
             ></md-filled-text-field>
-            <md-filled-button onClick={handleCreateTeam}>Create</md-filled-button>
           </div>
-          <md-list>
-            {teams.map(team => (
-              <md-list-item
-                key={team.id}
-                onClick={() => setSelectedTeam(team)}
-                selected={selectedTeam?.id === team.id}
-                type="button"
-                style={{ backgroundColor: selectedTeam?.id === team.id ? 'var(--md-sys-color-primary-container)' : 'transparent' }}
+        </div>
+        <div slot="actions">
+          <md-text-button onClick={() => addTeamDialogRef.current?.close()}>Cancel</md-text-button>
+          <md-filled-button onClick={handleCreateTeam} disabled={!newTeamName}>
+            <md-icon slot="icon">add</md-icon>
+            Create Team
+          </md-filled-button>
+        </div>
+      </md-dialog>
+
+      {teams.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
+          <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>group</md-icon>
+          <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No teams found. Create a team to get started!</p>
+        </div>
+      ) : (
+        // Universal Card View from games/page.tsx
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--spacing-md)' }}>
+          {teams.map(team => {
+            // @ts-ignore
+            const createdDate = new Date(team.createdAt).toLocaleDateString();
+
+            return (
+              <div 
+                key={team.id} 
+                onClick={() => router.push(`/teams/${team.id}`)}
+                style={{ 
+                  padding: 'var(--spacing-md)', 
+                  backgroundColor: 'var(--md-sys-color-surface-container-low)', 
+                  borderRadius: 'var(--border-radius-md)', 
+                  boxShadow: 'var(--shadow-elevation-1)',
+                  cursor: 'pointer',
+                  borderLeft: `4px solid var(--md-sys-color-primary)`,
+                  transition: 'transform 0.1s ease-in-out',
+                }}
+                // @ts-ignore
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                // @ts-ignore
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
-                <div slot="headline" style={{ color: 'var(--md-sys-color-on-surface)' }}>{team.name}</div>
-              </md-list-item>
-            ))}
-          </md-list>
-        </div>
-        <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--md-sys-color-surface-variant)', borderRadius: 'var(--spacing-md)', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ color: 'var(--md-sys-color-on-surface)', marginBottom: 'var(--spacing-md)' }}>Players</h2>
-          {selectedTeam ? (
-            <div>
-              <h3 style={{ color: 'var(--md-sys-color-on-surface)', marginBottom: 'var(--spacing-md)' }}>Players for {selectedTeam.name}</h3>
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-                <md-filled-text-field
-                  label="Player Name"
-                  value={newPlayerName}
-                  style={{ flexGrow: 1 }}
-                  onInput={(e: any) => setNewPlayerName(e.target.value)}
-                ></md-filled-text-field>
-                <md-filled-text-field
-                  label="Jersey #"
-                  value={newPlayerJersey}
-                  type="number"
-                  style={{ width: '80px' }}
-                  onInput={(e: any) => setNewPlayerJersey(Number(e.target.value))}
-                ></md-filled-text-field>
-                <md-filled-button onClick={handleCreatePlayer}>Add Player</md-filled-button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                  <h3 style={{ fontWeight: 'bold', fontSize: 'var(--md-sys-typescale-title-medium-size)' }}>{team.name}</h3>
+                  <md-icon style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>chevron_right</md-icon>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--md-sys-typescale-body-small-size)' }}>
+                  <p>
+                    <span style={{ color: 'var(--md-sys-color-primary)', display: 'flex', alignItems: 'center' }}>
+                      <md-icon style={{ fontSize: '16px', marginRight: '4px' }}>group</md-icon>
+                      {/* Could show player count here if available */}
+                      Team
+                    </span>
+                  </p>
+                  <p style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Created: {createdDate}</p>
+                </div>
               </div>
-              <md-list>
-                {players.map(player => (
-                  <md-list-item key={player.id}>
-                    {editingPlayerId === player.id ? (
-                      // Edit State: Use a single div to manage the layout of inputs
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 'var(--spacing-sm)' }}>
-                        <md-filled-text-field
-                          value={editedPlayerName}
-                          onInput={(e: any) => setEditedPlayerName(e.target.value)}
-                          style={{ flexGrow: 1 }}
-                        ></md-filled-text-field>
-                        <md-filled-text-field
-                          value={editedPlayerJersey}
-                          type="number"
-                          onInput={(e: any) => setEditedPlayerJersey(Number(e.target.value))}
-                          style={{ width: '60px' }}
-                        ></md-filled-text-field>
-                        <md-filled-icon-button onClick={() => handleSavePlayer(player.id)}><md-icon filled>save</md-icon></md-filled-icon-button>
-                        <md-filled-icon-button onClick={handleCancelEdit}><md-icon filled>cancel</md-icon></md-filled-icon-button>
-                      </div>
-                    ) : (
-                      // Display State: Use slots for idiomatic Material Design
-                      <>
-                        <div slot="headline">{player.name}</div>
-                        <div slot="supporting-text">#{player.jerseyNumber}</div>
-                        <div slot="end" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                          <md-filled-icon-button onClick={() => handleEditPlayer(player)}><md-icon filled>edit</md-icon></md-filled-icon-button>
-                          <md-filled-icon-button onClick={() => handleDeletePlayer(player.id)}><md-icon filled>delete</md-icon></md-filled-icon-button>
-                        </div>
-                      </>
-                    )}
-                  </md-list-item>
-                ))}
-              </md-list>
-            </div>
-          ) : (
-            <p style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>Select a team to see its players.</p>
-          )}
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* Responsive FAB for creating a new team */}
+      <ResponsiveFab
+        label="Create Team"
+        icon="add"
+        onClick={handleShowAddTeamDialog}
+      />
     </main>
   );
 }
 
-export default withAuthenticationRequired(TeamsPage, {
-  onRedirecting: () => {
-    console.log("TeamsPage: onRedirecting called.");
-    return <Loader />;
-  },
+const TeamsPageWithAuth = withAuthenticationRequired(TeamsPage, {
+    onRedirecting: () => {
+      return <Loader />;
+    },
 });
+
+export default function TeamsPageWrapper() {
+    return (
+      <ClientOnlyWrapper>
+        <TeamsPageWithAuth />
+      </ClientOnlyWrapper>
+    );
+}
