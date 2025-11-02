@@ -3,6 +3,7 @@ import ErudaInit from './eruda-init';
 import UserProviderWrapper from './user-provider';
 import SideNav from '@/components/SideNav';
 import BottomNav from '@/components/BottomNav';
+import AuthGuard from '@/components/AuthGuard';
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -41,11 +42,12 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <UserProviderWrapper>
           <ErudaInit />
-                    <SideNav />
-                    <div className="main-content-wrapper">
-                      {children}
-                    </div>
-                    <BottomNav />        </UserProviderWrapper>
+          <AuthGuard>
+            <div className="main-content-wrapper">
+              {children}
+            </div>
+          </AuthGuard>
+        </UserProviderWrapper>
       </body>
     </html>
   );
