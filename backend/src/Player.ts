@@ -1,21 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, Unique } from "typeorm";
-import { Team } from "./Team";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
 import { GameEvent } from "./GameEvent";
+import { PlayerTeamHistory } from "./PlayerTeamHistory";
 
 @Entity("players")
-@Unique(["teamId", "jerseyNumber"])
 export class Player {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column({ name: "team_id" })
-    teamId: string;
-
-    @Column()
+    @Column({ type: "varchar" })
     name: string;
 
-    @Column({ name: "jersey_number" })
-    jerseyNumber: number;
+    @Column({ default: false })
+    isTemp: boolean;
+
+    @Column({ type: "enum", enum: ["PG", "SG", "SF", "PF", "C"], nullable: true })
+    position: string | null;
+
+    @Column({ type: "int", nullable: true })
+    height: number | null; // in cm
+
+    @Column({ type: "int", nullable: true })
+    weight: number | null; // in kg
+
+    @Column({ name: "is_active", default: true })
+    isActive: boolean;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
@@ -23,8 +31,8 @@ export class Player {
     @UpdateDateColumn({ name: "updated_at" })
     updatedAt: Date;
 
-    @ManyToOne(() => Team, team => team.players)
-    team: Team;
+    @OneToMany(() => PlayerTeamHistory, history => history.player)
+    teamHistory: PlayerTeamHistory[];
 
     @OneToMany(() => GameEvent, gameEvent => gameEvent.assignedPlayer)
     gameEvents: GameEvent[];

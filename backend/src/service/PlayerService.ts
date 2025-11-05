@@ -2,67 +2,78 @@ import logger from "../config/logger";
 import { PlayerRepository } from "../repository/PlayerRepository";
 import { Team } from "../Team";
 import { Player } from "../Player";
+import { PlayerTeamHistory } from "../PlayerTeamHistory";
+import { DataSource } from "typeorm";
 
 export class PlayerService {
-    constructor(private playerRepository: PlayerRepository) {}
+    private playerRepository: PlayerRepository;
 
-    async createPlayer(name: string, jerseyNumber: number, team: Team): Promise<Player> {
-        logger.info(`PlayerService: Creating player ${name} (#${jerseyNumber}) for team ${team.id}`);
+    constructor(AppDataSource: DataSource) {
+        this.playerRepository = new PlayerRepository(AppDataSource);
+    }
+
+    /**
+     * Creates a new Player (timeless attributes) and assigns them to a team via PlayerTeamHistory.
+     * This method is simplified for the MVP to create both the Player and the initial History record.
+     */
+    async createPlayerAndAssignToTeam(
+        name: string, 
+        teamId: string, 
+        jerseyNumber: number | null, 
+        description: string | null
+    ): Promise<PlayerTeamHistory> {
+        logger.info(`PlayerService: Creating player ${name} and assigning to team ${teamId}`);
+        
         if (!name || name.trim() === "") {
             throw new Error("Player name cannot be empty.");
         }
-        if (jerseyNumber <= 0) {
-            throw new Error("Jersey number must be positive.");
-        }
 
-        const existingPlayer = await this.playerRepository.findByTeamAndJerseyNumber(team.id, jerseyNumber);
-        if (existingPlayer) {
-            throw new Error(`Player with jersey number ${jerseyNumber} already exists in team ${team.name}.`);
-        }
+        // 1. Create the timeless Player record
+        const newPlayer = await this.playerRepository.createPlayer(name);
 
-        return this.playerRepository.createPlayer(name, jerseyNumber, team);
+        // 2. Assign the new Player to the Team (creates PlayerTeamHistory record)
+        const historyRecord = await this.playerRepository.assignPlayerToTeam(
+            newPlayer.id, 
+            teamId, 
+            jerseyNumber, 
+            description
+        );
+
+        return historyRecord;
     }
 
-    async getPlayersByTeam(teamId: string): Promise<Player[]> {
-        logger.info(`PlayerService: Getting players for team: ${teamId}`);
-        return this.playerRepository.findPlayersByTeam(teamId);
+    /**
+     * Retrieves all active PlayerTeamHistory records for a given team.
+     */
+    async getPlayersByTeam(teamId: string): Promise<PlayerTeamHistory[]> {
+        logger.info(`PlayerService: Getting active players for team: ${teamId}`);
+        return this.playerRepository.findActivePlayersByTeam(teamId);
     }
 
-    async getPlayerByIdAndTeam(playerId: string, teamId: string): Promise<Player | null> {
-        logger.info(`PlayerService: Getting player ${playerId} for team: ${teamId}`);
-        return this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
+    /**
+     * Updates the assignment details (jersey, description) for a player on a specific team.
+     */
+    async updatePlayerAssignment(
+        playerId: string, 
+        teamId: string, 
+        jerseyNumber: number | null, 
+        description: string | null
+    ): Promise<PlayerTeamHistory> {
+        logger.info(`PlayerService: Updating assignment for player ${playerId} on team ${teamId}`);
+        
+        const history = await this.playerRepository.findHistoryRecord(playerId, teamId);
+        if (!history) {
+            throw new Error("Player not found on this team's roster.");
+        }
+
+        return this.playerRepository.updateHistoryRecord(history, jerseyNumber, description);
     }
 
-    async updatePlayer(playerId: string, teamId: string, newName: string, newJerseyNumber: number): Promise<Player> {
-        logger.info(`PlayerService: Updating player ${playerId} in team ${teamId} to name: ${newName}, jersey: ${newJerseyNumber}`);
-        const player = await this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
-        if (!player) {
-            throw new Error("Player not found or you do not have permission to update it.");
-        }
-        if (!newName || newName.trim() === "") {
-            throw new Error("Player name cannot be empty.");
-        }
-        if (newJerseyNumber <= 0) {
-            throw new Error("Jersey number must be positive.");
-        }
-
-        // Check if new jersey number already exists for another player in the same team
-        if (newJerseyNumber !== player.jerseyNumber) {
-            const existingPlayerWithNewJersey = await this.playerRepository.findByTeamAndJerseyNumber(teamId, newJerseyNumber);
-            if (existingPlayerWithNewJersey) {
-                throw new Error(`Player with jersey number ${newJerseyNumber} already exists in this team.`);
-            }
-        }
-
-        return this.playerRepository.updatePlayer(player, newName, newJerseyNumber);
-    }
-
-    async deletePlayer(playerId: string, teamId: string): Promise<void> {
-        logger.info(`PlayerService: Deleting player ${playerId} from team: ${teamId}`);
-        const player = await this.playerRepository.findPlayerByIdAndTeam(playerId, teamId);
-        if (!player) {
-            throw new Error("Player not found or you do not have permission to delete it.");
-        }
-        await this.playerRepository.deletePlayer(playerId, teamId);
+    /**
+     * Removes a player from a team's roster by deleting the PlayerTeamHistory record.
+     */
+    async removePlayerFromTeam(playerId: string, teamId: string): Promise<void> {
+        logger.info(`PlayerService: Removing player ${playerId} from team ${teamId} roster.`);
+        await this.playerRepository.deleteHistoryRecord(playerId, teamId);
     }
 }

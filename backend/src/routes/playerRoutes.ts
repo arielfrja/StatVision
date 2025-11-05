@@ -1,12 +1,8 @@
 import { Router, Request } from 'express';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { User } from '../User';
-import { TeamRepository } from '../repository/TeamRepository';
 import { TeamService } from '../service/TeamService';
-import { PlayerRepository } from '../repository/PlayerRepository';
 import { PlayerService } from '../service/PlayerService';
-import { Team } from '../Team';
-import { Player } from '../Player';
 import logger from '../config/logger';
 
 interface PlayerRequestParams extends Request {
@@ -18,25 +14,15 @@ interface PlayerRequestParams extends Request {
 
 const router = Router({ mergeParams: true }); // mergeParams to access teamId from parent route
 
-export const playerRoutes = (AppDataSource: DataSource) => {
+export const playerRoutes = (AppDataSource: DataSource, teamService: TeamService, playerService: PlayerService) => {
     const userRepository = AppDataSource.getRepository(User);
-    const teamRepository = AppDataSource.getRepository(Team);
-    const playerRepository = AppDataSource.getRepository(Player) as Repository<Player>;
-    
-    // Instantiate custom repositories
-    const customTeamRepository = new TeamRepository(teamRepository);
-    const customPlayerRepository = new PlayerRepository(playerRepository);
-
-    // Instantiate services
-    const teamService = new TeamService(customTeamRepository);
-    const playerService = new PlayerService(customPlayerRepository);
 
     /**
      * @swagger
      * /teams/{teamId}/players:
      *   get:
-     *     summary: Get all players for a specific team of the authenticated user.
-     *     description: Retrieves a list of all players belonging to a specified team, ensuring the team is owned by the authenticated user.
+     *     summary: Get all active players for a specific team of the authenticated user.
+     *     description: Retrieves a list of all active players (PlayerTeamHistory records) belonging to a specified team.
      *     tags: [Players]
      *     security:
      *       - bearerAuth: []
@@ -49,13 +35,13 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      *         description: The ID of the team to retrieve players from.
      *     responses:
      *       200:
-     *         description: A list of players.
+     *         description: A list of PlayerTeamHistory records (including nested Player details).
      *         content:
      *           application/json:
      *             schema:
      *               type: array
      *               items:
-     *                 $ref: '#/components/schemas/Player'
+     *                 $ref: '#/components/schemas/PlayerTeamHistory'
      *       401:
      *         description: Unauthorized - User ID not found or invalid token.
      *       404:
@@ -93,8 +79,8 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      * @swagger
      * /teams/{teamId}/players:
      *   post:
-     *     summary: Create a new player for a specific team of the authenticated user.
-     *     description: Creates a new player and associates them with a specified team, ensuring the team is owned by the authenticated user.
+     *     summary: Create a new player and assign them to a team.
+     *     description: Creates a new timeless Player record and an associated PlayerTeamHistory record.
      *     tags: [Players]
      *     security:
      *       - bearerAuth: []
@@ -113,7 +99,6 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      *             type: object
      *             required:
      *               - name
-     *               - jerseyNumber
      *             properties:
      *               name:
      *                 type: string
@@ -121,27 +106,32 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      *                 example: John Doe
      *               jerseyNumber:
      *                 type: number
-     *                 description: The jersey number of the new player.
+     *                 nullable: true
+     *                 description: The jersey number of the new player (optional).
      *                 example: 10
+     *               description:
+     *                 type: string
+     *                 nullable: true
+     *                 description: A short description for amateur players (optional).
      *     responses:
      *       201:
-     *         description: Player created successfully.
+     *         description: PlayerTeamHistory record created successfully.
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/Player'
+     *               $ref: '#/components/schemas/PlayerTeamHistory'
      *       400:
-     *         description: Invalid input (e.g., missing name, invalid jersey number, or jersey number already exists).
+     *         description: Invalid input (e.g., missing name).
      *       401:
-     *         description: Unauthorized - User ID not found or invalid token.
+     *         description: Unauthorized.
      *       404:
-     *         description: Team not found or you do not have permission to add players to it.
+     *         description: Team not found or you do not have permission.
      *       500:
      *         description: Internal server error creating player.
      */
     router.post("/", async (req: PlayerRequestParams, res) => {
         const { teamId } = req.params;
-        const { name, jerseyNumber } = req.body;
+        const { name, jerseyNumber, description } = req.body;
         try {
             const providerUid = req.user?.uid;
             if (!providerUid) {
@@ -156,10 +146,17 @@ export const playerRoutes = (AppDataSource: DataSource) => {
             if (!team) {
                 return res.status(404).send("Team not found or you do not have permission to add players to it.");
             }
-            logger.info(`User ${user.id} creating player ${name} (#${jerseyNumber}) for team ${teamId}.`);
-            const newPlayer = await playerService.createPlayer(name, jerseyNumber, team);
-            logger.info(`User ${user.id} created player ${newPlayer.name} (${newPlayer.id}) for team ${teamId}.`);
-            res.status(201).json(newPlayer);
+            logger.info(`User ${user.id} creating player ${name} for team ${teamId}.`);
+            
+            const newHistoryRecord = await playerService.createPlayerAndAssignToTeam(
+                name, 
+                teamId, 
+                jerseyNumber || null, 
+                description || null
+            );
+            
+            logger.info(`User ${user.id} created player and assignment (${newHistoryRecord.id}) for team ${teamId}.`);
+            res.status(201).json(newHistoryRecord);
         } catch (error: any) {
             logger.error("Error creating player:", error);
             res.status(400).send(error.message);
@@ -170,8 +167,8 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      * @swagger
      * /teams/{teamId}/players/{playerId}:
      *   put:
-     *     summary: Update a player for a specific team of the authenticated user.
-     *     description: Updates the details of a specific player belonging to a specified team, ensuring the team is owned by the authenticated user.
+     *     summary: Update a player's assignment details (jersey, description) for a specific team.
+     *     description: Updates the PlayerTeamHistory record for a player on a team.
      *     tags: [Players]
      *     security:
      *       - bearerAuth: []
@@ -194,213 +191,134 @@ export const playerRoutes = (AppDataSource: DataSource) => {
      *         application/json:
      *           schema:
      *             type: object
-     *             required:
-     *               - name
-     *               - jerseyNumber
      *             properties:
-     *               name:
-     *                 type: string
-     *                 description: The new name for the player.
-     *                 example: Jane Doe
      *               jerseyNumber:
      *                 type: number
-     *                 description: The new jersey number for the player.
+     *                 nullable: true
+     *                 description: The new jersey number for the player (optional).
      *                 example: 12
+     *               description:
+     *                 type: string
+     *                 nullable: true
+     *                 description: A short description for amateur players (optional).
      *     responses:
      *       200:
-     *         description: Player updated successfully.
+     *         description: Player assignment updated successfully.
      *         content:
      *           application/json:
      *             schema:
-     *               $ref: '#/components/schemas/Player'
+     *               $ref: '#/components/schemas/PlayerTeamHistory'
      *       400:
-     *         description: Invalid input (e.g., missing name, invalid jersey number, or jersey number already exists) or player not found/permission denied.
+     *         description: Invalid input.
      *       401:
-     *         description: Unauthorized - User ID not found or invalid token.
+     *         description: Unauthorized.
      *       404:
-     *         description: Team or Player not found or you do not have permission to update it.
+     *         description: Team or Player assignment not found.
      *       500:
      *         description: Internal server error updating player.
      */
-                router.post("/", async (req: PlayerRequestParams, res) => {
-                    const { teamId } = req.params;
-                    const { name, jerseyNumber } = req.body;
-                    try {
-                        const providerUid = req.user?.uid;
-                        if (!providerUid) {
-                            return res.status(401).send("Unauthorized: User ID not found.");
-                        }
-                        const user = await userRepository.findOneBy({ providerUid });
-                        if (!user) {
-                            return res.status(404).send("User not found in database.");
-                        }
-                        // Verify team belongs to user
-                        const team = await teamService.getTeamByIdAndUser(teamId, user.id);
-                        if (!team) {
-                            return res.status(404).send("Team not found or you do not have permission to add players to it.");
-                        }
-                        logger.info(`User ${user.id} creating player ${name} (#${jerseyNumber}) for team ${teamId}.`);
-                        const newPlayer = await playerService.createPlayer(name, jerseyNumber, team);
-                        logger.info(`User ${user.id} created player ${newPlayer.name} (${newPlayer.id}) for team ${teamId}.`);
-                        res.status(201).json(newPlayer);
-                    } catch (error: any) {
-                        logger.error("Error creating player:", error);
-                        res.status(400).send(error.message);
-                    }
-                });
+    router.put("/:playerId", async (req: PlayerRequestParams, res) => {
+        const { teamId, playerId } = req.params;
+        const { jerseyNumber, description } = req.body;
+        
+        if (!teamId || !playerId) {
+            return res.status(400).send("Bad Request: teamId and playerId are required.");
+        }
+        
+        try {
+            const providerUid = req.user?.uid;
+            if (!providerUid) {
+                return res.status(401).send("Unauthorized: User ID not found.");
+            }
+            const user = await userRepository.findOneBy({ providerUid });
+            if (!user) {
+                return res.status(404).send("User not found in database.");
+            }
+            // Verify team belongs to user
+            const team = await teamService.getTeamByIdAndUser(teamId, user.id);
+            if (!team) {
+                return res.status(404).send("Team not found or you do not have permission to update players in it.");
+            }
             
-                /**
-                 * @swagger
-                 * /teams/{teamId}/players/{playerId}:
-                 *   put:
-                 *     summary: Update a player for a specific team of the authenticated user.
-                 *     description: Updates the details of a specific player belonging to a specified team, ensuring the team is owned by the authenticated user.
-                 *     tags: [Players]
-                 *     security:
-                 *       - bearerAuth: []
-                 *     parameters:
-                 *       - in: path
-                 *         name: teamId
-                 *         schema:
-                 *           type: string
-                 *         required: true
-                 *         description: The ID of the team the player belongs to.
-                 *       - in: path
-                 *         name: playerId
-                 *         schema:
-                 *           type: string
-                 *         required: true
-                 *         description: The ID of the player to update.
-                 *     requestBody:
-                 *       required: true
-                 *       content:
-                 *         application/json:
-                 *           schema:
-                 *             type: object
-                 *             required:
-                 *               - name
-                 *               - jerseyNumber
-                 *             properties:
-                 *               name:
-                 *                 type: string
-                 *                 description: The new name for the player.
-                 *                 example: Jane Doe
-                 *               jerseyNumber:
-                 *                 type: number
-                 *                 description: The new jersey number for the player.
-                 *                 example: 12
-                 *     responses:
-                 *       200:
-                 *         description: Player updated successfully.
-                 *         content:
-                 *           application/json:
-                 *             schema:
-                 *               $ref: '#/components/schemas/Player'
-                 *       400:
-                 *         description: Invalid input (e.g., missing name, invalid jersey number, or jersey number already exists) or player not found/permission denied.
-                 *       401:
-                 *         description: Unauthorized - User ID not found or invalid token.
-                 *       404:
-                 *         description: Team or Player not found or you do not have permission to update it.
-                 *       500:
-                 *         description: Internal server error updating player.
-                 */
-                router.put("/:playerId", async (req: PlayerRequestParams, res) => {
-                    const { teamId, playerId } = req.params;
-                    const { name, jerseyNumber } = req.body;
-                    if (!teamId) {
-                        return res.status(400).send("Bad Request: teamId is required.");
-                    }
-                    if (!playerId) {
-                        return res.status(400).send("Bad Request: playerId is required.");
-                    }
-                    try {
-                        const providerUid = req.user?.uid;
-                        if (!providerUid) {
-                            return res.status(401).send("Unauthorized: User ID not found.");
-                        }
-                        const user = await userRepository.findOneBy({ providerUid });
-                        if (!user) {
-                            return res.status(404).send("User not found in database.");
-                        }
-                        // Verify team belongs to user
-                        const team = await teamService.getTeamByIdAndUser(teamId, user.id);
-                        if (!team) {
-                            return res.status(404).send("Team not found or you do not have permission to update players in it.");
-                        }
-                        logger.info(`User ${user.id} updating player ${playerId} in team ${teamId} to ${name} (#${jerseyNumber}).`);
-                        const updatedPlayer = await playerService.updatePlayer(playerId, teamId, name, jerseyNumber);
-                        logger.info(`User ${user.id} updated player ${updatedPlayer.name} (${updatedPlayer.id}) in team ${teamId}.`);
-                        res.status(200).json(updatedPlayer);
-                    } catch (error: any) {
-                        logger.error("Error updating player:", error);
-                        res.status(400).send(error.message);
-                    }
-                });
+            logger.info(`User ${user.id} updating player assignment ${playerId} in team ${teamId}.`);
             
-                /**
-                 * @swagger
-                 * /teams/{teamId}/players/{playerId}:
-                 *   delete:
-                 *     summary: Delete a player for a specific team of the authenticated user.
-                 *     description: Deletes a specific player belonging to a specified team, ensuring the team is owned by the authenticated user.
-                 *     tags: [Players]
-                 *     security:
-                 *       - bearerAuth: []
-                 *     parameters:
-                 *       - in: path
-                 *         name: teamId
-                 *         schema:
-                 *           type: string
-                 *         required: true
-                 *         description: The ID of the team the player belongs to.
-                 *       - in: path
-                 *         name: playerId
-                 *         schema:
-                 *           type: string
-                 *         required: true
-                 *         description: The ID of the player to delete.
-                 *     responses:
-                 *       204:
-                 *         description: Player deleted successfully (No Content).
-                 *       401:
-                 *         description: Unauthorized - User ID not found or invalid token.
-                 *       404:
-                 *         description: Team or Player not found or you do not have permission to delete it.
-                 *       500:
-                 *         description: Internal server error deleting player.
-                 */
-                router.delete("/:playerId", async (req: PlayerRequestParams, res) => {
-                    const { teamId, playerId } = req.params;
-                    if (!teamId) {
-                        return res.status(400).send("Bad Request: teamId is required.");
-                    }
-                    if (!playerId) {
-                        return res.status(400).send("Bad Request: playerId is required.");
-                    }
-                    try {
-                        const providerUid = req.user?.uid;
-                        if (!providerUid) {
-                            return res.status(401).send("Unauthorized: User ID not found.");
-                        }
-                        const user = await userRepository.findOneBy({ providerUid });
-                        if (!user) {
-                            return res.status(404).send("User not found in database.");
-                        }
-                        // Verify team belongs to user
-                        const team = await teamService.getTeamByIdAndUser(teamId, user.id);
-                        if (!team) {
-                            return res.status(404).send("Team not found or you do not have permission to delete players from it.");
-                        }
-                        logger.info(`User ${user.id} deleting player ${playerId} from team ${teamId}.`);
-                        await playerService.deletePlayer(playerId, teamId);
-                        logger.info(`User ${user.id} deleted player ${playerId} from team ${teamId}.`);
-                        res.status(204).send();
-                    } catch (error: any) {
-                        logger.error("Error deleting player:", error);
-                        res.status(400).send(error.message);
-                    }
-                });
+            const updatedHistory = await playerService.updatePlayerAssignment(
+                playerId, 
+                teamId, 
+                jerseyNumber || null, 
+                description || null
+            );
+            
+            logger.info(`User ${user.id} updated player assignment (${updatedHistory.id}) in team ${teamId}.`);
+            res.status(200).json(updatedHistory);
+        } catch (error: any) {
+            logger.error("Error updating player assignment:", error);
+            res.status(400).send(error.message);
+        }
+    });
+
+    /**
+     * @swagger
+     * /teams/{teamId}/players/{playerId}:
+     *   delete:
+     *     summary: Remove a player from a specific team's roster.
+     *     description: Deletes the PlayerTeamHistory record, effectively removing the player from the team's roster.
+     *     tags: [Players]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: teamId
+     *         schema:
+     *           type: string
+     *         required: true
+     *         description: The ID of the team the player belongs to.
+     *       - in: path
+     *         name: playerId
+     *         schema:
+     *           type: string
+     *         required: true
+     *         description: The ID of the player to remove.
+     *     responses:
+     *       204:
+     *         description: Player removed successfully (No Content).
+     *       401:
+     *         description: Unauthorized.
+     *       404:
+     *         description: Team or Player assignment not found.
+     *       500:
+     *         description: Internal server error deleting player.
+     */
+    router.delete("/:playerId", async (req: PlayerRequestParams, res) => {
+        const { teamId, playerId } = req.params;
+        if (!teamId || !playerId) {
+            return res.status(400).send("Bad Request: teamId and playerId are required.");
+        }
+        
+        try {
+            const providerUid = req.user?.uid;
+            if (!providerUid) {
+                return res.status(401).send("Unauthorized: User ID not found.");
+            }
+            const user = await userRepository.findOneBy({ providerUid });
+            if (!user) {
+                return res.status(404).send("User not found in database.");
+            }
+            // Verify team belongs to user
+            const team = await teamService.getTeamByIdAndUser(teamId, user.id);
+            if (!team) {
+                return res.status(404).send("Team not found or you do not have permission to delete players from it.");
+            }
+            
+            logger.info(`User ${user.id} removing player ${playerId} from team ${teamId} roster.`);
+            await playerService.removePlayerFromTeam(playerId, teamId);
+            logger.info(`User ${user.id} removed player ${playerId} from team ${teamId} roster.`);
+            res.status(204).send();
+        } catch (error: any) {
+            logger.error("Error removing player from team:", error);
+            res.status(400).send(error.message);
+        }
+    });
             
     return router;
 };

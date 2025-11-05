@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from "typeorm";
 import { User } from "./User";
-import { Player } from "./Player";
 import { Game } from "./Game";
 import { GameEvent } from "./GameEvent";
+import { PlayerTeamHistory } from "./PlayerTeamHistory";
 
 @Entity("teams")
 export class Team {
@@ -12,8 +12,11 @@ export class Team {
     @Column({ name: "user_id" })
     userId: string;
 
-    @Column()
+    @Column({ type: "varchar" })
     name: string;
+
+    @Column({ default: false })
+    isTemp: boolean;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
@@ -24,15 +27,11 @@ export class Team {
     @ManyToOne(() => User, user => user.teams)
     user: User;
 
-    @OneToMany(() => Player, player => player.team)
-    players: Player[];
+    @OneToMany(() => PlayerTeamHistory, history => history.team)
+    playerHistory: PlayerTeamHistory[];
 
-    @OneToMany(() => Game, game => game.assignedTeamA)
+    @OneToMany(() => Game, game => game.homeTeam)
     gamesA: Game[];
 
-    @OneToMany(() => Game, game => game.assignedTeamB)
-    gamesB: Game[];
 
-    @OneToMany(() => GameEvent, gameEvent => gameEvent.assignedTeam)
-    gameEvents: GameEvent[];
 }
