@@ -3,6 +3,18 @@ import { IGameRepository } from "../repository/IGameRepository";
 import logger from "../config/logger";
 import { Repository } from "typeorm";
 import { User } from "../User";
+import * as fs from 'fs'; // New import
+
+interface GameCreationData {
+    name: string;
+    gameDate?: Date | null;
+    location?: string | null;
+    opponentName?: string | null;
+    quarterDuration?: number | null;
+    season?: string | null;
+    homeTeamId?: string | null;
+    awayTeamId?: string | null;
+}
 
 export class GameService {
     private gameRepository: IGameRepository;
@@ -17,12 +29,12 @@ export class GameService {
     }
 
     /**
-     * Creates a new Game record with a default status.
+     * Creates a new Game record with a default status and new metadata.
      * @param auth0Uid The Auth0 UID from the JWT.
-     * @param gameName The name/description of the game.
+     * @param data The game creation data including new metadata fields.
      * @returns A promise that resolves to the newly created Game entity.
      */
-    async createGame(auth0Uid: string, gameName: string): Promise<Game> {
+    async createGame(auth0Uid: string, data: GameCreationData): Promise<Game> {
         const user = await this.userRepository.findOne({ where: { providerUid: auth0Uid } });
 
         if (!user) {
@@ -32,8 +44,17 @@ export class GameService {
 
         const newGame = new Game();
         newGame.userId = user.id;
-        newGame.name = gameName;
+        newGame.name = data.name;
         newGame.status = GameStatus.UPLOADED; // Initial status before file upload is confirmed
+        
+        // New Metadata Fields
+        newGame.gameDate = data.gameDate || null;
+        newGame.location = data.location || null;
+        newGame.opponentName = data.opponentName || null;
+        newGame.quarterDuration = data.quarterDuration || null;
+        newGame.season = data.season || null;
+        newGame.homeTeamId = data.homeTeamId || null;
+        newGame.awayTeamId = data.awayTeamId || null;
 
         return this.gameRepository.create(newGame);
     }
@@ -45,12 +66,7 @@ export class GameService {
      */
     async updateGameStatus(gameId: string, newStatus: GameStatus): Promise<void> {
         logger.info(`GameService: Attempting to update game ${gameId} status to ${newStatus}.`);
-        
-        // In a more complex scenario, we would add logic here to check for valid status transitions.
-        // For MVP, we rely on the repository to handle the update.
-        
         await this.gameRepository.updateStatus(gameId, newStatus);
-        
         logger.info(`GameService: Status update successful for game ${gameId}.`);
     }
 
@@ -62,10 +78,7 @@ export class GameService {
      */
     async updateGameFilePathAndStatus(gameId: string, filePath: string, newStatus: GameStatus): Promise<void> {
         logger.info(`GameService: Attempting to update game ${gameId} file path and status to ${newStatus}.`);
-        
-        // This method assumes the repository has a method to update both fields.
         await this.gameRepository.updateFilePathAndStatus(gameId, filePath, newStatus);
-        
         logger.info(`GameService: File path and status update successful for game ${gameId}.`);
     }
 
@@ -100,5 +113,36 @@ export class GameService {
         }
 
         return this.gameRepository.findOneWithDetails(gameId, user.id);
+    }
+
+    /**
+     * Deletes a game and all its associated data.
+     * @param gameId The ID of the game to delete.
+     * @param userId The ID of the user who owns the game.
+     */
+    async deleteGame(gameId: string, userId: string): Promise<void> {
+        logger.info(`GameService: Deleting game ${gameId} for user ${userId}.`);
+
+        // 1. Find the game to get its file path
+        const game = await this.gameRepository.findOneByIdAndUserId(gameId, userId);
+        if (!game) {
+            logger.warn(`GameService: Attempted to delete non-existent game ${gameId} for user ${userId}.`);
+            throw new Error("Game not found or does not belong to user.");
+        }
+
+        // 2. Delete associated video file if it exists
+        if (game.filePath) {
+            try {
+                await fs.promises.unlink(game.filePath);
+                logger.info(`GameService: Successfully deleted video file: ${game.filePath}`);
+            } catch (error) {
+                logger.error(`GameService: Failed to delete video file ${game.filePath} for game ${gameId}:`, error);
+                // Continue with database deletion even if file deletion fails
+            }
+        }
+
+        // 3. Delete the game and all its cascade-deleted relations (events, stats)
+        await this.gameRepository.delete(gameId, userId);
+        logger.info(`GameService: Successfully deleted game ${gameId} and its associated database records.`);
     }
 }
