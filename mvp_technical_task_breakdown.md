@@ -4,7 +4,7 @@
 - [x] **[DEVOPS-01]** Configure Auth0 (Auth).
 - [ ] **[DEVOPS-02]** Provision a managed PostgreSQL instance and configure access rules.
 - [ ] **[DEVOPS-03]** Configure a Google Cloud Storage bucket with appropriate permissions. (Future: For video archival and interactive playback).
-- [ ] **[DEVOPS-04]** Set up a Pub/Sub topic for upload events. (Future: For decoupling API and Worker services).
+- [x] **[DEVOPS-04]** Set up a Pub/Sub topic for upload events. (For decoupling API and Worker services).
 - [ ] **[DEVOPS-05]** Configure CI/CD pipeline for deploying the Next.js frontend to Vercel.
 - [ ] **[DEVOPS-06]** Configure CI/CD pipeline for building and deploying the backend services (API, Worker) as containers to Google Cloud Run.
 - [x] **[DEVOPS-07]** Implement centralized logging for backend services using Winston, capturing request/response details and errors.
@@ -38,12 +38,13 @@
 - [ ] **[STORY]** As an Analyst, I want to upload a video to have it analyzed by the AI.
     - [x] **[BE-301]** Create `games` (with new metadata: date, location, opponent) and `game_events` (with new granular fields: x/y coords, period, time remaining) table schemas and migrations.
     - [x] **[BE-302]** Implement the API endpoint `POST /games/upload` to handle direct video upload to the local server filesystem.
-    - [ ] **[BE-303]** Implement the **Local Video Processor Service** (In-Process Worker) with a clear interface, responsible for video processing, chunking, calling the Gemini API, and parsing the response. (Designed for easy migration to a separate Worker Service later).
-    - [ ] **[BE-304]** Implement the Repository layer for `GameEvents` to allow for batch insertion of parsed data into PostgreSQL.
+    - [x] **[BE-303]** Implement the **Video Processing Worker Service** (Decoupled Microservice Design) with a clear interface, responsible for consuming video upload events, video processing, chunking (2:30 duration, 30s overlap), calling the Gemini API, parsing the response, and generating chunk metadata (sequence number, timestamp in video, absolute original time).
+    - [x] **[BE-304]** Implement the Repository layer for `GameEvents` to allow for batch insertion of parsed data into PostgreSQL.
     - [x] **[BE-305]** Implement the logic to update the game status in the database at each stage of the process.
-    - [ ] **[BE-305.1]** Implement logic to calculate and store **detailed derived stats** (including shooting splits, turnovers, fouls, and efficiency metrics) in the `game_team_stats` and `game_player_stats` tables after event insertion. **(Must adhere to Statistical Flexibility Constraint)**
+    - [x] **[BE-305.1]** Implement logic to calculate and store **detailed derived stats** (including shooting splits, turnovers, fouls, and efficiency metrics) in the `game_team_stats` and `game_player_stats` tables after event insertion.
     - [x] **[FE-301]** Build the "Analyze New Game" UI component with a standard file upload form.
     - [x] **[FE-302]** Implement the client-side logic to perform the direct upload to the API endpoint.
+    - [x] **[BE-306]** Implement the main backend API logic to publish video upload events to the Pub/Sub topic after a successful video upload.
 
 ### [EPIC] Assignment & Visualization
 - [ ] **[STORY]** As an Analyst, I want to assign AI data to my rosters so the stats are meaningful.
@@ -51,6 +52,10 @@
     - [ ] **[BE-402]** Implement the business logic in `GameService` to handle the assignment, including the automatic player matching.
     - [ ] **[FE-401]** Build the "Assignment Screen" UI.
     - [ ] **[FE-402]** Implement the logic to fetch game data, populate dropdowns, and submit the final assignments to the API.
+- [ ] **[STORY]** As an Analyst, I want to customize which stats are displayed so I can focus on the metrics most relevant to my analysis.
+    - [ ] **[FE-403]** Design and implement a UI component for selecting desired stats (e.g., a multi-select dropdown or checkboxes).
+    - [ ] **[BE-403]** Implement a mechanism to store user-specific stat preferences (e.g., a new table `user_preferences` or a JSONB column in the `users` table).
+    - [ ] **[BE-404]** Modify existing API endpoints (e.g., `GET /games/{id}`, `GET /teams/{id}/players`) to filter or prioritize stats based on user preferences.
 - [ ] **[STORY]** As an Analyst, I want to view the final analysis with interactive video.
     - [x] **[BE-500]** Implement the API endpoint `GET /games` that returns a list of all games for the authenticated user.
     - [x] **[BE-500.1]** Enhance `GET /games` to include `assignedTeamA` and `assignedTeamB` names for the dashboard view.

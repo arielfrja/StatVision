@@ -1,10 +1,10 @@
-# Next Sprint Plan: Responsive Navigation & Dashboard
+### Next Sprint Plan: Decoupled Video Processing Worker
 
-**Goal:** Implement a responsive, persistent navigation structure and establish the main authenticated dashboard view.
+**Reference:** For detailed architecture, see `backend/docs/video_processing_architecture.md`.
+
+**Goal:** Implement a decoupled video processing worker service, designed as a microservice, and integrate it with the main backend API via a messaging queue.
 
 ## Tasks
 
-*   **[FE-601]** Create a new `SideNav.tsx` component for persistent desktop navigation.
-*   **[FE-602]** Create a new `BottomNav.tsx` component for responsive mobile navigation.
-*   **[FE-603]** Integrate navigation components into `frontend/src/app/layout.tsx` with responsive logic.
-*   **[FE-604]** Refactor the home page (`/app/page.tsx`) to serve as the main authenticated Dashboard.
+*   **[BE-303]** Implement the **Video Processing Worker Service** (Decoupled Microservice Design) with a clear interface, responsible for consuming video upload events, video processing, chunking (2:30 duration, 30s overlap), calling the Gemini API, parsing the response, and generating chunk metadata (sequence number, timestamp in video, absolute original time). The processor should detect overlapping events and count them only once, and each video segment should detect only events *started* in the first 2 minutes of the segment.
+*   **[BE-306]** Implement the main backend API logic to publish video upload events to the Pub/Sub topic after a successful video upload.
