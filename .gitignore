@@ -4,3 +4,21 @@ firebase-config.js
 last_token.txt
 db_info.md
 frontend-test/
+team_creation_response*.json
+team_creation_error.log
+uploads/
+
+# Backend
+backend/node_modules/
+backend/build/
+backend/tmp/
+backend/src/tmp/
+backend/.env
+backend/*.log
+gcp-key-PubSub.json
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/firebase-debug.log
