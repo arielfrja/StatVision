@@ -9,11 +9,15 @@ export class GamePlayerStatsRepository {
     }
 
     // Add methods here if needed, otherwise it's just a wrapper for the base repository
-    async save(stats: GamePlayerStats[]): Promise<GamePlayerStats[]> {
-        return this.repository.save(stats);
+    async save(stats: GamePlayerStats | GamePlayerStats[]): Promise<GamePlayerStats | GamePlayerStats[]> {
+        return this.repository.save(stats as any); // TypeORM's save method handles both single and array
     }
 
     create(stats: Partial<GamePlayerStats>): GamePlayerStats {
         return this.repository.create(stats);
+    }
+
+    async findOneByGameAndPlayer(gameId: string, playerId: string): Promise<GamePlayerStats | null> {
+        return this.repository.findOne({ where: { gameId, playerId } });
     }
 }

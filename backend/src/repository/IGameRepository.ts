@@ -21,4 +21,7 @@ export interface IGameRepository {
 
     // Method to update the file path and status of a game
     updateFilePathAndStatus(gameId: string, filePath: string, status: GameStatus): Promise<void>;
+
+    // Method to delete a game by ID and user ID
+    delete(gameId: string, userId: string): Promise<void>;
 }

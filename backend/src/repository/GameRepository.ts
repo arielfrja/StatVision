@@ -15,16 +15,25 @@ export class GameRepository implements IGameRepository {
         return this.repository.save(game);
     }
 
+    async findOneById(gameId: string): Promise<Game | null> {
+        return this.repository.findOne({ where: { id: gameId } });
+    }
+
     async findOneByIdAndUserId(gameId: string, userId: string): Promise<Game | null> {
         return this.repository.findOne({ where: { id: gameId, userId: userId } });
     }
 
-    async updateStatus(gameId: string, status: GameStatus): Promise<void> {
+    async updateStatus(gameId: string, status: GameStatus, failedChunkInfo: { chunkPath: string; startTime: number; sequence: number; }[] | null = null): Promise<void> {
         logger.info(`Updating game ${gameId} status to ${status}`);
-        
+
+        const updateData: { status: GameStatus; failedChunkInfo?: { chunkPath: string; startTime: number; sequence: number; }[] | null } = { status: status };
+        if (failedChunkInfo !== null) {
+            updateData.failedChunkInfo = failedChunkInfo;
+        }
+
         const result = await this.repository.update(
             { id: gameId },
-            { status: status }
+            updateData
         );
 
         if (result.affected === 0) {
@@ -54,7 +63,7 @@ export class GameRepository implements IGameRepository {
     async findAllByUserId(userId: string): Promise<Game[]> {
         return this.repository.find({
             where: { userId: userId },
-            relations: ["assignedTeamA", "assignedTeamB"], // Eagerly load team data
+            relations: ["homeTeam", "awayTeam"], // Eagerly load team data
             order: { uploadedAt: "DESC" }
         });
     }
@@ -66,8 +75,8 @@ export class GameRepository implements IGameRepository {
                 "events", // GameEvents
                 "events.assignedTeam", // Team assigned to the event
                 "events.assignedPlayer", // Player assigned to the event
-                "assignedTeamA", // Team A details
-                "assignedTeamB", // Team B details
+                "homeTeam", // Home Team details
+                "awayTeam", // Away Team details
                 "teamStats", // GameTeamStats
                 "teamStats.team", // Load team details for the stats record
                 "playerStats", // GamePlayerStats
@@ -88,8 +97,8 @@ export class GameRepository implements IGameRepository {
                 "events",
                 "events.assignedTeam",
                 "events.assignedPlayer",
-                "assignedTeamA",
-                "assignedTeamB",
+                "homeTeam",
+                "awayTeam",
                 "teamStats",
                 "playerStats",
             ],
@@ -99,5 +108,16 @@ export class GameRepository implements IGameRepository {
                 }
             }
         });
+    }
+
+    async delete(gameId: string, userId: string): Promise<void> {
+        logger.info(`Attempting to delete game ${gameId} for user ${userId} from the database.`);
+        const result = await this.repository.delete({ id: gameId, userId: userId });
+
+        if (result.affected === 0) {
+            logger.warn(`Game deletion failed: Game ${gameId} not found for user ${userId}.`);
+            throw new Error(`Game ${gameId} not found for user ${userId} for deletion.`);
+        }
+        logger.info(`Game ${gameId} successfully deleted from the database.`);
     }
 }
