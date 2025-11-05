@@ -83,7 +83,7 @@ export class GamePlayerStats {
     @Column({ type: "jsonb", nullable: true })
     details: any; // For future stats
 
-    @ManyToOne(() => Game)
+    @ManyToOne(() => Game, { onDelete: 'CASCADE' })
     @JoinColumn({ name: "game_id" })
     game: Game;
 
