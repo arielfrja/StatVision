@@ -11,6 +11,7 @@ import * as cliProgress from 'cli-progress';
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { VideoChunkerService, VideoChunk } from "../service/VideoChunkerService";
+import { GeminiAnalysisService, GeminiApiResponse } from "../service/GeminiAnalysisService";
 
 interface PubSubMessage {
     gameId: string;
@@ -41,6 +42,7 @@ export class VideoProcessorWorker {
     private genAI: GoogleGenerativeAI;
     private logger: winston.Logger; // Add a private logger property
     private videoChunkerService: VideoChunkerService; // Add this line
+    private geminiAnalysisService: GeminiAnalysisService; // Add this line
 
     constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
@@ -53,6 +55,7 @@ export class VideoProcessorWorker {
             throw new Error("GEMINI_API_KEY environment variable not set!");
         }
         this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.geminiAnalysisService = new GeminiAnalysisService(this.genAI); // Add this line
     }
 
     public async startConsumingMessages(): Promise<void> {
@@ -156,13 +159,13 @@ export class VideoProcessorWorker {
 
             if (runInParallel) {
                 currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Parallel)', unit: 'chunks' });
-                const allChunkPromises = videoChunksToProcess.map(chunkInfo => this.callGeminiApi(chunkInfo, currentTaskProgressBar, identifiedPlayers, identifiedTeams));
+                const allChunkPromises = videoChunksToProcess.map(chunkInfo => this.geminiAnalysisService.callGeminiApi(chunkInfo, identifiedPlayers, identifiedTeams));
                 allGeminiResults = await Promise.all(allChunkPromises);
             } else {
                 currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Sequential)', unit: 'chunks' });
                 allGeminiResults = [];
                 for (const chunkInfo of videoChunksToProcess) {
-                    const result = await this.callGeminiApi(chunkInfo, currentTaskProgressBar, identifiedPlayers, identifiedTeams);
+                    const result = await this.geminiAnalysisService.callGeminiApi(chunkInfo, identifiedPlayers, identifiedTeams);
                     allGeminiResults.push(result);
                 }
             }
@@ -253,97 +256,7 @@ export class VideoProcessorWorker {
     }
 
 
-    private async callGeminiApi(chunkInfo: { chunkPath: string; startTime: number; sequence: number; }, progressBar: cliProgress.SingleBar, identifiedPlayers: any[], identifiedTeams: any[]): Promise<{ status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: any; error: any }> {
-        const { chunkPath } = chunkInfo;
-        this.logger.info(`[Gemini] Starting API call for ${chunkPath}`);
 
-        try {
-            const schema: Schema = {
-                type: SchemaType.ARRAY,
-                items: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                        eventType: { type: SchemaType.STRING },
-                        timestamp: { type: SchemaType.STRING },
-                        description: { type: SchemaType.STRING },
-                        identifiedJerseyNumber: { type: SchemaType.STRING },
-                        identifiedTeamColor: { type: SchemaType.STRING },
-                        identifiedPlayerDescription: { type: SchemaType.STRING }, // New field
-                        identifiedTeamDescription: { type: SchemaType.STRING },   // New field
-                        assignedTeamType: { type: SchemaType.STRING, enum: ['HOME', 'AWAY'], format: "enum" }, // New field for home/away
-                    },
-                    required: ["eventType", "timestamp", "description"],
-                },
-            };
-
-            const model = this.genAI.getGenerativeModel({
-                model: "gemini-2.5-flash",
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: schema,
-                },
-            });
-
-            this.logger.debug(`[Gemini] Reading and encoding file: ${chunkPath}`);
-            const videoBase64 = fs.readFileSync(chunkPath).toString('base64');
-            this.logger.info(`[Gemini] File encoded. Size: ${(videoBase64.length / 1024 / 1024).toFixed(2)} MB. Sending to API...`);
-
-            let prompt = `You are an expert basketball analyst. Your task is to watch this video chunk and identify all significant gameplay events. For each event, provide its type, a brief description, and its timestamp relative to the start of this video chunk.\n\nIdentify players and teams using the following guidelines:\n- If identifiable, provide the jersey number (identifiedJerseyNumber) and team color (identifiedTeamColor).\n- If jersey number or team color are not clear, provide a brief physical description of the player (identifiedPlayerDescription, e.g., "tall player with red shoes", "player with a headband").\n- If team color is not clear, provide a brief description of the team (identifiedTeamDescription, e.g., "team in dark shirts", "team in light shirts").\n- Crucially, assign each player to either the 'HOME' or 'AWAY' team (assignedTeamType). Define 'HOME' as the team that starts with possession or is generally more prominent, and 'AWAY' as the opposing team. Maintain this distinction consistently throughout the analysis.\n\nPrioritize jersey number and team color if available and clear. Ensure consistent descriptions for the same player/team across events within this video chunk.\n\n`;
-
-            if (identifiedTeams.length > 0) {
-                prompt += `\nKnown Teams from previous chunks: ${JSON.stringify(identifiedTeams)}. Try to match new observations to these teams.`;
-            }
-            if (identifiedPlayers.length > 0) {
-                prompt += `\nKnown Players from previous chunks: ${JSON.stringify(identifiedPlayers)}. Try to match new observations to these players.`;
-            }
-
-            prompt += `\n\nThe 'eventType' field must be one of the following exact values: ${ALLOWED_EVENT_TYPES.join(", ")}. \n\nRespond with a JSON array conforming to the provided schema.`;
-
-
-            const result = await model.generateContent([
-                prompt,
-                {
-                    inlineData: {
-                        mimeType: "video/mp4",
-                        data: videoBase64,
-                    },
-                },
-            ]);
-            this.logger.info(`[Gemini] API call complete for ${chunkPath}. Processing response...`);
-
-            const response = result.response;
-
-            if (!response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0) {
-                this.logger.warn(`[Gemini] No valid candidates or content found in Gemini API response for ${chunkPath}.`);
-                return { status: 'fulfilled', events: [] };
-            }
-
-            const text = response.candidates[0].content.parts[0].text;
-            if (!text) {
-                this.logger.warn(`[Gemini] Empty text response received for ${chunkPath}.`);
-                return { status: 'fulfilled', events: [] };
-            }
-            const parsedEvents = JSON.parse(text);
-
-            if (Array.isArray(parsedEvents)) {
-                this.logger.info(`[Gemini] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`);
-                this.logger.debug(`[Gemini] Identified Players after API call: ${JSON.stringify(identifiedPlayers)}`);
-                this.logger.debug(`[Gemini] Identified Teams after API call: ${JSON.stringify(identifiedTeams)}`);
-                // When creating a GameEvent, if chunkMetadata is defined, map it to videoClipStartTime and videoClipEndTime
-                const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata };
-            } else {
-                this.logger.warn(`[Gemini] Parsed structured response for ${chunkPath} was not a JSON array.`);
-                return { status: 'fulfilled', events: [] };
-            }
-
-        } catch (error) {
-            this.logger.error(`[Gemini] Error during API call for ${chunkPath}:`, error);
-            return { status: 'rejected', chunkInfo, error };
-        } finally {
-            progressBar.increment({ task: `API Call: ${path.basename(chunkPath)}` });
-        }
-    }
 
     private generateConsistentUuid(input: string): string {
         // Use a namespace for consistency. This can be any valid UUID.
