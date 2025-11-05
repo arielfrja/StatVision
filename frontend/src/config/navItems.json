@@ -1,0 +1,22 @@
+[
+    {
+        "href": "/",
+        "icon": "home",
+        "label": "Dashboard"
+    },
+    {
+        "href": "/games",
+        "icon": "sports_basketball",
+        "label": "Games"
+    },
+    {
+        "href": "/teams",
+        "icon": "groups",
+        "label": "Teams"
+    },
+    {
+        "href": "/settings",
+        "icon": "settings",
+        "label": "Settings"
+    }
+]
