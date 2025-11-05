@@ -5,17 +5,22 @@
   "main": "index.js",
   "scripts": {
     "start": "npx ts-node src/app.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start:worker": "npx ts-node src/startWorker.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "typeorm": "npx typeorm-ts-node-commonjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.9.1",
+    "@types/node": "^16.18.126",
+    "@types/uuid": "^10.0.0",
     "@types/winston": "^2.4.4",
+    "cli-progress": "^3.12.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-jwt": "^8.5.1",
@@ -31,9 +36,12 @@
     "swagger-ui-express": "^5.0.1",
     "ts-node": "^10.9.2",
     "typeorm": "^0.3.27",
+    "typescript": "^4.9.5",
+    "uuid": "^13.0.0",
     "winston": "^3.18.3"
   },
   "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8"
   }
