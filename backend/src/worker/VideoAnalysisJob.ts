@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
@@ -29,16 +30,16 @@ export class VideoAnalysisJob {
     failedChunkInfo: { chunkPath: string; startTime: number; sequence: number; }[] | null;
 
     @Column({ type: "jsonb", nullable: true })
-    processedEvents: any[] | null; // Store raw events from Gemini API
+    processedEvents: ProcessedGameEvent[] | null; // Store raw events from Gemini API
 
     @Column({ type: "jsonb", nullable: true })
     processedStats: any | null; // Store calculated stats
 
     @Column({ type: "jsonb", nullable: true }) // New field for identified players
-    identifiedPlayers: any[] | null;
+    identifiedPlayers: IdentifiedPlayer[] | null;
 
     @Column({ type: "jsonb", nullable: true }) // New field for identified teams
-    identifiedTeams: any[] | null;
+    identifiedTeams: IdentifiedTeam[] | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
