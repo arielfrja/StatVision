@@ -1,0 +1,550 @@
+import { DataSource } from "typeorm";
+import { PubSub, Message } from "@google-cloud/pubsub";
+import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
+import logger from "../config/logger";
+import * as fs from 'fs';
+import * as path from 'path';
+import { exec } from 'child_process';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
+import * as cliProgress from 'cli-progress';
+
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
+import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
+
+interface PubSubMessage {
+    gameId: string;
+    filePath: string;
+    userId: string;
+}
+
+const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-uploads';
+const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-uploads-subscription';
+const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
+
+const ALLOWED_EVENT_TYPES = [
+    'Game Start', 'Period Start', 'Jump Ball', 'Jump Ball Possession', 'Possession Change',
+    'Shot Attempt', 'Shot Made', 'Shot Missed', '3PT Shot Attempt', '3PT Shot Made', '3PT Shot Missed',
+    'Free Throw Attempt', 'Free Throw Made', 'Free Throw Missed',
+    'Offensive Rebound', 'Defensive Rebound', 'Team Rebound',
+    'Assist', 'Steal', 'Block', 'Turnover',
+    'Personal Foul', 'Shooting Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul',
+    'Violation', 'Out of Bounds', 'Substitution', 'Timeout Taken',
+    'End of Period', 'End of Game'
+];
+
+import * as winston from 'winston'; // Import winston for typing the logger
+
+export class VideoProcessorWorker {
+    private jobRepository: VideoAnalysisJobRepository;
+    private pubSubClient: PubSub;
+    private genAI: GoogleGenerativeAI;
+    private logger: winston.Logger; // Add a private logger property
+
+    constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
+        this.jobRepository = new VideoAnalysisJobRepository(dataSource);
+        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+        this.logger = logger; // Assign the passed logger
+
+        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY environment variable not set!");
+        }
+        this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    }
+
+    public async startConsumingMessages(): Promise<void> {
+        this.logger.info("VideoProcessorWorker: Starting to consume messages from Pub/Sub...");
+        const subscription = this.pubSubClient.topic(VIDEO_UPLOAD_TOPIC_NAME).subscription(VIDEO_UPLOAD_SUBSCRIPTION_NAME);
+
+        subscription.on('message', async (message: Message) => {
+            this.logger.info(`Received message ${message.id}:`);
+            this.logger.info(`\tData: ${message.data}`);
+
+            let job: VideoAnalysisJob | null = null;
+            try {
+                const parsedMessage: PubSubMessage = JSON.parse(message.data.toString());
+
+                // Attempt to find an existing RETRYABLE_FAILED job for this gameId and filePath
+                job = await this.jobRepository.findOneByGameIdAndFilePath(parsedMessage.gameId, parsedMessage.filePath);
+
+                if (job && job.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
+                    logger.info(`Found existing RETRYABLE_FAILED job ${job.id} for game ${job.gameId}. Re-processing failed chunks.`);
+                    job.status = VideoAnalysisJobStatus.PROCESSING; // Mark as processing for retry
+                    await this.jobRepository.update(job);
+                } else {
+                    // Create a new job if no retryable job found or if it's a fresh request
+                    job = new VideoAnalysisJob();
+                    job.gameId = parsedMessage.gameId;
+                    job.userId = parsedMessage.userId;
+                    job.filePath = parsedMessage.filePath;
+                    job.status = VideoAnalysisJobStatus.PENDING;
+                    await this.jobRepository.create(job);
+                    logger.info(`Created new job ${job.id} for game ${job.gameId}.`);
+                }
+
+                await this.processJob(job);
+                message.ack();
+            } catch (error) {
+                logger.error(`Error processing Pub/Sub message ${message.id}:`, error);
+                if (job) {
+                    job.status = VideoAnalysisJobStatus.FAILED; // Mark job as FAILED if an unhandled error occurs
+                    await this.jobRepository.update(job);
+                }
+                message.nack(); // Nack the message to indicate failure and potentially retry
+            }
+        });
+
+        subscription.on('error', (error) => {
+            logger.error("Pub/Sub subscription error:", error);
+        });
+
+        logger.info(`VideoProcessorWorker: Listening for messages on subscription: ${VIDEO_UPLOAD_SUBSCRIPTION_NAME}`);
+    }
+
+    // Renamed from processMessage to processJob to reflect new responsibility
+    public async processJob(job: VideoAnalysisJob): Promise<void> {
+        this.logger.info(`VideoProcessorWorker: Processing job ${job.id} for Game ID: ${job.gameId}, FilePath: ${job.filePath}`);
+
+        let videoChunksToProcess: { chunkPath: string; startTime: number; sequence: number; }[] = [];
+        const currentlyFailedChunks: any[] = [];
+
+        let identifiedPlayers: any[] = job.identifiedPlayers || [];
+        let identifiedTeams: any[] = job.identifiedTeams || [];
+
+        const multibar = new cliProgress.MultiBar({
+            clearOnComplete: false,
+            hideCursor: true,
+            format: ' {bar} | {percentage}% | {task} | {value}/{total} {unit}'
+        }, cliProgress.Presets.shades_grey);
+
+        const overallProgressBar = multibar.create(100, 0, { task: 'Overall Progress', unit: '' });
+        const currentTaskProgressBar = multibar.create(100, 0, { task: 'Current Task', unit: '' });
+
+        try {
+            job.status = VideoAnalysisJobStatus.PROCESSING;
+            await this.jobRepository.update(job);
+            overallProgressBar.update(0, { task: 'Job status to PROCESSING', unit: '' });
+
+            const chunkDuration = 150;
+            const overlapDuration = 30;
+            const tempDir = path.join(__dirname, '../../tmp');
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+            // Determine which chunks to process
+            if (job.failedChunkInfo && job.failedChunkInfo.length > 0) {
+                this.logger.info(`VideoProcessorWorker: Retrying ${job.failedChunkInfo.length} failed chunks for Job ID: ${job.id}.`);
+                videoChunksToProcess = job.failedChunkInfo;
+                currentTaskProgressBar.update(0, { task: 'Processing failed chunks', unit: 'chunks' });
+            } else {
+                this.logger.info(`VideoProcessorWorker: Starting fresh analysis (or full re-run) for Job ID: ${job.id}.`);
+                currentTaskProgressBar.update(0, { task: 'Chunking video', unit: 'chunks' });
+                videoChunksToProcess = await this.chunkVideo(job.filePath, tempDir, chunkDuration, overlapDuration, currentTaskProgressBar);
+                currentTaskProgressBar.update(videoChunksToProcess.length, { task: 'Chunking video', unit: 'chunks' });
+                this.logger.info(`VideoProcessorWorker: Generated ${videoChunksToProcess.length} video chunks for ${job.filePath}`);
+            }
+            
+            overallProgressBar.setTotal(videoChunksToProcess.length);
+            overallProgressBar.update(0, { task: 'Calling Gemini API', unit: 'chunks' });
+
+            const runInParallel = process.env.GEMINI_API_PARALLEL_EXECUTION === 'true';
+            this.logger.info(`VideoProcessorWorker: Gemini API calls will run ${runInParallel ? 'in parallel' : 'sequentially'}.`);
+
+            let allGeminiResults: ({ status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: any; error: any })[];
+
+            if (runInParallel) {
+                currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Parallel)', unit: 'chunks' });
+                const allChunkPromises = videoChunksToProcess.map(chunkInfo => this.callGeminiApi(chunkInfo, currentTaskProgressBar, identifiedPlayers, identifiedTeams));
+                allGeminiResults = await Promise.all(allChunkPromises);
+            } else {
+                currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Sequential)', unit: 'chunks' });
+                allGeminiResults = [];
+                for (const chunkInfo of videoChunksToProcess) {
+                    const result = await this.callGeminiApi(chunkInfo, currentTaskProgressBar, identifiedPlayers, identifiedTeams);
+                    allGeminiResults.push(result);
+                }
+            }
+
+            const allRawEvents: any[] = [];
+            for (const result of allGeminiResults) { // Change to for...of loop to allow iterative updates
+                if (result.status === 'fulfilled') {
+                    // Process events for this chunk and update identified players/teams iteratively
+                    const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.parseAndFilterEvents(result.events, job.gameId, chunkDuration, identifiedPlayers, identifiedTeams);
+                    allRawEvents.push(...finalEvents);
+                    identifiedPlayers = updatedIdentifiedPlayers; // Update for next iteration
+                    identifiedTeams = updatedIdentifiedTeams;     // Update for next iteration
+                } else {
+                    this.logger.error(`[RETRY_LATER] Chunk failed to process. Chunk Info: ${JSON.stringify(result.chunkInfo)}. Error:`, result.error);
+                    currentlyFailedChunks.push(result.chunkInfo);
+                }
+                overallProgressBar.increment();
+            }
+
+            // If ALL chunks failed, then the job is FAILED
+            if (allRawEvents.length === 0 && videoChunksToProcess.length > 0) {
+                throw new Error("All video chunks failed to process by the Gemini API.");
+            }
+
+            overallProgressBar.update(overallProgressBar.getTotal(), { task: 'Finalizing events and identified entities', unit: '' });
+            job.processedEvents = allRawEvents; // All events collected
+            job.identifiedPlayers = identifiedPlayers; // Final identified players
+            job.identifiedTeams = identifiedTeams;     // Final identified teams
+            this.logger.info(`VideoProcessorWorker: Parsed and filtered ${job.processedEvents.length} final game events.`);
+
+            // For now, we're not calculating stats here, just storing events.
+            // Stats calculation will be part of the result processing on the main backend side.
+            job.processedStats = null; // Clear or set an appropriate value if stats were calculated here
+
+            job.failedChunkInfo = currentlyFailedChunks; // Save currently failed chunks back to the job
+
+            if (currentlyFailedChunks.length > 0) {
+                job.status = VideoAnalysisJobStatus.RETRYABLE_FAILED;
+                this.logger.warn(`Video analysis job ${job.id} for game ${job.gameId} failed | retryable. ${currentlyFailedChunks.length} chunks failed.`);
+            } else {
+                job.status = VideoAnalysisJobStatus.COMPLETED;
+                if (job.failedChunkInfo) { // If it was a retry pass, clear the failedChunkInfo
+                    job.failedChunkInfo = null; // Clear failed chunks if successful
+                }
+                this.logger.info(`VideoProcessorWorker: Successfully processed job ${job.id} for Game ID: ${job.gameId}`);
+            }
+            await this.jobRepository.update(job);
+
+        } catch (error) {
+            this.logger.error(`VideoProcessorWorker: Error processing job ${job.id} for Game ID: ${job.gameId}:`, error);
+            job.status = VideoAnalysisJobStatus.FAILED;
+            await this.jobRepository.update(job);
+        } finally {
+            overallProgressBar.update(overallProgressBar.getTotal(), { task: 'Cleaning up chunks', unit: '' });
+            // Conditional cleanup based on job status
+            if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
+                await this.cleanupChunks(videoChunksToProcess.map(c => c.chunkPath));
+            } else if (job.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
+                this.logger.info(`Cleanup: Job ${job.id} is in RETRYABLE_FAILED status. Retaining chunks for potential retry.`);
+            } else {
+                this.logger.warn(`Cleanup: Job ${job.id} unexpected status ${job.status}. Retaining chunks.`);
+            }
+            multibar.stop();
+            // Always send job result to main backend regardless of success or failure
+            await this.sendJobResultToMainBackend(job);
+        }
+    }
+
+    // New method to send results back to the main backend
+    private async sendJobResultToMainBackend(job: VideoAnalysisJob): Promise<void> {
+        const resultMessage = {
+            jobId: job.id,
+            gameId: job.gameId,
+            userId: job.userId,
+            status: job.status,
+            processedEvents: job.processedEvents,
+            failedChunkInfo: job.failedChunkInfo,
+            // Add other relevant processed data like stats if they were calculated by the worker
+        };
+        const dataBuffer = Buffer.from(JSON.stringify(resultMessage));
+
+        try {
+            const messageId = await this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME).publishMessage({ data: dataBuffer });
+            this.logger.info(`VideoProcessorWorker: Published job result for Job ID: ${job.id} to ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}. Message ID: ${messageId}`);
+        } catch (error) {
+            this.logger.error(`VideoProcessorWorker: Failed to publish job result for Job ID: ${job.id}:`, error);
+        }
+    }
+
+    private async getVideoDuration(filePath: string): Promise<number> {
+        this.logger.debug(`[getVideoDuration] Getting duration for: ${filePath}`);
+        return new Promise((resolve, reject) => {
+            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"${filePath}\"`;
+            this.logger.debug(`[getVideoDuration] Executing command: ${command}`);
+            exec(command, (error, stdout, stderr) => {
+                if (error) {
+                    this.logger.error(`[getVideoDuration] ffprobe error: ${stderr}`);
+                    return reject(error);
+                }
+                const duration = parseFloat(stdout);
+                this.logger.debug(`[getVideoDuration] ffprobe success. Duration: ${duration}`);
+                resolve(duration);
+            });
+        });
+    }
+
+    private async chunkVideo(filePath: string, tempDir: string, chunkDuration: number, overlapDuration: number, progressBar: cliProgress.SingleBar): Promise<{ chunkPath: string; startTime: number; sequence: number; }[]> {
+        this.logger.info(`[chunkVideo] Starting chunking for ${filePath}`);
+        const chunks: { chunkPath: string; startTime: number; sequence: number; }[] = [];
+        const videoDuration = await this.getVideoDuration(filePath);
+        this.logger.debug(`[chunkVideo] Total video duration is ${videoDuration} seconds.`);
+        let currentStartTime = 0;
+        let sequence = 0;
+
+        const totalChunksExpected = Math.ceil(videoDuration / (chunkDuration - overlapDuration));
+        progressBar.setTotal(totalChunksExpected);
+        progressBar.update(0, { task: 'Chunking video', unit: 'chunks' });
+
+        while (currentStartTime < videoDuration) {
+            const outputFileName = `chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${currentStartTime.toFixed(0)}.mp4`;
+            const chunkPath = path.join(tempDir, outputFileName);
+            const command = `ffmpeg -i \"${filePath}\" -ss ${currentStartTime} -t ${chunkDuration} -c copy \"${chunkPath}\"`;
+
+            this.logger.debug(`[chunkVideo] Executing ffmpeg command for sequence ${sequence}: ${command}`);
+            await new Promise<void>((resolve, reject) => {
+                exec(command, (error, stdout, stderr) => {
+                    if (error) {
+                        this.logger.error(`[chunkVideo] FFmpeg chunking error for sequence ${sequence}: ${stderr}`);
+                        return reject(error);
+                    }
+                    this.logger.debug(`[chunkVideo] FFmpeg chunking successful for sequence ${sequence}`);
+                    resolve();
+                });
+            });
+
+            chunks.push({ chunkPath, startTime: currentStartTime, sequence });
+            progressBar.increment({ task: `Chunking video: ${outputFileName}` });
+
+            currentStartTime += (chunkDuration - overlapDuration);
+            sequence++;
+        }
+        return chunks;
+    }
+
+    private async callGeminiApi(chunkInfo: { chunkPath: string; startTime: number; sequence: number; }, progressBar: cliProgress.SingleBar, identifiedPlayers: any[], identifiedTeams: any[]): Promise<{ status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: any; error: any }> {
+        const { chunkPath } = chunkInfo;
+        this.logger.info(`[Gemini] Starting API call for ${chunkPath}`);
+
+        try {
+            const schema: Schema = {
+                type: SchemaType.ARRAY,
+                items: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        eventType: { type: SchemaType.STRING },
+                        timestamp: { type: SchemaType.STRING },
+                        description: { type: SchemaType.STRING },
+                        identifiedJerseyNumber: { type: SchemaType.STRING },
+                        identifiedTeamColor: { type: SchemaType.STRING },
+                        identifiedPlayerDescription: { type: SchemaType.STRING }, // New field
+                        identifiedTeamDescription: { type: SchemaType.STRING },   // New field
+                        assignedTeamType: { type: SchemaType.STRING, enum: ['HOME', 'AWAY'], format: "enum" }, // New field for home/away
+                    },
+                    required: ["eventType", "timestamp", "description"],
+                },
+            };
+
+            const model = this.genAI.getGenerativeModel({
+                model: "gemini-2.5-flash",
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                },
+            });
+
+            this.logger.debug(`[Gemini] Reading and encoding file: ${chunkPath}`);
+            const videoBase64 = fs.readFileSync(chunkPath).toString('base64');
+            this.logger.info(`[Gemini] File encoded. Size: ${(videoBase64.length / 1024 / 1024).toFixed(2)} MB. Sending to API...`);
+
+            let prompt = `You are an expert basketball analyst. Your task is to watch this video chunk and identify all significant gameplay events. For each event, provide its type, a brief description, and its timestamp relative to the start of this video chunk.\n\nIdentify players and teams using the following guidelines:\n- If identifiable, provide the jersey number (identifiedJerseyNumber) and team color (identifiedTeamColor).\n- If jersey number or team color are not clear, provide a brief physical description of the player (identifiedPlayerDescription, e.g., "tall player with red shoes", "player with a headband").\n- If team color is not clear, provide a brief description of the team (identifiedTeamDescription, e.g., "team in dark shirts", "team in light shirts").\n- Crucially, assign each player to either the 'HOME' or 'AWAY' team (assignedTeamType). Define 'HOME' as the team that starts with possession or is generally more prominent, and 'AWAY' as the opposing team. Maintain this distinction consistently throughout the analysis.\n\nPrioritize jersey number and team color if available and clear. Ensure consistent descriptions for the same player/team across events within this video chunk.\n\n`;
+
+            if (identifiedTeams.length > 0) {
+                prompt += `\nKnown Teams from previous chunks: ${JSON.stringify(identifiedTeams)}. Try to match new observations to these teams.`;
+            }
+            if (identifiedPlayers.length > 0) {
+                prompt += `\nKnown Players from previous chunks: ${JSON.stringify(identifiedPlayers)}. Try to match new observations to these players.`;
+            }
+
+            prompt += `\n\nThe 'eventType' field must be one of the following exact values: ${ALLOWED_EVENT_TYPES.join(", ")}. \n\nRespond with a JSON array conforming to the provided schema.`;
+
+
+            const result = await model.generateContent([
+                prompt,
+                {
+                    inlineData: {
+                        mimeType: "video/mp4",
+                        data: videoBase64,
+                    },
+                },
+            ]);
+            this.logger.info(`[Gemini] API call complete for ${chunkPath}. Processing response...`);
+
+            const response = result.response;
+
+            if (!response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0) {
+                this.logger.warn(`[Gemini] No valid candidates or content found in Gemini API response for ${chunkPath}.`);
+                return { status: 'fulfilled', events: [] };
+            }
+
+            const text = response.candidates[0].content.parts[0].text;
+            if (!text) {
+                this.logger.warn(`[Gemini] Empty text response received for ${chunkPath}.`);
+                return { status: 'fulfilled', events: [] };
+            }
+            const parsedEvents = JSON.parse(text);
+
+            if (Array.isArray(parsedEvents)) {
+                this.logger.info(`[Gemini] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`);
+                this.logger.debug(`[Gemini] Identified Players after API call: ${JSON.stringify(identifiedPlayers)}`);
+                this.logger.debug(`[Gemini] Identified Teams after API call: ${JSON.stringify(identifiedTeams)}`);
+                // When creating a GameEvent, if chunkMetadata is defined, map it to videoClipStartTime and videoClipEndTime
+                const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
+                return { status: 'fulfilled', events: eventsWithMetadata };
+            } else {
+                this.logger.warn(`[Gemini] Parsed structured response for ${chunkPath} was not a JSON array.`);
+                return { status: 'fulfilled', events: [] };
+            }
+
+        } catch (error) {
+            this.logger.error(`[Gemini] Error during API call for ${chunkPath}:`, error);
+            return { status: 'rejected', chunkInfo, error };
+        } finally {
+            progressBar.increment({ task: `API Call: ${path.basename(chunkPath)}` });
+        }
+    }
+
+    private generateConsistentUuid(input: string): string {
+        // Use a namespace for consistency. This can be any valid UUID.
+        // Using a fixed namespace ensures that the same input string always produces the same UUID.
+        const NAMESPACE_URL = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Example namespace for URL
+        return uuidv5(input, NAMESPACE_URL);
+    }
+
+    private parseAndFilterEvents(rawEvents: any[], gameId: string, chunkDuration: number, identifiedPlayers: any[], identifiedTeams: any[]): { finalEvents: any[], updatedIdentifiedPlayers: any[], updatedIdentifiedTeams: any[] } {
+
+        this.logger.info("VideoProcessorWorker: Parsing and filtering raw events...");
+        const finalEvents: any[] = [];
+        const processedEventKeys = new Set<string>(); // To track unique events based on a composite key
+
+        // Create mutable copies for updates
+        const currentIdentifiedPlayers = [...identifiedPlayers];
+        const currentIdentifiedTeams = [...identifiedTeams];
+
+        for (const rawEvent of rawEvents) {
+            // Ensure rawEvent has necessary properties
+            if (!rawEvent.eventType || !rawEvent.timestamp || !rawEvent.chunkMetadata || typeof rawEvent.chunkMetadata.startTime === 'undefined') {
+                this.logger.warn("Skipping raw event due to missing eventType, timestamp, or chunk metadata:", rawEvent);
+                continue;
+            }
+
+            // Filter for only allowed event types
+            if (!ALLOWED_EVENT_TYPES.includes(rawEvent.eventType)) {
+                this.logger.debug(`Filtering out non-gameplay event type: ${rawEvent.eventType}`);
+                continue;
+            }
+
+            const chunkStartTime = rawEvent.chunkMetadata.startTime;
+            let eventTimestampInChunk = 0; // Default if parsing fails
+
+            // Attempt to parse timestamp, handle both HH:MM:SS and MM:SS
+            const timestampParts = String(rawEvent.timestamp).split(':').map(Number);
+            if (timestampParts.length === 2) {
+                eventTimestampInChunk = timestampParts[0] * 60 + timestampParts[1];
+            } else if (timestampParts.length === 3) {
+                eventTimestampInChunk = timestampParts[0] * 3600 + timestampParts[1] * 60 + timestampParts[2];
+            } else {
+                this.logger.warn(`Could not parse timestamp format for event: ${rawEvent.timestamp}. Assuming 0.`);
+            }
+
+            const absoluteEventTimestamp = chunkStartTime + eventTimestampInChunk; // Absolute timestamp in the original video
+
+            // Ensure only events *started* in the first 2 minutes (120 seconds) of the segment are considered.
+            if (eventTimestampInChunk < 120) {
+                let assignedTeamId: string | null = null;
+                // --- Team Identification ---
+                let teamIdentifier = '';
+                if (rawEvent.identifiedTeamColor) {
+                    teamIdentifier = rawEvent.identifiedTeamColor.toLowerCase();
+                } else if (rawEvent.identifiedTeamDescription) {
+                    teamIdentifier = rawEvent.identifiedTeamDescription.toLowerCase();
+                }
+
+                if (teamIdentifier && rawEvent.assignedTeamType) { // assignedTeamType is crucial for team distinction
+                    teamIdentifier = `${rawEvent.assignedTeamType}-${teamIdentifier}`;
+                    assignedTeamId = this.generateConsistentUuid(teamIdentifier);
+
+                    // Check if team already identified, if not, add it
+                    if (!currentIdentifiedTeams.some(team => team.id === assignedTeamId)) {
+                        currentIdentifiedTeams.push({
+                            id: assignedTeamId,
+                            type: rawEvent.assignedTeamType,
+                            color: rawEvent.identifiedTeamColor || null,
+                            description: rawEvent.identifiedTeamDescription || null,
+                            // Add other relevant info if needed
+                        });
+                    }
+                }
+
+                let assignedPlayerId: string | null = null;
+                // --- Player Identification ---
+                let playerIdentifier = '';
+                if (rawEvent.identifiedJerseyNumber && assignedTeamId) {
+                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedJerseyNumber}`;
+                } else if (rawEvent.identifiedPlayerDescription && assignedTeamId) {
+                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedPlayerDescription.toLowerCase()}`;
+                }
+
+                if (playerIdentifier) {
+                    assignedPlayerId = this.generateConsistentUuid(playerIdentifier);
+
+                    // Check if player already identified, if not, add it
+                    if (!currentIdentifiedPlayers.some(player => player.id === assignedPlayerId)) {
+                        currentIdentifiedPlayers.push({
+                            id: assignedPlayerId,
+                            teamId: assignedTeamId,
+                            jerseyNumber: rawEvent.identifiedJerseyNumber || null,
+                            description: rawEvent.identifiedPlayerDescription || null,
+                            // Add other relevant info if needed
+                        });
+                    }
+                }
+
+
+                const gameEventData = {
+                    id: rawEvent.id || uuidv4(),
+                    gameId: gameId,
+                    eventType: rawEvent.eventType,
+                    eventSubType: rawEvent.eventSubType || null,
+                    isSuccessful: rawEvent.isSuccessful || false,
+                    period: rawEvent.period || null,
+                    timeRemaining: rawEvent.timeRemaining || null,
+                    xCoord: rawEvent.xCoord || null,
+                    yCoord: rawEvent.yCoord || null,
+                    identifiedTeamColor: rawEvent.identifiedTeamColor || null,
+                    identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null,
+                    identifiedPlayerDescription: rawEvent.identifiedPlayerDescription || null, // Store for context
+                    identifiedTeamDescription: rawEvent.identifiedTeamDescription || null,     // Store for context
+                    assignedTeamId: assignedTeamId, // Use generated ID
+                    assignedPlayerId: assignedPlayerId, // Use generated ID
+                    relatedEventId: rawEvent.relatedEventId || null,
+                    onCourtPlayerIds: rawEvent.onCourtPlayerIds || null,
+                    eventDetails: rawEvent.eventDetails || null,
+                    absoluteTimestamp: absoluteEventTimestamp,
+                    videoClipStartTime: rawEvent.chunkMetadata.startTime, // Start of the chunk
+                    videoClipEndTime: rawEvent.chunkMetadata.startTime + chunkDuration, // End of the chunk
+                };
+
+                const eventUniqueKey = `${gameEventData.eventType}-${gameEventData.absoluteTimestamp}-${gameEventData.assignedPlayerId || ''}-${gameEventData.identifiedJerseyNumber || ''}`;
+
+                if (!processedEventKeys.has(eventUniqueKey)) {
+                    finalEvents.push(gameEventData);
+                    processedEventKeys.add(eventUniqueKey);
+                } else {
+                    this.logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`);
+                }
+            } else {
+                this.logger.debug(`Filtering event outside 2-minute window: absoluteTimestamp=${absoluteEventTimestamp}, chunkStartTime=${chunkStartTime}, eventTimestampInChunk=${eventTimestampInChunk}`);
+            }
+        }
+        return {
+            finalEvents,
+            updatedIdentifiedPlayers: currentIdentifiedPlayers,
+            updatedIdentifiedTeams: currentIdentifiedTeams,
+        };
+    }
+
+    private async cleanupChunks(chunkPaths: string[]): Promise<void> {
+        this.logger.info("VideoProcessorWorker: Cleaning up temporary video chunks...");
+        for (const chunkPath of chunkPaths) {
+            try {
+                await fs.promises.unlink(chunkPath);
+                this.logger.debug(`Cleaned up chunk: ${chunkPath}`);
+            } catch (error) {
+                this.logger.warn(`Failed to clean up chunk ${chunkPath}:`, error);
+            }
+        }
+    }
+}
