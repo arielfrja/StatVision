@@ -27,4 +27,12 @@ export class GameEventRepository {
         
         logger.info(`Successfully completed batch insert for ${events.length} GameEvents.`);
     }
+
+    async findOne(options: any): Promise<GameEvent | null> {
+        return this.repository.findOne(options);
+    }
+
+    async save(event: GameEvent): Promise<GameEvent> {
+        return this.repository.save(event);
+    }
 }
