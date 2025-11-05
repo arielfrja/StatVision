@@ -2,9 +2,15 @@ import logger from "../config/logger";
 import { TeamRepository } from "../repository/TeamRepository";
 import { User } from "../User";
 import { Team } from "../Team";
+import { DataSource } from "typeorm";
 
 export class TeamService {
-    constructor(private teamRepository: TeamRepository) {}
+    private teamRepository: TeamRepository;
+
+    constructor(AppDataSource: DataSource) {
+        const teamBaseRepository = AppDataSource.getRepository(Team);
+        this.teamRepository = new TeamRepository(teamBaseRepository);
+    }
 
     async createTeam(name: string, user: User): Promise<Team> {
         logger.info(`TeamService: Creating team with name: ${name} for user: ${user.id}`);

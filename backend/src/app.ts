@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import logger from "./config/logger";
 
-const envPath = path.resolve(__dirname, '../../.env');
+const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
 logger.info(`Attempting to load .env from: ${envPath}`);
@@ -15,11 +15,13 @@ import { DataSource } from "typeorm";
 import { User } from "./User";
 import { Team } from "./Team";
 import { Player } from "./Player";
+import { PlayerTeamHistory } from "./PlayerTeamHistory";
 import { Game } from "./Game";
 import { GameEvent } from "./GameEvent";
 import { GameTeamStats } from "./GameTeamStats";
 import { GamePlayerStats } from "./GamePlayerStats";
 import { TeamRepository } from "./repository/TeamRepository";
+import { GameEventRepository } from "./repository/GameEventRepository";
 import { TeamService } from "./service/TeamService";
 import { PlayerRepository } from "./repository/PlayerRepository";
 import { PlayerService } from "./service/PlayerService";
@@ -60,18 +62,18 @@ declare global {
     }
 }
 
-const AppDataSource = new DataSource({
+export const AppDataSource = new DataSource({
     type: "postgres",
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    synchronize: true, // Use migrations in production
+    synchronize: false, // Use migrations in production
     logging: false,
-    entities: [User, Team, Player, Game, GameEvent, GameTeamStats, GamePlayerStats],
+    entities: [User, Team, Player, PlayerTeamHistory, Game, GameEvent, GameTeamStats, GamePlayerStats],
     subscribers: [],
-    migrations: [],
+    migrations: [__dirname + "/migration/**/*.ts"],
 });
 
 const app = express();
@@ -198,10 +200,14 @@ AppDataSource.initialize()
 
         // Instantiate Repositories and Services
         const gameRepository = new GameRepository(AppDataSource);
+        const gameEventRepository = new GameEventRepository(AppDataSource);
         const userRepository = AppDataSource.getRepository(User); // Get the base User repository
         const teamStatsRepository = new GameTeamStatsRepository(AppDataSource);
         const playerStatsRepository = new GamePlayerStatsRepository(AppDataSource);
         
+        const teamService = new TeamService(AppDataSource); // Updated to take AppDataSource
+        const playerService = new PlayerService(AppDataSource); // Updated to take AppDataSource
+
         const gameService = new GameService(gameRepository, userRepository); // Refactored
         const gameStatsService = new GameStatsService( // New
             gameRepository,
@@ -214,9 +220,9 @@ AppDataSource.initialize()
 
         // Import and use routes
         app.use("/", authRoutes(AppDataSource));
-        app.use("/teams", teamRoutes(AppDataSource));
-        app.use("/teams/:teamId/players", playerRoutes(AppDataSource));
-        app.use("/games", gameRoutes(AppDataSource, gameService, gameStatsService));
+        app.use("/teams", teamRoutes(AppDataSource, teamService)); // Pass teamService
+        app.use("/teams/:teamId/players", playerRoutes(AppDataSource, teamService, playerService)); // Pass services
+        app.use("/games", gameRoutes(AppDataSource, gameService, gameStatsService, gameEventRepository));
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {

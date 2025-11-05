@@ -1,19 +1,12 @@
 import { Router } from 'express';
 import { DataSource, Repository } from 'typeorm';
-import { Team } from '../Team';
-import { Player } from '../Player';
 import { User } from '../User';
-import { TeamRepository } from '../repository/TeamRepository';
 import { TeamService } from '../service/TeamService';
 import logger from '../config/logger';
 
 const router = Router();
 
-export const teamRoutes = (AppDataSource: DataSource) => {
-    const baseTeamRepository = AppDataSource.getRepository(Team);
-    const playerRepository = AppDataSource.getRepository(Player);
-    const customTeamRepository = new TeamRepository(baseTeamRepository);
-    const teamService = new TeamService(customTeamRepository);
+export const teamRoutes = (AppDataSource: DataSource, teamService: TeamService) => {
     const userRepository = AppDataSource.getRepository(User);
 
     /**
