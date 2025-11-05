@@ -10,6 +10,7 @@ import * as cliProgress from 'cli-progress';
 
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
+import { VideoChunkerService, VideoChunk } from "../service/VideoChunkerService";
 
 interface PubSubMessage {
     gameId: string;
@@ -39,11 +40,13 @@ export class VideoProcessorWorker {
     private pubSubClient: PubSub;
     private genAI: GoogleGenerativeAI;
     private logger: winston.Logger; // Add a private logger property
+    private videoChunkerService: VideoChunkerService; // Add this line
 
     constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
         this.logger = logger; // Assign the passed logger
+        this.videoChunkerService = new VideoChunkerService(); // Add this line
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
@@ -138,7 +141,7 @@ export class VideoProcessorWorker {
             } else {
                 this.logger.info(`VideoProcessorWorker: Starting fresh analysis (or full re-run) for Job ID: ${job.id}.`);
                 currentTaskProgressBar.update(0, { task: 'Chunking video', unit: 'chunks' });
-                videoChunksToProcess = await this.chunkVideo(job.filePath, tempDir, chunkDuration, overlapDuration, currentTaskProgressBar);
+                videoChunksToProcess = await this.videoChunkerService.chunkVideo(job.filePath, tempDir, chunkDuration, overlapDuration, currentTaskProgressBar);
                 currentTaskProgressBar.update(videoChunksToProcess.length, { task: 'Chunking video', unit: 'chunks' });
                 this.logger.info(`VideoProcessorWorker: Generated ${videoChunksToProcess.length} video chunks for ${job.filePath}`);
             }
@@ -216,7 +219,7 @@ export class VideoProcessorWorker {
             overallProgressBar.update(overallProgressBar.getTotal(), { task: 'Cleaning up chunks', unit: '' });
             // Conditional cleanup based on job status
             if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
-                await this.cleanupChunks(videoChunksToProcess.map(c => c.chunkPath));
+                await this.videoChunkerService.cleanupChunks(videoChunksToProcess.map(c => c.chunkPath));
             } else if (job.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
                 this.logger.info(`Cleanup: Job ${job.id} is in RETRYABLE_FAILED status. Retaining chunks for potential retry.`);
             } else {
@@ -249,60 +252,6 @@ export class VideoProcessorWorker {
         }
     }
 
-    private async getVideoDuration(filePath: string): Promise<number> {
-        this.logger.debug(`[getVideoDuration] Getting duration for: ${filePath}`);
-        return new Promise((resolve, reject) => {
-            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"${filePath}\"`;
-            this.logger.debug(`[getVideoDuration] Executing command: ${command}`);
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    this.logger.error(`[getVideoDuration] ffprobe error: ${stderr}`);
-                    return reject(error);
-                }
-                const duration = parseFloat(stdout);
-                this.logger.debug(`[getVideoDuration] ffprobe success. Duration: ${duration}`);
-                resolve(duration);
-            });
-        });
-    }
-
-    private async chunkVideo(filePath: string, tempDir: string, chunkDuration: number, overlapDuration: number, progressBar: cliProgress.SingleBar): Promise<{ chunkPath: string; startTime: number; sequence: number; }[]> {
-        this.logger.info(`[chunkVideo] Starting chunking for ${filePath}`);
-        const chunks: { chunkPath: string; startTime: number; sequence: number; }[] = [];
-        const videoDuration = await this.getVideoDuration(filePath);
-        this.logger.debug(`[chunkVideo] Total video duration is ${videoDuration} seconds.`);
-        let currentStartTime = 0;
-        let sequence = 0;
-
-        const totalChunksExpected = Math.ceil(videoDuration / (chunkDuration - overlapDuration));
-        progressBar.setTotal(totalChunksExpected);
-        progressBar.update(0, { task: 'Chunking video', unit: 'chunks' });
-
-        while (currentStartTime < videoDuration) {
-            const outputFileName = `chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${currentStartTime.toFixed(0)}.mp4`;
-            const chunkPath = path.join(tempDir, outputFileName);
-            const command = `ffmpeg -i \"${filePath}\" -ss ${currentStartTime} -t ${chunkDuration} -c copy \"${chunkPath}\"`;
-
-            this.logger.debug(`[chunkVideo] Executing ffmpeg command for sequence ${sequence}: ${command}`);
-            await new Promise<void>((resolve, reject) => {
-                exec(command, (error, stdout, stderr) => {
-                    if (error) {
-                        this.logger.error(`[chunkVideo] FFmpeg chunking error for sequence ${sequence}: ${stderr}`);
-                        return reject(error);
-                    }
-                    this.logger.debug(`[chunkVideo] FFmpeg chunking successful for sequence ${sequence}`);
-                    resolve();
-                });
-            });
-
-            chunks.push({ chunkPath, startTime: currentStartTime, sequence });
-            progressBar.increment({ task: `Chunking video: ${outputFileName}` });
-
-            currentStartTime += (chunkDuration - overlapDuration);
-            sequence++;
-        }
-        return chunks;
-    }
 
     private async callGeminiApi(chunkInfo: { chunkPath: string; startTime: number; sequence: number; }, progressBar: cliProgress.SingleBar, identifiedPlayers: any[], identifiedTeams: any[]): Promise<{ status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: any; error: any }> {
         const { chunkPath } = chunkInfo;
