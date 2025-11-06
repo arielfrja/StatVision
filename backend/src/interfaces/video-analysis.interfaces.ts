@@ -7,7 +7,7 @@ export interface IdentifiedTeam {
 
 export interface IdentifiedPlayer {
     id:string; // The v5 UUID
-    teamId: string; // Foreign key to IdentifiedTeam
+    teamId: string | null; // Foreign key to IdentifiedTeam
     jerseyNumber: string | null;
     description: string | null; // e.g., "tall player with red shoes"
 }
@@ -18,11 +18,19 @@ export interface ProcessedGameEvent {
     id: string; // UUID v4
     gameId: string;
     eventType: string; // Should be an enum, matching ALLOWED_EVENT_TYPES
+    eventSubType: string | null;
+    isSuccessful: boolean;
+    period: number | null;
+    timeRemaining: number | null;
+    xCoord: number | null;
+    yCoord: number | null;
     absoluteTimestamp: number; // The most critical field
     assignedPlayerId: string | null;
     assignedTeamId: string | null;
-    isSuccessful?: boolean;
     relatedEventId?: string | null; // e.g., link an assist to a made shot
+    onCourtPlayerIds: string[] | null;
+    identifiedTeamColor: string | null;
+    identifiedJerseyNumber: string | null;
     videoClipStartTime: number;
     videoClipEndTime: number;
 }
