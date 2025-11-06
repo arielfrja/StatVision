@@ -50,7 +50,7 @@ export class GeminiAnalysisService {
             };
 
             const model = this.genAI.getGenerativeModel({
-                model: "gemini-1.5-flash", // This will be made configurable later as per the roadmap
+                model: "gemini-2.5-flash", // This will be made configurable later as per the roadmap
                 generationConfig: {
                     responseMimeType: "application/json",
                     responseSchema: schema,

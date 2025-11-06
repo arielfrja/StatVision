@@ -10,8 +10,9 @@ import * as cliProgress from 'cli-progress';
 
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
-import { VideoChunkerService, VideoChunk } from "../service/VideoChunkerService";
-import { GeminiAnalysisService, GeminiApiResponse } from "../service/GeminiAnalysisService";
+import { VideoChunkerService, VideoChunk } from "./VideoChunkerService";
+import { GeminiAnalysisService, GeminiApiResponse } from "./GeminiAnalysisService";
+import { EventProcessorService } from "./EventProcessorService";
 
 interface PubSubMessage {
     gameId: string;
@@ -43,6 +44,7 @@ export class VideoProcessorWorker {
     private logger: winston.Logger; // Add a private logger property
     private videoChunkerService: VideoChunkerService; // Add this line
     private geminiAnalysisService: GeminiAnalysisService; // Add this line
+    private eventProcessorService: EventProcessorService; // Add this line
 
     constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
@@ -56,6 +58,7 @@ export class VideoProcessorWorker {
         }
         this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         this.geminiAnalysisService = new GeminiAnalysisService(this.genAI); // Add this line
+        this.eventProcessorService = new EventProcessorService(); // Add this line
     }
 
     public async startConsumingMessages(): Promise<void> {
@@ -174,7 +177,7 @@ export class VideoProcessorWorker {
             for (const result of allGeminiResults) { // Change to for...of loop to allow iterative updates
                 if (result.status === 'fulfilled') {
                     // Process events for this chunk and update identified players/teams iteratively
-                    const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.parseAndFilterEvents(result.events, job.gameId, chunkDuration, identifiedPlayers, identifiedTeams);
+                    const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(result.events, job.gameId, chunkDuration, identifiedPlayers, identifiedTeams);
                     allRawEvents.push(...finalEvents);
                     identifiedPlayers = updatedIdentifiedPlayers; // Update for next iteration
                     identifiedTeams = updatedIdentifiedTeams;     // Update for next iteration
@@ -258,145 +261,6 @@ export class VideoProcessorWorker {
 
 
 
-    private generateConsistentUuid(input: string): string {
-        // Use a namespace for consistency. This can be any valid UUID.
-        // Using a fixed namespace ensures that the same input string always produces the same UUID.
-        const NAMESPACE_URL = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Example namespace for URL
-        return uuidv5(input, NAMESPACE_URL);
-    }
-
-    private parseAndFilterEvents(rawEvents: any[], gameId: string, chunkDuration: number, identifiedPlayers: any[], identifiedTeams: any[]): { finalEvents: any[], updatedIdentifiedPlayers: any[], updatedIdentifiedTeams: any[] } {
-
-        this.logger.info("VideoProcessorWorker: Parsing and filtering raw events...");
-        const finalEvents: any[] = [];
-        const processedEventKeys = new Set<string>(); // To track unique events based on a composite key
-
-        // Create mutable copies for updates
-        const currentIdentifiedPlayers = [...identifiedPlayers];
-        const currentIdentifiedTeams = [...identifiedTeams];
-
-        for (const rawEvent of rawEvents) {
-            // Ensure rawEvent has necessary properties
-            if (!rawEvent.eventType || !rawEvent.timestamp || !rawEvent.chunkMetadata || typeof rawEvent.chunkMetadata.startTime === 'undefined') {
-                this.logger.warn("Skipping raw event due to missing eventType, timestamp, or chunk metadata:", rawEvent);
-                continue;
-            }
-
-            // Filter for only allowed event types
-            if (!ALLOWED_EVENT_TYPES.includes(rawEvent.eventType)) {
-                this.logger.debug(`Filtering out non-gameplay event type: ${rawEvent.eventType}`);
-                continue;
-            }
-
-            const chunkStartTime = rawEvent.chunkMetadata.startTime;
-            let eventTimestampInChunk = 0; // Default if parsing fails
-
-            // Attempt to parse timestamp, handle both HH:MM:SS and MM:SS
-            const timestampParts = String(rawEvent.timestamp).split(':').map(Number);
-            if (timestampParts.length === 2) {
-                eventTimestampInChunk = timestampParts[0] * 60 + timestampParts[1];
-            } else if (timestampParts.length === 3) {
-                eventTimestampInChunk = timestampParts[0] * 3600 + timestampParts[1] * 60 + timestampParts[2];
-            } else {
-                this.logger.warn(`Could not parse timestamp format for event: ${rawEvent.timestamp}. Assuming 0.`);
-            }
-
-            const absoluteEventTimestamp = chunkStartTime + eventTimestampInChunk; // Absolute timestamp in the original video
-
-            // Ensure only events *started* in the first 2 minutes (120 seconds) of the segment are considered.
-            if (eventTimestampInChunk < 120) {
-                let assignedTeamId: string | null = null;
-                // --- Team Identification ---
-                let teamIdentifier = '';
-                if (rawEvent.identifiedTeamColor) {
-                    teamIdentifier = rawEvent.identifiedTeamColor.toLowerCase();
-                } else if (rawEvent.identifiedTeamDescription) {
-                    teamIdentifier = rawEvent.identifiedTeamDescription.toLowerCase();
-                }
-
-                if (teamIdentifier && rawEvent.assignedTeamType) { // assignedTeamType is crucial for team distinction
-                    teamIdentifier = `${rawEvent.assignedTeamType}-${teamIdentifier}`;
-                    assignedTeamId = this.generateConsistentUuid(teamIdentifier);
-
-                    // Check if team already identified, if not, add it
-                    if (!currentIdentifiedTeams.some(team => team.id === assignedTeamId)) {
-                        currentIdentifiedTeams.push({
-                            id: assignedTeamId,
-                            type: rawEvent.assignedTeamType,
-                            color: rawEvent.identifiedTeamColor || null,
-                            description: rawEvent.identifiedTeamDescription || null,
-                            // Add other relevant info if needed
-                        });
-                    }
-                }
-
-                let assignedPlayerId: string | null = null;
-                // --- Player Identification ---
-                let playerIdentifier = '';
-                if (rawEvent.identifiedJerseyNumber && assignedTeamId) {
-                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedJerseyNumber}`;
-                } else if (rawEvent.identifiedPlayerDescription && assignedTeamId) {
-                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedPlayerDescription.toLowerCase()}`;
-                }
-
-                if (playerIdentifier) {
-                    assignedPlayerId = this.generateConsistentUuid(playerIdentifier);
-
-                    // Check if player already identified, if not, add it
-                    if (!currentIdentifiedPlayers.some(player => player.id === assignedPlayerId)) {
-                        currentIdentifiedPlayers.push({
-                            id: assignedPlayerId,
-                            teamId: assignedTeamId,
-                            jerseyNumber: rawEvent.identifiedJerseyNumber || null,
-                            description: rawEvent.identifiedPlayerDescription || null,
-                            // Add other relevant info if needed
-                        });
-                    }
-                }
-
-
-                const gameEventData = {
-                    id: rawEvent.id || uuidv4(),
-                    gameId: gameId,
-                    eventType: rawEvent.eventType,
-                    eventSubType: rawEvent.eventSubType || null,
-                    isSuccessful: rawEvent.isSuccessful || false,
-                    period: rawEvent.period || null,
-                    timeRemaining: rawEvent.timeRemaining || null,
-                    xCoord: rawEvent.xCoord || null,
-                    yCoord: rawEvent.yCoord || null,
-                    identifiedTeamColor: rawEvent.identifiedTeamColor || null,
-                    identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null,
-                    identifiedPlayerDescription: rawEvent.identifiedPlayerDescription || null, // Store for context
-                    identifiedTeamDescription: rawEvent.identifiedTeamDescription || null,     // Store for context
-                    assignedTeamId: assignedTeamId, // Use generated ID
-                    assignedPlayerId: assignedPlayerId, // Use generated ID
-                    relatedEventId: rawEvent.relatedEventId || null,
-                    onCourtPlayerIds: rawEvent.onCourtPlayerIds || null,
-                    eventDetails: rawEvent.eventDetails || null,
-                    absoluteTimestamp: absoluteEventTimestamp,
-                    videoClipStartTime: rawEvent.chunkMetadata.startTime, // Start of the chunk
-                    videoClipEndTime: rawEvent.chunkMetadata.startTime + chunkDuration, // End of the chunk
-                };
-
-                const eventUniqueKey = `${gameEventData.eventType}-${gameEventData.absoluteTimestamp}-${gameEventData.assignedPlayerId || ''}-${gameEventData.identifiedJerseyNumber || ''}`;
-
-                if (!processedEventKeys.has(eventUniqueKey)) {
-                    finalEvents.push(gameEventData);
-                    processedEventKeys.add(eventUniqueKey);
-                } else {
-                    this.logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`);
-                }
-            } else {
-                this.logger.debug(`Filtering event outside 2-minute window: absoluteTimestamp=${absoluteEventTimestamp}, chunkStartTime=${chunkStartTime}, eventTimestampInChunk=${eventTimestampInChunk}`);
-            }
-        }
-        return {
-            finalEvents,
-            updatedIdentifiedPlayers: currentIdentifiedPlayers,
-            updatedIdentifiedTeams: currentIdentifiedTeams,
-        };
-    }
 
     private async cleanupChunks(chunkPaths: string[]): Promise<void> {
         this.logger.info("VideoProcessorWorker: Cleaning up temporary video chunks...");
