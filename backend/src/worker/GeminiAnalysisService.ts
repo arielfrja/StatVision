@@ -49,8 +49,11 @@ export class GeminiAnalysisService {
                 },
             };
 
+            const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
+            logger.info(`[GeminiAnalysisService] Using Gemini model: ${modelName}`);
+
             const model = this.genAI.getGenerativeModel({
-                model: "gemini-2.5-flash", // This will be made configurable later as per the roadmap
+                model: modelName,
                 generationConfig: {
                     responseMimeType: "application/json",
                     responseSchema: schema,
@@ -61,17 +64,7 @@ export class GeminiAnalysisService {
             const videoBase64 = fs.readFileSync(chunkPath).toString('base64');
             logger.info(`[GeminiAnalysisService] File encoded. Size: ${(videoBase64.length / 1024 / 1024).toFixed(2)} MB. Sending to API...`);
 
-            let prompt = `You are an expert basketball analyst. Your task is to watch this video chunk and identify all significant gameplay events. For each event, provide its type, a brief description, and its timestamp relative to the start of this video chunk.
-
-Identify players and teams using the following guidelines:
-- If identifiable, provide the jersey number (identifiedJerseyNumber) and team color (identifiedTeamColor).
-- If jersey number or team color are not clear, provide a brief physical description of the player (identifiedPlayerDescription, e.g., "tall player with red shoes", "player with a headband").
-- If team color is not clear, provide a brief description of the team (identifiedTeamDescription, e.g., "team in dark shirts", "team in light shirts").
-- Crucially, assign each player to either the 'HOME' or 'AWAY' team (assignedTeamType). Define 'HOME' as the team that starts with possession or is generally more prominent, and 'AWAY' as the opposing team. Maintain this distinction consistently throughout the analysis.
-
-Prioritize jersey number and team color if available and clear. Ensure consistent descriptions for the same player/team across events within this video chunk.
-
-`;
+            let prompt = `You are an expert basketball analyst. Your task is to watch this video chunk, including its audio, and identify all significant gameplay events. For each event, provide its type, a brief description, and its timestamp relative to the start of this video chunk.\n\nUse audio cues to improve your analysis. A sharp whistle likely indicates a foul or a stoppage of play. The sound of the ball hitting the rim followed by cheers can help confirm if a shot was made. The sound of the ball bouncing can indicate possession.\n\nIdentify players and teams using the following guidelines:\n- If identifiable, provide the jersey number (identifiedJerseyNumber) and team color (identifiedTeamColor).\n- If jersey number or team color are not clear, provide a brief physical description of the player (identifiedPlayerDescription, e.g., "tall player with red shoes", "player with a headband").\n- If team color is not clear, provide a brief description of the team (identifiedTeamDescription, e.g., "team in dark shirts", "team in light shirts").\n- Crucially, assign each player to either the 'HOME' or 'AWAY' team (assignedTeamType). Define 'HOME' as the team that starts with possession or is generally more prominent, and 'AWAY' as the opposing team. Maintain this distinction consistently throughout the analysis.\n\nPrioritize jersey number and team color if available and clear. Ensure consistent descriptions for the same player/team across events within this video chunk.\n\n`;
 
             if (identifiedTeams.length > 0) {
                 prompt += `

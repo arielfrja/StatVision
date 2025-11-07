@@ -42,13 +42,17 @@ export class VideoChunkerService {
         progressBar?.update(0, { task: 'Chunking video', unit: 'chunks' });
 
         while (currentStartTime < videoDuration) {
-            const outputFileName = `chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${currentStartTime.toFixed(0)}.mp4`;
-            const chunkPath = path.join(tempDir, outputFileName);
-            const command = `ffmpeg -i "${filePath}" -ss ${currentStartTime} -t ${chunkDuration} -c copy "${chunkPath}"`;
+            const tempOutputFileName = `temp-chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${currentStartTime.toFixed(0)}.mp4`;
+            const tempChunkPath = path.join(tempDir, tempOutputFileName);
 
-            logger.debug(`[VideoChunkerService] Executing ffmpeg command for sequence ${sequence}: ${command}`);
+            const enhancedOutputFileName = `enhanced-chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${currentStartTime.toFixed(0)}.mp4`;
+            const enhancedChunkPath = path.join(tempDir, enhancedOutputFileName);
+
+            const chunkCommand = `ffmpeg -i "${filePath}" -ss ${currentStartTime} -t ${chunkDuration} -c copy "${tempChunkPath}"`;
+
+            logger.debug(`[VideoChunkerService] Executing ffmpeg chunking command for sequence ${sequence}: ${chunkCommand}`);
             await new Promise<void>((resolve, reject) => {
-                exec(command, (error, stdout, stderr) => {
+                exec(chunkCommand, (error, stdout, stderr) => {
                     if (error) {
                         logger.error(`[VideoChunkerService] FFmpeg chunking error for sequence ${sequence}: ${stderr}`);
                         return reject(error);
@@ -58,8 +62,29 @@ export class VideoChunkerService {
                 });
             });
 
-            chunks.push({ chunkPath, startTime: currentStartTime, sequence });
-            progressBar?.increment({ task: `Chunking video: ${outputFileName}` });
+            const enhanceCommand = `ffmpeg -i "${tempChunkPath}" -vf "eq=contrast=1.3:gamma=1.1, unsharp=5:5:1.0:5:5:0.0" -c:a copy "${enhancedChunkPath}"`;
+            logger.debug(`[VideoChunkerService] Executing ffmpeg enhancement command for sequence ${sequence}: ${enhanceCommand}`);
+            await new Promise<void>((resolve, reject) => {
+                exec(enhanceCommand, (error, stdout, stderr) => {
+                    if (error) {
+                        logger.error(`[VideoChunkerService] FFmpeg enhancement error for sequence ${sequence}: ${stderr}`);
+                        return reject(error);
+                    }
+                    logger.debug(`[VideoChunkerService] FFmpeg enhancement successful for sequence ${sequence}`);
+                    resolve();
+                });
+            });
+
+            // Clean up the temporary, non-enhanced chunk
+            try {
+                await fs.promises.unlink(tempChunkPath);
+                logger.debug(`Cleaned up temp chunk: ${tempChunkPath}`);
+            } catch (error) {
+                logger.warn(`Failed to clean up temp chunk ${tempChunkPath}:`, error);
+            }
+
+            chunks.push({ chunkPath: enhancedChunkPath, startTime: currentStartTime, sequence });
+            progressBar?.increment({ task: `Chunking and enhancing video: ${enhancedOutputFileName}` });
 
             currentStartTime += (chunkDuration - overlapDuration);
             sequence++;
