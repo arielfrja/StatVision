@@ -10,28 +10,35 @@ import BottomNav from './BottomNav';
 const publicPaths = ['/']; // Only the root path is public
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated, isLoading } = useAuth0();
+    const { isAuthenticated, isLoading, error, loginWithRedirect } = useAuth0();
     const pathname = usePathname();
     const router = useRouter();
 
     const isPublicPath = publicPaths.includes(pathname);
-    const shouldRedirect = !isAuthenticated && !isPublicPath;
 
     useEffect(() => {
         if (isLoading) return;
 
-        if (shouldRedirect) {
-            router.replace('/');
+        // If there's an authentication error or not authenticated and on a protected path, redirect to login
+        if ((error || !isAuthenticated) && !isPublicPath) {
+            console.log("AuthGuard: Redirecting to login due to error or unauthenticated state.");
+            loginWithRedirect({
+                appState: { returnTo: window.location.pathname },
+                authorizationParams: {
+                    prompt: 'login', // Force login prompt
+                },
+            });
         }
-    }, [isAuthenticated, isLoading, router, shouldRedirect]);
+    }, [isAuthenticated, isLoading, error, isPublicPath, loginWithRedirect, pathname]);
 
     // 1. Show Loader while loading Auth0 state
     if (isLoading) {
         return <Loader />;
     }
 
-    // 2. If a redirect is pending, return null to prevent rendering protected content
-    if (shouldRedirect) {
+    // 2. If an authentication error exists and we are not on a public path, or if not authenticated and on a protected path,
+    //    we are in the process of redirecting, so return null to prevent rendering protected content.
+    if ((error || !isAuthenticated) && !isPublicPath) {
         return null;
     }
 

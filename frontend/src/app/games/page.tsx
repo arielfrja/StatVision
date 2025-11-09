@@ -16,7 +16,7 @@ import '@material/web/icon/icon.js';
 import '@material/web/iconbutton/icon-button.js';
 
 function GamesPage() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,6 +56,10 @@ function GamesPage() {
     } catch (error: any) {
       console.error("An error occurred in fetchGames:", error);
       setError(error.message);
+      // If there's an authentication error, redirect to login
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     } finally {
       setIsLoading(false);
     }

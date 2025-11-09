@@ -7,6 +7,8 @@ import { Game } from '@/types/game';
 import { PlayerTeamHistory } from '@/types/player';
 import Loader from '@/components/Loader';
 import axios from 'axios';
+import TeamAndPlayerTables from '@/components/TeamAndPlayerTables';
+import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 
 // Import the new CSS file
 import '../../analysis-table.css';
@@ -150,10 +152,11 @@ function AnalysisPage() {
     const [isDataLoading, setIsDataLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
-    const [activeTab, setActiveTab] = useState<'boxscore' | 'pbp'>('boxscore');
+    const [activeTab, setActiveTab] = useState<'boxscore' | 'pbp' | 'playerstats' | 'identified_player'>('boxscore');
     const [isRetrying, setIsRetrying] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
     const [allPlayers, setAllPlayers] = useState<PlayerTeamHistory[]>([]);
 
     const handleSeek = (time: number) => {
@@ -178,20 +181,18 @@ function AnalysisPage() {
             const fetchedGame = gameResponse.data;
             setGame(fetchedGame);
 
-            let players: PlayerTeamHistory[] = [];
-            if (fetchedGame.homeTeamId) {
-                const homeTeamPlayersResponse = await axios.get(`http://localhost:3000/teams/${fetchedGame.homeTeamId}/players`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                players = [...players, ...homeTeamPlayersResponse.data];
-            }
-            if (fetchedGame.awayTeamId) {
-                const awayTeamPlayersResponse = await axios.get(`http://localhost:3000/teams/${fetchedGame.awayTeamId}/players`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                players = [...players, ...awayTeamPlayersResponse.data];
-            }
-            setAllPlayers(players);
+            // Populate allPlayers from fetchedGame.playerStats
+            // Ensure each playerStat entry has a 'player' object
+            const playersFromStats = fetchedGame.playerStats
+                .filter((ps: any) => ps.player) // Filter out entries without a player object
+                .map((ps: any) => ({
+                    playerId: ps.playerId,
+                    jerseyNumber: ps.jerseyNumber,
+                    description: ps.description,
+                    player: ps.player, // The full player object
+                    teamId: ps.teamId, // The team this player stat belongs to
+                }));
+            setAllPlayers(playersFromStats);
         } catch (err: any) {
             console.error("An error occurred in fetchGameDetails:", err);
             setError(err.message || "Failed to fetch game details.");
@@ -275,11 +276,12 @@ function AnalysisPage() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const TabButton = ({ tabId, label }: { tabId: 'boxscore' | 'pbp', label: string }) => (
+    const TabButton = ({ tabId, label }: { tabId: 'boxscore' | 'pbp' | 'playerstats' | 'identified_player', label: string }) => (
         <md-filled-button
             onClick={() => setActiveTab(tabId)}
             style={{
                 flexGrow: 1,
+                flexShrink: 0, // Prevent shrinking
                 opacity: activeTab === tabId ? 1 : 0.6,
                 '--md-filled-button-container-color': activeTab === tabId ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-surface-container-high)',
                 '--md-filled-button-label-text-color': activeTab === tabId ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-surface)',
@@ -352,6 +354,12 @@ function AnalysisPage() {
                         <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
                             <BoxScoreTable game={game} />
                         </div>
+                        <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
+                            <TeamAndPlayerTables game={game} />
+                        </div>
+                        <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
+                            <IdentifiedEntitiesTable gameId={game.id} />
+                        </div>
                     </div>
                     <div style={{ overflowY: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
                         <PlayByPlayFeed events={game.events || []} onRowClick={handleSeek} allPlayers={allPlayers} onAssignPlayer={handleAssignPlayer} />
@@ -366,13 +374,17 @@ function AnalysisPage() {
                         <VideoPlayer videoUrl={game.videoUrl} playerRef={playerRef} />
                     </div>
                     <div style={{ backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)', padding: 'var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: '8px' }}>
                             <TabButton tabId="boxscore" label="Box Score" />
                             <TabButton tabId="pbp" label="Play-by-Play" />
+                            <TabButton tabId="playerstats" label="Player Stats" />
+                            <TabButton tabId="identified_player" label="Identified Player" />
                         </div>
                         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                             {activeTab === 'boxscore' && <BoxScoreTable game={game} />}
                             {activeTab === 'pbp' && <PlayByPlayFeed events={game.events || []} onRowClick={handleSeek} allPlayers={allPlayers} onAssignPlayer={handleAssignPlayer} />}
+                            {activeTab === 'playerstats' && <TeamAndPlayerTables game={game} />}
+                            {activeTab === 'identified_player' && <IdentifiedEntitiesTable gameId={game.id} />}
                         </div>
                     </div>
                 </div>

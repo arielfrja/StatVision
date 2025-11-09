@@ -1,18 +1,21 @@
-import { DataSource } from "typeorm";
-import { PubSub, Message } from "@google-cloud/pubsub";
-import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
-import logger from "../config/logger";
-import * as fs from 'fs';
+import { PubSub, Message } from '@google-cloud/pubsub';
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from './VideoAnalysisJob';
+import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
+import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
+import { GeminiAnalysisService } from './GeminiAnalysisService';
+import { EventProcessorService } from './EventProcessorService';
+import logger from '../config/logger';
 import * as path from 'path';
-import { exec } from 'child_process';
-import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
-import * as cliProgress from 'cli-progress';
+import * as fs from 'fs';
+import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../interfaces/video-analysis.interfaces';
+import { DataSource } from 'typeorm';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Chunk, ChunkStatus } from './Chunk';
+import { ChunkRepository } from './ChunkRepository';
 
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
-import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
-import { VideoChunkerService, VideoChunk } from "./VideoChunkerService";
-import { GeminiAnalysisService, GeminiApiResponse } from "./GeminiAnalysisService";
-import { EventProcessorService } from "./EventProcessorService";
+const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-uploads';
+const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-uploads-subscription';
+const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
 interface PubSubMessage {
     gameId: string;
@@ -20,257 +23,246 @@ interface PubSubMessage {
     userId: string;
 }
 
-const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-uploads';
-const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-uploads-subscription';
-const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
-
-const ALLOWED_EVENT_TYPES = [
-    'Game Start', 'Period Start', 'Jump Ball', 'Jump Ball Possession', 'Possession Change',
-    'Shot Attempt', 'Shot Made', 'Shot Missed', '3PT Shot Attempt', '3PT Shot Made', '3PT Shot Missed',
-    'Free Throw Attempt', 'Free Throw Made', 'Free Throw Missed',
-    'Offensive Rebound', 'Defensive Rebound', 'Team Rebound',
-    'Assist', 'Steal', 'Block', 'Turnover',
-    'Personal Foul', 'Shooting Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul',
-    'Violation', 'Out of Bounds', 'Substitution', 'Timeout Taken',
-    'End of Period', 'End of Game'
-];
-
-import * as winston from 'winston'; // Import winston for typing the logger
-
 export class VideoProcessorWorker {
-    private jobRepository: VideoAnalysisJobRepository;
     private pubSubClient: PubSub;
-    private genAI: GoogleGenerativeAI;
-    private logger: winston.Logger; // Add a private logger property
-    private videoChunkerService: VideoChunkerService; // Add this line
-    private geminiAnalysisService: GeminiAnalysisService; // Add this line
-    private eventProcessorService: EventProcessorService; // Add this line
+    private jobRepository: VideoAnalysisJobRepository;
+    private chunkRepository: ChunkRepository;
+    private videoChunkerService: VideoChunkerService;
+    private geminiAnalysisService: GeminiAnalysisService;
+    private eventProcessorService: EventProcessorService;
+    private logger = logger;
 
-    constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
-        this.jobRepository = new VideoAnalysisJobRepository(dataSource);
+    constructor(dataSource: DataSource) {
         this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
-        this.logger = logger; // Assign the passed logger
-        this.videoChunkerService = new VideoChunkerService(); // Add this line
-
+        this.jobRepository = new VideoAnalysisJobRepository(dataSource);
+        this.chunkRepository = new ChunkRepository(dataSource);
+        this.videoChunkerService = new VideoChunkerService();
+        this.eventProcessorService = new EventProcessorService();
+        
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY environment variable not set!");
         }
-        this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        this.geminiAnalysisService = new GeminiAnalysisService(this.genAI); // Add this line
-        this.eventProcessorService = new EventProcessorService(); // Add this line
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        this.geminiAnalysisService = new GeminiAnalysisService(genAI);
     }
 
     public async startConsumingMessages(): Promise<void> {
-        this.logger.info("VideoProcessorWorker: Starting to consume messages from Pub/Sub...");
-        const subscription = this.pubSubClient.topic(VIDEO_UPLOAD_TOPIC_NAME).subscription(VIDEO_UPLOAD_SUBSCRIPTION_NAME);
-
+        this.logger.info('VideoProcessorWorker: Starting to consume messages from Pub/Sub...');
+        const subscription = this.pubSubClient.subscription(VIDEO_UPLOAD_SUBSCRIPTION_NAME);
+        
         subscription.on('message', async (message: Message) => {
             this.logger.info(`Received message ${message.id}:`);
             this.logger.info(`\tData: ${message.data}`);
-
+            
             let job: VideoAnalysisJob | null = null;
             try {
                 const parsedMessage: PubSubMessage = JSON.parse(message.data.toString());
-
-                // Attempt to find an existing RETRYABLE_FAILED job for this gameId and filePath
+                
                 job = await this.jobRepository.findOneByGameIdAndFilePath(parsedMessage.gameId, parsedMessage.filePath);
 
-                if (job && job.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
-                    logger.info(`Found existing RETRYABLE_FAILED job ${job.id} for game ${job.gameId}. Re-processing failed chunks.`);
-                    job.status = VideoAnalysisJobStatus.PROCESSING; // Mark as processing for retry
-                    await this.jobRepository.update(job);
+                if (job) {
+                    if (job.status === VideoAnalysisJobStatus.COMPLETED) {
+                        this.logger.info(`Job ${job.id} for game ${job.gameId} is already completed. Skipping.`);
+                        message.ack();
+                        return;
+                    }
+                    if (job.status === VideoAnalysisJobStatus.FAILED) {
+                        this.logger.info(`Job ${job.id} for game ${job.gameId} has permanently failed. Skipping.`);
+                        message.ack();
+                        return;
+                    }
+                    this.logger.info(`Found existing job ${job.id} with status ${job.status}. Resuming...`);
                 } else {
-                    // Create a new job if no retryable job found or if it's a fresh request
+                    this.logger.info(`No existing job found for game ${parsedMessage.gameId}. Creating new job.`);
                     job = new VideoAnalysisJob();
                     job.gameId = parsedMessage.gameId;
                     job.userId = parsedMessage.userId;
                     job.filePath = parsedMessage.filePath;
                     job.status = VideoAnalysisJobStatus.PENDING;
+                    job.chunks = [];
                     await this.jobRepository.create(job);
-                    logger.info(`Created new job ${job.id} for game ${job.gameId}.`);
+                    this.logger.info(`Created new job ${job.id} for game ${job.gameId}.`);
                 }
 
                 await this.processJob(job);
                 message.ack();
             } catch (error) {
-                logger.error(`Error processing Pub/Sub message ${message.id}:`, error);
+                this.logger.error(`Error processing Pub/Sub message ${message.id}:`, error);
                 if (job) {
-                    job.status = VideoAnalysisJobStatus.FAILED; // Mark job as FAILED if an unhandled error occurs
-                    await this.jobRepository.update(job);
+                    job.status = VideoAnalysisJobStatus.FAILED;
+                    await this.jobRepository.update(job.id, job);
                 }
-                message.nack(); // Nack the message to indicate failure and potentially retry
+                message.nack();
             }
         });
 
-        subscription.on('error', (error) => {
-            logger.error("Pub/Sub subscription error:", error);
+        subscription.on('error', error => {
+            this.logger.error('Received error from Pub/Sub subscription:', error);
         });
-
-        logger.info(`VideoProcessorWorker: Listening for messages on subscription: ${VIDEO_UPLOAD_SUBSCRIPTION_NAME}`);
     }
 
-    // Renamed from processMessage to processJob to reflect new responsibility
     public async processJob(job: VideoAnalysisJob): Promise<void> {
-        this.logger.info(`VideoProcessorWorker: Processing job ${job.id} for Game ID: ${job.gameId}, FilePath: ${job.filePath}`);
+        this.logger.info(`[WORKER] Processing job ${job.id} for Game ID: ${job.gameId}`);
 
-        let videoChunksToProcess: { chunkPath: string; startTime: number; sequence: number; }[] = [];
-        const currentlyFailedChunks: any[] = [];
+        const heartbeatInterval = setInterval(async () => {
+            await this.jobRepository.update(job.id, { processingHeartbeatAt: new Date() });
+        }, 60 * 1000);
 
-        let identifiedPlayers: any[] = job.identifiedPlayers || [];
-        let identifiedTeams: any[] = job.identifiedTeams || [];
-
-        const multibar = new cliProgress.MultiBar({
-            clearOnComplete: false,
-            hideCursor: true,
-            format: ' {bar} | {percentage}% | {task} | {value}/{total} {unit}'
-        }, cliProgress.Presets.shades_grey);
-
-        const overallProgressBar = multibar.create(100, 0, { task: 'Overall Progress', unit: '' });
-        const currentTaskProgressBar = multibar.create(100, 0, { task: 'Current Task', unit: '' });
-
+        let allCreatedChunkPaths: string[] = [];
         try {
             job.status = VideoAnalysisJobStatus.PROCESSING;
-            await this.jobRepository.update(job);
-            overallProgressBar.update(0, { task: 'Job status to PROCESSING', unit: '' });
+            job.processingHeartbeatAt = new Date();
+            job.retryCount += 1;
+            await this.jobRepository.update(job.id, job);
 
             const chunkDuration = 150;
             const overlapDuration = 30;
             const tempDir = path.join(__dirname, '../../tmp');
             if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-            // Determine which chunks to process
-            if (job.failedChunkInfo && job.failedChunkInfo.length > 0) {
-                this.logger.info(`VideoProcessorWorker: Retrying ${job.failedChunkInfo.length} failed chunks for Job ID: ${job.id}.`);
-                videoChunksToProcess = job.failedChunkInfo;
-                currentTaskProgressBar.update(0, { task: 'Processing failed chunks', unit: 'chunks' });
+            let chunksToProcess: Chunk[];
+            const existingChunks = await this.chunkRepository.findByJobId(job.id);
+
+            if (existingChunks.length === 0) {
+                this.logger.info(`[WORKER] Starting fresh analysis for Job ID: ${job.id}. Chunking video...`);
+                const videoChunks = await this.videoChunkerService.chunkVideo(job.filePath, tempDir, chunkDuration, overlapDuration);
+                
+                const newChunks = videoChunks.map(vc => {
+                    const chunk = new Chunk();
+                    chunk.jobId = job.id;
+                    chunk.chunkPath = vc.chunkPath;
+                    chunk.startTime = vc.startTime;
+                    chunk.sequence = vc.sequence;
+                    chunk.status = ChunkStatus.PENDING;
+                    return chunk;
+                });
+                chunksToProcess = await this.chunkRepository.createMany(newChunks);
+                job.processedEvents = [];
             } else {
-                this.logger.info(`VideoProcessorWorker: Starting fresh analysis (or full re-run) for Job ID: ${job.id}.`);
-                currentTaskProgressBar.update(0, { task: 'Chunking video', unit: 'chunks' });
-                videoChunksToProcess = await this.videoChunkerService.chunkVideo(job.filePath, tempDir, chunkDuration, overlapDuration, currentTaskProgressBar);
-                currentTaskProgressBar.update(videoChunksToProcess.length, { task: 'Chunking video', unit: 'chunks' });
-                this.logger.info(`VideoProcessorWorker: Generated ${videoChunksToProcess.length} video chunks for ${job.filePath}`);
+                this.logger.info(`[WORKER] Resuming job ${job.id}. Processing existing chunks.`);
+                chunksToProcess = existingChunks;
             }
+            allCreatedChunkPaths = chunksToProcess.map(c => c.chunkPath);
+
+            let identifiedPlayers: IdentifiedPlayer[] = job.identifiedPlayers || [];
+            let identifiedTeams: IdentifiedTeam[] = job.identifiedTeams || [];
+            const allProcessedEvents: ProcessedGameEvent[] = job.processedEvents || [];
+            const processedEventKeys = new Set<string>();
             
-            overallProgressBar.setTotal(videoChunksToProcess.length);
-            overallProgressBar.update(0, { task: 'Calling Gemini API', unit: 'chunks' });
+            this.logger.info(`[WORKER] Gemini API calls will run sequentially for ${chunksToProcess.length} chunks.`);
 
-            const runInParallel = process.env.GEMINI_API_PARALLEL_EXECUTION === 'true';
-            this.logger.info(`VideoProcessorWorker: Gemini API calls will run ${runInParallel ? 'in parallel' : 'sequentially'}.`);
+            for (const chunk of chunksToProcess) {
+                if (chunk.status === ChunkStatus.COMPLETED) {
+                    this.logger.debug(`[WORKER] Chunk ${chunk.sequence} already completed. Skipping API call.`);
+                    continue;
+                }
 
-            let allGeminiResults: ({ status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: any; error: any })[];
+                this.logger.info(`[WORKER] Analyzing chunk ${chunk.sequence + 1}/${chunksToProcess.length} (ID: ${chunk.id})`);
+                
+                try {
+                    chunk.status = ChunkStatus.PROCESSING;
+                    await this.chunkRepository.update(chunk);
 
-            if (runInParallel) {
-                currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Parallel)', unit: 'chunks' });
-                const allChunkPromises = videoChunksToProcess.map(chunkInfo => this.geminiAnalysisService.callGeminiApi(chunkInfo, identifiedPlayers, identifiedTeams));
-                allGeminiResults = await Promise.all(allChunkPromises);
-            } else {
-                currentTaskProgressBar.update(0, { task: 'Calling Gemini API (Sequential)', unit: 'chunks' });
-                allGeminiResults = [];
-                for (const chunkInfo of videoChunksToProcess) {
-                    const result = await this.geminiAnalysisService.callGeminiApi(chunkInfo, identifiedPlayers, identifiedTeams);
-                    allGeminiResults.push(result);
+                    const videoChunkInfo: VideoChunk = {
+                        chunkPath: chunk.chunkPath,
+                        startTime: chunk.startTime,
+                        sequence: chunk.sequence
+                    };
+                    const result = await this.geminiAnalysisService.callGeminiApi(videoChunkInfo, identifiedPlayers, identifiedTeams);
+
+                    if (result.status === 'fulfilled') {
+                        const processedResult = this.eventProcessorService.processEvents(
+                            result.events,
+                            job.gameId,
+                            videoChunkInfo,
+                            chunkDuration,
+                            overlapDuration,
+                            processedEventKeys,
+                            identifiedPlayers,
+                            identifiedTeams
+                        );
+                        
+                        allProcessedEvents.push(...processedResult.finalEvents);
+                        identifiedPlayers = processedResult.updatedIdentifiedPlayers;
+                        identifiedTeams = processedResult.updatedIdentifiedTeams;
+                        chunk.status = ChunkStatus.COMPLETED;
+                        await this.chunkRepository.update(chunk);
+                        this.logger.info(`[WORKER] Chunk ${chunk.sequence} completed successfully.`);
+                    } else {
+                        this.logger.error(`[WORKER] Chunk ${chunk.sequence} failed Gemini analysis. Error: ${result.error?.message || 'Unknown'}`);
+                        chunk.status = ChunkStatus.FAILED;
+                        await this.chunkRepository.update(chunk);
+                    }
+                } catch (chunkError) {
+                    this.logger.error(`[WORKER] Unhandled error processing chunk ${chunk.sequence}:`, chunkError);
+                    chunk.status = ChunkStatus.FAILED;
+                    await this.chunkRepository.update(chunk);
                 }
             }
 
-            const allRawEvents: any[] = [];
-            for (const result of allGeminiResults) { // Change to for...of loop to allow iterative updates
-                if (result.status === 'fulfilled') {
-                    // Process events for this chunk and update identified players/teams iteratively
-                    const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(result.events, job.gameId, chunkDuration, identifiedPlayers, identifiedTeams);
-                    allRawEvents.push(...finalEvents);
-                    identifiedPlayers = updatedIdentifiedPlayers; // Update for next iteration
-                    identifiedTeams = updatedIdentifiedTeams;     // Update for next iteration
-                } else {
-                    this.logger.error(`[RETRY_LATER] Chunk failed to process. Chunk Info: ${JSON.stringify(result.chunkInfo)}. Error:`, result.error);
-                    currentlyFailedChunks.push(result.chunkInfo);
-                }
-                overallProgressBar.increment();
-            }
-
-            // If ALL chunks failed, then the job is FAILED
-            if (allRawEvents.length === 0 && videoChunksToProcess.length > 0) {
-                throw new Error("All video chunks failed to process by the Gemini API.");
-            }
-
-            overallProgressBar.update(overallProgressBar.getTotal(), { task: 'Finalizing events and identified entities', unit: '' });
-            job.processedEvents = allRawEvents; // All events collected
-            job.identifiedPlayers = identifiedPlayers; // Final identified players
-            job.identifiedTeams = identifiedTeams;     // Final identified teams
-            this.logger.info(`VideoProcessorWorker: Parsed and filtered ${job.processedEvents.length} final game events.`);
-
-            // For now, we're not calculating stats here, just storing events.
-            // Stats calculation will be part of the result processing on the main backend side.
-            job.processedStats = null; // Clear or set an appropriate value if stats were calculated here
-
-            job.failedChunkInfo = currentlyFailedChunks; // Save currently failed chunks back to the job
-
-            if (currentlyFailedChunks.length > 0) {
-                job.status = VideoAnalysisJobStatus.RETRYABLE_FAILED;
-                this.logger.warn(`Video analysis job ${job.id} for game ${job.gameId} failed | retryable. ${currentlyFailedChunks.length} chunks failed.`);
-            } else {
-                job.status = VideoAnalysisJobStatus.COMPLETED;
-                if (job.failedChunkInfo) { // If it was a retry pass, clear the failedChunkInfo
-                    job.failedChunkInfo = null; // Clear failed chunks if successful
-                }
-                this.logger.info(`VideoProcessorWorker: Successfully processed job ${job.id} for Game ID: ${job.gameId}`);
-            }
-            await this.jobRepository.update(job);
+            job.processedEvents = allProcessedEvents;
+            job.identifiedPlayers = identifiedPlayers;
+            job.identifiedTeams = identifiedTeams;
+            
+            await this.jobRepository.update(job.id, job);
 
         } catch (error) {
-            this.logger.error(`VideoProcessorWorker: Error processing job ${job.id} for Game ID: ${job.gameId}:`, error);
+            this.logger.error(`[WORKER] Unrecoverable error in processJob ${job.id}:`, error);
             job.status = VideoAnalysisJobStatus.FAILED;
-            await this.jobRepository.update(job);
-        } finally {
-            overallProgressBar.update(overallProgressBar.getTotal(), { task: 'Cleaning up chunks', unit: '' });
-            // Conditional cleanup based on job status
+                        await this.jobRepository.update(job.id, job);        } finally {
+            clearInterval(heartbeatInterval);
+            
             if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
-                await this.videoChunkerService.cleanupChunks(videoChunksToProcess.map(c => c.chunkPath));
-            } else if (job.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
-                this.logger.info(`Cleanup: Job ${job.id} is in RETRYABLE_FAILED status. Retaining chunks for potential retry.`);
+                await this.videoChunkerService.cleanupChunks(allCreatedChunkPaths);
             } else {
-                this.logger.warn(`Cleanup: Job ${job.id} unexpected status ${job.status}. Retaining chunks.`);
+                this.logger.warn(`[WORKER] Job ${job.id} in state ${job.status}. Retaining chunk files for retry.`);
             }
-            multibar.stop();
-            // Always send job result to main backend regardless of success or failure
             await this.sendJobResultToMainBackend(job);
         }
     }
 
-    // New method to send results back to the main backend
+    private async updateParentJobStatus(job: VideoAnalysisJob): Promise<void> {
+        const chunks = await this.chunkRepository.findByJobId(job.id);
+        const totalChunks = chunks.length;
+        const completedChunks = chunks.filter(c => c.status === ChunkStatus.COMPLETED).length;
+        const failedChunks = chunks.filter(c => c.status === ChunkStatus.FAILED).length;
+        const processingChunks = chunks.filter(c => c.status === ChunkStatus.PROCESSING).length;
+
+        if (totalChunks > 0 && completedChunks === totalChunks) {
+            job.status = VideoAnalysisJobStatus.COMPLETED;
+            job.retryCount = 0;
+            this.logger.info(`[WORKER] Job ${job.id} status set to COMPLETED.`);
+        } else if (failedChunks > 0) {
+            job.status = VideoAnalysisJobStatus.RETRYABLE_FAILED;
+            this.logger.warn(`[WORKER] Job ${job.id} status set to RETRYABLE_FAILED due to ${failedChunks} failed chunks.`);
+        } else if (processingChunks > 0) {
+            job.status = VideoAnalysisJobStatus.PROCESSING;
+            this.logger.info(`[WORKER] Job ${job.id} status remains PROCESSING.`);
+        } else {
+            job.status = VideoAnalysisJobStatus.PENDING;
+            this.logger.warn(`[WORKER] Job ${job.id} status set to PENDING (unexpected state after chunk processing).`);
+        }
+    }
+
     private async sendJobResultToMainBackend(job: VideoAnalysisJob): Promise<void> {
         const resultMessage = {
             jobId: job.id,
             gameId: job.gameId,
             userId: job.userId,
             status: job.status,
+            identifiedTeams: job.identifiedTeams,
+            identifiedPlayers: job.identifiedPlayers,
             processedEvents: job.processedEvents,
-            failedChunkInfo: job.failedChunkInfo,
-            // Add other relevant processed data like stats if they were calculated by the worker
         };
         const dataBuffer = Buffer.from(JSON.stringify(resultMessage));
 
         try {
-            const messageId = await this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME).publishMessage({ data: dataBuffer });
-            this.logger.info(`VideoProcessorWorker: Published job result for Job ID: ${job.id} to ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}. Message ID: ${messageId}`);
+            const topic = this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME);
+            const messageId = await topic.publishMessage({ data: dataBuffer });
+            this.logger.info(`[WORKER] Published job result for Job ID: ${job.id}. Message ID: ${messageId}`);
         } catch (error) {
-            this.logger.error(`VideoProcessorWorker: Failed to publish job result for Job ID: ${job.id}:`, error);
-        }
-    }
-
-
-
-
-
-    private async cleanupChunks(chunkPaths: string[]): Promise<void> {
-        this.logger.info("VideoProcessorWorker: Cleaning up temporary video chunks...");
-        for (const chunkPath of chunkPaths) {
-            try {
-                await fs.promises.unlink(chunkPath);
-                this.logger.debug(`Cleaned up chunk: ${chunkPath}`);
-            } catch (error) {
-                this.logger.warn(`Failed to clean up chunk ${chunkPath}:`, error);
-            }
+            this.logger.error(`[WORKER] Failed to publish job result for Job ID: ${job.id}:`, error);
         }
     }
 }

@@ -1,5 +1,5 @@
-import { DataSource, Repository } from "typeorm";
-import { VideoAnalysisJob } from "./VideoAnalysisJob";
+import { DataSource, Repository, In } from "typeorm";
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
 import logger from "../config/logger";
 
 export class VideoAnalysisJobRepository {
@@ -22,8 +22,22 @@ export class VideoAnalysisJobRepository {
         return this.repository.findOne({ where: { id: jobId } });
     }
 
-    async update(job: VideoAnalysisJob): Promise<VideoAnalysisJob> {
-        logger.info(`Updating video analysis job ${job.id} for game ${job.gameId}`);
-        return this.repository.save(job);
+    async update(id: string, partialJob: Partial<VideoAnalysisJob>): Promise<void> {
+        logger.debug(`Updating partial video analysis job ${id}: ${JSON.stringify(partialJob)}`);
+        await this.repository.update(id, partialJob);
+    }
+
+    async find(options: import("typeorm").FindManyOptions<VideoAnalysisJob>): Promise<VideoAnalysisJob[]> {
+        return this.repository.find(options);
+    }
+
+    async findExistingJob(gameId: string, filePath: string): Promise<VideoAnalysisJob | null> {
+        return this.repository.findOne({
+            where: {
+                gameId,
+                filePath,
+                status: In([VideoAnalysisJobStatus.PENDING, VideoAnalysisJobStatus.PROCESSING, VideoAnalysisJobStatus.COMPLETED])
+            }
+        });
     }
 }

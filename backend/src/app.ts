@@ -204,11 +204,20 @@ AppDataSource.initialize()
         const userRepository = AppDataSource.getRepository(User); // Get the base User repository
         const teamStatsRepository = new GameTeamStatsRepository(AppDataSource);
         const playerStatsRepository = new GamePlayerStatsRepository(AppDataSource);
+        const teamRepository = new TeamRepository(AppDataSource.getRepository(Team));
+        const playerRepository = new PlayerRepository(AppDataSource);
         
         const teamService = new TeamService(AppDataSource); // Updated to take AppDataSource
         const playerService = new PlayerService(AppDataSource); // Updated to take AppDataSource
 
-        const gameService = new GameService(gameRepository, userRepository); // Refactored
+        const gameService = new GameService(
+            gameRepository, 
+            userRepository,
+            gameEventRepository,
+            teamRepository,
+            playerRepository,
+            playerStatsRepository
+        ); // Refactored
         const gameStatsService = new GameStatsService( // New
             gameRepository,
             teamStatsRepository,

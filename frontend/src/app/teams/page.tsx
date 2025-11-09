@@ -20,7 +20,7 @@ import '@material/web/button/text-button.js';
 
 
 function TeamsPage() {
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const router = useRouter();
   const [teams, setTeams] = useState<Team[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +64,10 @@ function TeamsPage() {
     } catch (error: any) {
       console.error("An error occurred in fetchTeams:", error);
       setError(error.message);
+      // If there's an authentication error, redirect to login
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     } finally {
       setIsLoading(false);
     }

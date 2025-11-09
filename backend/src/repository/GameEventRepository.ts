@@ -35,4 +35,30 @@ export class GameEventRepository {
     async save(event: GameEvent): Promise<GameEvent> {
         return this.repository.save(event);
     }
+
+    async findUniqueEntityIdsByGameId(gameId: string): Promise<{ playerIds: string[], teamIds: string[] }> {
+        const results = await this.repository.createQueryBuilder("event")
+            .select("event.assignedPlayerId", "playerId")
+            .addSelect("event.assignedTeamId", "teamId")
+            .where("event.gameId = :gameId", { gameId })
+            .distinct(true)
+            .getRawMany();
+
+        const playerIds = [...new Set(results.map(r => r.playerId).filter(id => id !== null))];
+        const teamIds = [...new Set(results.map(r => r.teamId).filter(id => id !== null))];
+
+        return { playerIds, teamIds };
+    }
+
+    async findUniquePlayerIdsByGameAndTeam(gameId: string, teamId: string): Promise<string[]> {
+        const results = await this.repository.createQueryBuilder("event")
+            .select("event.assignedPlayerId", "playerId")
+            .where("event.gameId = :gameId", { gameId })
+            .andWhere("event.assignedTeamId = :teamId", { teamId })
+            .andWhere("event.assignedPlayerId IS NOT NULL")
+            .distinct(true)
+            .getRawMany();
+
+        return results.map(r => r.playerId);
+    }
 }

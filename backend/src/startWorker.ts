@@ -54,7 +54,7 @@ const AppDataSource = new DataSource({
 AppDataSource.initialize()
     .then(() => {
         workerLogger.info("Data Source has been initialized!");
-        const videoProcessorWorker = new VideoProcessorWorker(AppDataSource, workerLogger);
+        const videoProcessorWorker = new VideoProcessorWorker(AppDataSource);
         videoProcessorWorker.startConsumingMessages();
 
         const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, workerLogger);

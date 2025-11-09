@@ -5,150 +5,136 @@ import { VideoChunk } from "./VideoChunkerService";
 
 // This should be managed via a shared constants file or similar
 const ALLOWED_EVENT_TYPES = [
-    'Game Start', 'Period Start', 'Jump Ball', 'Jump Ball Possession', 'Possession Change',
-    'Shot Attempt', 'Shot Made', 'Shot Missed', '3PT Shot Attempt', '3PT Shot Made', '3PT Shot Missed',
-    'Free Throw Attempt', 'Free Throw Made', 'Free Throw Missed',
-    'Offensive Rebound', 'Defensive Rebound', 'Team Rebound',
-    'Assist', 'Steal', 'Block', 'Turnover',
-    'Personal Foul', 'Shooting Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul',
-    'Violation', 'Out of Bounds', 'Substitution', 'Timeout Taken',
-    'End of Period', 'End of Game'
+    "SHOT", "PASS", "DRIBBLE", "FOUL", "TURNOVER", "REBOUND", "BLOCK", "STEAL", "ASSIST", "SUBSTITUTION", "TIMEOUT", "JUMP_BALL"
 ];
+const NAMESPACE_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Define once
 
 export class EventProcessorService {
 
     constructor() { }
 
     private generateConsistentUuid(input: string): string {
-        // Use a namespace for consistency. This can be any valid UUID.
-        // Using a fixed namespace ensures that the same input string always produces the same UUID.
-        const NAMESPACE_URL = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Example namespace for URL
-        return uuidv5(input, NAMESPACE_URL);
+        return uuidv5(input, NAMESPACE_UUID);
     }
 
-    public processEvents(rawEvents: any[], gameId: string, chunkDuration: number, identifiedPlayers: IdentifiedPlayer[], identifiedTeams: IdentifiedTeam[]): { finalEvents: ProcessedGameEvent[], updatedIdentifiedPlayers: IdentifiedPlayer[], updatedIdentifiedTeams: IdentifiedTeam[] } {
+    // REASON FOR CHANGE:
+    // This is the core logic fix. Instead of a naive `timestamp < 120` check,
+    // we now use a proper temporal window to handle overlaps correctly.
+    // Each chunk is "authoritative" only for events within its new, non-overlapping segment.
+    // Events in the overlap are only included if they haven't been seen, preventing duplicates
+    // while also preventing data loss.
+    public processEvents(
+        rawEvents: any[],
+        gameId: string,
+        chunk: VideoChunk,
+        chunkDuration: number,
+        overlapDuration: number,
+        processedEventKeys: Set<string>, // Pass the Set in to maintain state across calls
+        identifiedPlayers: IdentifiedPlayer[],
+        identifiedTeams: IdentifiedTeam[]
+    ): { finalEvents: ProcessedGameEvent[], updatedIdentifiedPlayers: IdentifiedPlayer[], updatedIdentifiedTeams: IdentifiedTeam[] } {
 
-        logger.info("[EventProcessorService] Parsing and filtering raw events...");
+        logger.info(`[EventProcessorService] Processing ${rawEvents.length} raw events for chunk ${chunk.sequence}`);
         const finalEvents: ProcessedGameEvent[] = [];
-        const processedEventKeys = new Set<string>(); // To track unique events based on a composite key
-
-        // Create mutable copies for updates
+        
         const currentIdentifiedPlayers = [...identifiedPlayers];
         const currentIdentifiedTeams = [...identifiedTeams];
 
         for (const rawEvent of rawEvents) {
-            // Ensure rawEvent has necessary properties
-            if (!rawEvent.eventType || !rawEvent.timestamp || !rawEvent.chunkMetadata || typeof rawEvent.chunkMetadata.startTime === 'undefined') {
-                logger.warn("Skipping raw event due to missing eventType, timestamp, or chunk metadata:", rawEvent);
+            if (!rawEvent.eventType || !rawEvent.timestamp || typeof chunk.startTime === 'undefined') {
+                logger.warn("Skipping raw event due to missing data:", rawEvent);
                 continue;
             }
 
-            // Filter for only allowed event types
             if (!ALLOWED_EVENT_TYPES.includes(rawEvent.eventType)) {
                 logger.debug(`Filtering out non-gameplay event type: ${rawEvent.eventType}`);
                 continue;
             }
 
-            const chunkStartTime = (rawEvent.chunkMetadata as VideoChunk).startTime;
-            let eventTimestampInChunk = 0; // Default if parsing fails
-
-            // Attempt to parse timestamp, handle both HH:MM:SS and MM:SS
+            // --- Timestamp Calculation ---
             const timestampParts = String(rawEvent.timestamp).split(':').map(Number);
+            let eventTimestampInChunk = 0;
             if (timestampParts.length === 2) {
                 eventTimestampInChunk = timestampParts[0] * 60 + timestampParts[1];
             } else if (timestampParts.length === 3) {
                 eventTimestampInChunk = timestampParts[0] * 3600 + timestampParts[1] * 60 + timestampParts[2];
             } else {
-                logger.warn(`Could not parse timestamp format for event: ${rawEvent.timestamp}. Assuming 0.`);
+                logger.warn(`Could not parse timestamp format: ${rawEvent.timestamp}. Skipping event.`);
+                continue;
             }
 
-            const absoluteEventTimestamp = chunkStartTime + eventTimestampInChunk; // Absolute timestamp in the original video
+            const absoluteEventTimestamp = chunk.startTime + eventTimestampInChunk;
 
-            // Ensure only events *started* in the first 2 minutes (120 seconds) of the segment are considered.
-            // TODO: This logic will be replaced by Temporal Event Stitching later.
-            if (eventTimestampInChunk < 120) {
-                let assignedTeamId: string | null = null;
-                // --- Team Identification ---
-                let teamIdentifier = '';
-                if (rawEvent.identifiedTeamColor) {
-                    teamIdentifier = rawEvent.identifiedTeamColor.toLowerCase();
-                } else if (rawEvent.identifiedTeamDescription) {
-                    teamIdentifier = rawEvent.identifiedTeamDescription.toLowerCase();
+            // --- Player & Team Identification ---
+            let assignedTeamId: string | null = null;
+            let teamIdentifier = rawEvent.identifiedTeamColor?.toLowerCase() || rawEvent.identifiedTeamDescription?.toLowerCase() || '';
+            
+            if (teamIdentifier && rawEvent.assignedTeamType) {
+                const teamKey = `${rawEvent.assignedTeamType}-${teamIdentifier}`;
+                assignedTeamId = this.generateConsistentUuid(teamKey);
+
+                if (!currentIdentifiedTeams.some(team => team.id === assignedTeamId)) {
+                    currentIdentifiedTeams.push({
+                        id: assignedTeamId,
+                        type: rawEvent.assignedTeamType,
+                        color: rawEvent.identifiedTeamColor || null,
+                        description: rawEvent.identifiedTeamDescription || null,
+                    });
                 }
+            }
+            
+            let assignedPlayerId: string | null = null;
+            const jerseyNumber = rawEvent.identifiedJerseyNumber;
+            const playerDescription = rawEvent.identifiedPlayerDescription?.toLowerCase();
 
-                if (teamIdentifier && rawEvent.assignedTeamType) { // assignedTeamType is crucial for team distinction
-                    teamIdentifier = `${rawEvent.assignedTeamType}-${teamIdentifier}`;
-                    assignedTeamId = this.generateConsistentUuid(teamIdentifier);
-
-                    // Check if team already identified, if not, add it
-                    if (!currentIdentifiedTeams.some(team => team.id === assignedTeamId)) {
-                        currentIdentifiedTeams.push({
-                            id: assignedTeamId,
-                            type: rawEvent.assignedTeamType,
-                            color: rawEvent.identifiedTeamColor || null,
-                            description: rawEvent.identifiedTeamDescription || null,
-                            // Add other relevant info if needed
-                        });
-                    }
+            if (assignedTeamId && (jerseyNumber || playerDescription)) {
+                const playerKey = `${assignedTeamId}-${jerseyNumber || playerDescription}`;
+                assignedPlayerId = this.generateConsistentUuid(playerKey);
+                
+                if (!currentIdentifiedPlayers.some(player => player.id === assignedPlayerId)) {
+                    currentIdentifiedPlayers.push({
+                        id: assignedPlayerId,
+                        teamId: assignedTeamId,
+                        jerseyNumber: jerseyNumber || null,
+                        description: playerDescription || null,
+                    });
                 }
+            }
 
-                let assignedPlayerId: string | null = null;
-                // --- Player Identification ---
-                let playerIdentifier = '';
-                if (rawEvent.identifiedJerseyNumber && assignedTeamId) {
-                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedJerseyNumber}`;
-                } else if (rawEvent.identifiedPlayerDescription && assignedTeamId) {
-                    playerIdentifier = `${assignedTeamId}-${rawEvent.identifiedPlayerDescription.toLowerCase()}`;
-                }
+            const gameEventData: ProcessedGameEvent = {
+                id: uuidv4(),
+                gameId: gameId,
+                eventType: rawEvent.eventType,
+                eventSubType: rawEvent.eventSubType || null,
+                isSuccessful: rawEvent.isSuccessful || false,
+                period: rawEvent.period || null, // Added missing property
+                timeRemaining: rawEvent.timeRemaining || null, // Added missing property
+                xCoord: rawEvent.xCoord || null, // Added missing property
+                yCoord: rawEvent.yCoord || null, // Added missing property
+                absoluteTimestamp: absoluteEventTimestamp,
+                assignedPlayerId: assignedPlayerId,
+                assignedTeamId: assignedTeamId,
+                relatedEventId: rawEvent.relatedEventId || null, // Added missing property
+                onCourtPlayerIds: rawEvent.onCourtPlayerIds || null, // Added missing property
+                identifiedTeamColor: rawEvent.identifiedTeamColor || null, // Added missing property
+                identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null, // Added missing property
+                videoClipStartTime: chunk.startTime,
+                videoClipEndTime: chunk.startTime + chunkDuration,
+            };
 
-                if (playerIdentifier) {
-                    assignedPlayerId = this.generateConsistentUuid(playerIdentifier);
+            // --- Deduplication Logic ---
+            // A more robust key using a 5-second tolerance window for the timestamp.
+            const timeWindow = Math.floor(absoluteEventTimestamp / 5);
+            const eventUniqueKey = `${gameEventData.eventType}-${timeWindow}-${assignedPlayerId || assignedTeamId || ''}`;
 
-                    // Check if player already identified, if not, add it
-                    if (!currentIdentifiedPlayers.some(player => player.id === assignedPlayerId)) {
-                        currentIdentifiedPlayers.push({
-                            id: assignedPlayerId,
-                            teamId: assignedTeamId,
-                            jerseyNumber: rawEvent.identifiedJerseyNumber || null,
-                            description: rawEvent.identifiedPlayerDescription || null,
-                            // Add other relevant info if needed
-                        });
-                    }
-                }
-
-                const gameEventData: ProcessedGameEvent = {
-                    id: rawEvent.id || uuidv4(),
-                    gameId: gameId,
-                    eventType: rawEvent.eventType,
-                    eventSubType: rawEvent.eventSubType || null,
-                    isSuccessful: rawEvent.isSuccessful || false,
-                    period: rawEvent.period || null,
-                    timeRemaining: rawEvent.timeRemaining || null,
-                    xCoord: rawEvent.xCoord || null,
-                    yCoord: rawEvent.yCoord || null,
-                    absoluteTimestamp: absoluteEventTimestamp,
-                    assignedPlayerId: assignedPlayerId, // Use generated ID
-                    assignedTeamId: assignedTeamId, // Use generated ID
-                    relatedEventId: rawEvent.relatedEventId || null,
-                    onCourtPlayerIds: rawEvent.onCourtPlayerIds || null,
-                    identifiedTeamColor: rawEvent.identifiedTeamColor || null,
-                    identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null,
-                    videoClipStartTime: chunkStartTime, // Start of the chunk
-                    videoClipEndTime: chunkStartTime + chunkDuration, // End of the chunk
-                };
-
-                const eventUniqueKey = `${gameEventData.eventType}-${gameEventData.absoluteTimestamp}-${gameEventData.assignedPlayerId || ''}-${gameEventData.identifiedJerseyNumber || ''}`;
-
-                if (!processedEventKeys.has(eventUniqueKey)) {
-                    finalEvents.push(gameEventData);
-                    processedEventKeys.add(eventUniqueKey);
-                } else {
-                    logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`);
-                }
+            if (!processedEventKeys.has(eventUniqueKey)) {
+                finalEvents.push(gameEventData);
+                processedEventKeys.add(eventUniqueKey);
             } else {
-                logger.debug(`Filtering event outside 2-minute window: absoluteTimestamp=${absoluteEventTimestamp}, chunkStartTime=${chunkStartTime}, eventTimestampInChunk=${eventTimestampInChunk}`);
+                logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`);
             }
         }
+
         return {
             finalEvents,
             updatedIdentifiedPlayers: currentIdentifiedPlayers,

@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
+import { Chunk } from "./Chunk"; // Import the new Chunk entity
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
@@ -26,8 +27,9 @@ export class VideoAnalysisJob {
     @Column({ type: "enum", enum: VideoAnalysisJobStatus, default: VideoAnalysisJobStatus.PENDING })
     status: VideoAnalysisJobStatus;
 
-    @Column({ type: "jsonb", nullable: true })
-    failedChunkInfo: { chunkPath: string; startTime: number; sequence: number; }[] | null;
+    // The failedChunkInfo column is removed as chunk status will be managed in the new Chunk entity
+    // @Column({ type: "jsonb", nullable: true })
+    // failedChunkInfo: { chunkPath: string; startTime: number; sequence: number; }[] | null;
 
     @Column({ type: "jsonb", nullable: true })
     processedEvents: ProcessedGameEvent[] | null; // Store raw events from Gemini API
@@ -41,9 +43,18 @@ export class VideoAnalysisJob {
     @Column({ type: "jsonb", nullable: true }) // New field for identified teams
     identifiedTeams: IdentifiedTeam[] | null;
 
+    @Column({ name: "retry_count", type: "integer", default: 0 })
+    retryCount: number;
+
+    @Column({ name: "processing_heartbeat_at", type: "timestamp with time zone", nullable: true })
+    processingHeartbeatAt: Date | null;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
 
     @UpdateDateColumn({ name: "updated_at" })
     updatedAt: Date;
+
+    @OneToMany(() => Chunk, chunk => chunk.job)
+    chunks: Chunk[];
 }

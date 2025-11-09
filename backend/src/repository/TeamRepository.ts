@@ -1,5 +1,5 @@
 import logger from "../config/logger";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { Team } from "../Team";
 import { User } from "../User";
 
@@ -41,5 +41,10 @@ export class TeamRepository {
     async deleteTeam(teamId: string, userId: string): Promise<void> {
         logger.info(`TeamRepository: Deleting team ${teamId} for user: ${userId}`);
         await this.teamBaseRepository.delete({ id: teamId, userId });
+    }
+
+    async findByIds(ids: string[]): Promise<Team[]> {
+        logger.info(`TeamRepository: Finding teams by IDs: ${ids.join(', ')}`);
+        return this.teamBaseRepository.findBy({ id: In(ids) });
     }
 }

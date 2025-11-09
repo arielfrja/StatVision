@@ -20,4 +20,8 @@ export class GamePlayerStatsRepository {
     async findOneByGameAndPlayer(gameId: string, playerId: string): Promise<GamePlayerStats | null> {
         return this.repository.findOne({ where: { gameId, playerId } });
     }
+
+    async findByGameId(gameId: string): Promise<GamePlayerStats[]> {
+        return this.repository.find({ where: { gameId } });
+    }
 }

@@ -10,11 +10,12 @@ export interface Player {
 }
 
 export interface PlayerTeamHistory {
-    id: string;
+    id?: string; // Made optional
     playerId: string;
     teamId: string;
     jerseyNumber: number | null;
     description: string | null;
-    startDate: Date | null;
-    endDate: Date | null;
+    startDate?: Date | null; // Made optional
+    endDate?: Date | null; // Made optional
+    player: Player; // Added full player object
 }

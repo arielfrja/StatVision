@@ -32,7 +32,7 @@ interface RosterPlayer extends PlayerTeamHistory {
 function TeamPlayersPage() {
   const params = useParams();
   const teamId = params.teamId as string;
-  const { getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
   const addPlayerDialogRef = useRef<any>(null);
 
   // --- State Declarations ---
@@ -85,10 +85,13 @@ function TeamPlayersPage() {
     } catch (error: any) {
       console.error("An error occurred in fetchTeamDetails:", error);
       setError(error.message);
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [teamId, getAccessTokenSilently]);
+  }, [teamId, getAccessTokenSilently, loginWithRedirect]);
 
   useEffect(() => {
     if (areMdcComponentsReady) {
@@ -121,6 +124,9 @@ function TeamPlayersPage() {
       fetchTeamDetails(); // Refresh the player list
     } catch (error: any) {
       setError(error.message);
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     }
   };
 
@@ -147,6 +153,9 @@ function TeamPlayersPage() {
       fetchTeamDetails(); // Refresh the player list
     } catch (error: any) {
       setError(error.message);
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     }
   };
 
@@ -169,6 +178,9 @@ function TeamPlayersPage() {
       fetchTeamDetails(); // Refresh the player list
     } catch (error: any) {
       setError(error.message);
+      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
+        loginWithRedirect();
+      }
     }
   };
 

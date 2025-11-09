@@ -201,6 +201,72 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
 
     /**
      * @swagger
+     * /games/{gameId}/identified-entities:
+     *   get:
+     *     summary: Get all unique teams and players identified in a game's events.
+     *     description: Retrieves a list of all unique teams and players that have been assigned to at least one GameEvent within a specific game.
+     *     tags: [Game]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: gameId
+     *         schema:
+     *           type: string
+     *           format: uuid
+     *         required: true
+     *         description: The ID of the game to retrieve entities from.
+     *     responses:
+     *       200:
+     *         description: An object containing arrays of identified teams and players.
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 teams:
+     *                   type: array
+     *                   items:
+     *                     $ref: '#/components/schemas/Team'
+     *                 players:
+     *                   type: array
+     *                   items:
+     *                     $ref: '#/components/schemas/Player'
+     *       401:
+     *         description: Unauthorized.
+     *       404:
+     *         description: Game not found or does not belong to user.
+     */
+    router.get("/:gameId/identified-entities", async (req, res) => {
+        if (!req.user || !req.user.uid) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+
+        try {
+            // First, verify the user has access to this game
+            const user = await userRepository.findOne({ where: { providerUid: req.user.uid } });
+            if (!user) {
+                return res.status(404).json({ message: "User not found." });
+            }
+            const game = await gameRepository.findOne({ where: { id: gameId, userId: user.id } });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or does not belong to user." });
+            }
+
+            // If access is verified, get the identified entities
+            const entities = await gameService.getIdentifiedEntities(gameId);
+            res.status(200).json(entities);
+        } catch (error) {
+            logger.error(`Error retrieving identified entities for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+
+    /**
+     * @swagger
      * /game-events/{gameEventId}/assign-player:
      *   put:
      *     summary: Assign a player to a game event.
