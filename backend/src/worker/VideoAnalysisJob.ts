@@ -43,6 +43,9 @@ export class VideoAnalysisJob {
     @Column({ type: "jsonb", nullable: true }) // New field for identified teams
     identifiedTeams: IdentifiedTeam[] | null;
 
+    @Column({ name: "failure_reason", type: "text", nullable: true })
+    failureReason: string | null;
+
     @Column({ name: "retry_count", type: "integer", default: 0 })
     retryCount: number;
 

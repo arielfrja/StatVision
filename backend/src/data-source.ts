@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
+import { TypeOrmLogger } from "./config/TypeOrmLogger";
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -9,7 +10,7 @@ export const AppDataSource = new DataSource({
     password: process.env.DB_PASSWORD || "statsvision_password",
     database: process.env.DB_DATABASE || "statsvision_db",
     synchronize: false, // Set to false for production and rely on migrations
-    logging: true,
+    logger: new TypeOrmLogger(),
     entities: [
         "src/User.ts",
         "src/Team.ts",

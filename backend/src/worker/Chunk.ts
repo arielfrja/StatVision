@@ -2,10 +2,13 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { VideoAnalysisJob } from "./VideoAnalysisJob";
 
 export enum ChunkStatus {
-    PENDING = 'PENDING',
-    PROCESSING = 'PROCESSING',
-    COMPLETED = 'COMPLETED',
-    FAILED = 'FAILED',
+    PENDING = 'PENDING', // Placeholder record exists
+    CHUNKING = 'CHUNKING', // The ffmpeg process is creating the chunk file
+    AWAITING_ANALYSIS = 'AWAITING_ANALYSIS', // Chunk file created, ready for analysis worker
+    ANALYZING = 'ANALYZING', // Analysis worker is processing the chunk
+    COMPLETED = 'COMPLETED', // Analysis is complete
+    FAILED = 'FAILED', // A permanent failure occurred at any step
+    RETRYABLE_FAILED = 'RETRYABLE_FAILED' // A temporary failure occurred
 }
 
 @Entity("worker_video_analysis_chunks")
@@ -31,6 +34,9 @@ export class Chunk {
 
     @Column({ type: "enum", enum: ChunkStatus, default: ChunkStatus.PENDING })
     status: ChunkStatus;
+
+    @Column({ name: "failure_reason", type: "text", nullable: true })
+    failureReason: string | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
