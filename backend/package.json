@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "npx ts-node src/app.ts",
-    "start:worker": "npx ts-node src/startWorker.ts",
+    "start:worker": "LOG_LEVEL=debug npx ts-node src/startWorker.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "typeorm": "npx typeorm-ts-node-commonjs"
   },
@@ -13,8 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@google/genai": "^1.29.0",
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.29.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/multer": "^2.0.0",
@@ -39,7 +38,8 @@
     "typeorm": "^0.3.27",
     "typescript": "^4.9.5",
     "uuid": "^13.0.0",
-    "winston": "^3.18.3"
+    "winston": "^3.18.3",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
