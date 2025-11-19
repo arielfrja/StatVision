@@ -30,7 +30,7 @@ const router = Router();
 
 // Initialize Pub/Sub client
 const pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
-const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-uploads'; // TODO: Define this in .env
+const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-upload-events'; // TODO: Define this in .env
 
 export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, gameStatsService: GameStatsService, gameEventRepository: GameEventRepository) => {
     const gameRepository = AppDataSource.getRepository(Game);
