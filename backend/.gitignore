@@ -123,4 +123,4 @@ tmp/
 .chokidar-custom-files
 
 # gcp-key-PubSub.json
-gcp-key-PubSub.json
+gcp-key-PubSub.json.env.worker
