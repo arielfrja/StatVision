@@ -1,65 +1,61 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from .env file in the backend directory
-const envPath = path.resolve(__dirname, '../.env');
+// Load environment variables from .env.worker file
+const envPath = path.resolve(__dirname, '../.env.worker');
 dotenv.config({ path: envPath });
 
 import "reflect-metadata";
-import { PubSub } from "@google-cloud/pubsub";
-import { DataSource } from "typeorm";
-import { VideoProcessorWorker } from "./worker/videoProcessorWorker";
+import { In } from "typeorm";
+import { AppDataSource } from "./data-source";
+import { jobLogger } from "./config/loggers";
+import { VideoOrchestratorService } from "./worker/videoProcessorWorker";
+import { ChunkProcessorWorker } from "./worker/ChunkProcessorWorker";
 import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
-import * as winston from 'winston';
-import { User } from "./User";
+import { VideoAnalysisJobRepository } from './worker/VideoAnalysisJobRepository';
+import { VideoAnalysisJobStatus } from './worker/VideoAnalysisJob';
+import { JobFinalizerService } from './worker/JobFinalizerService';
 
-// Create a dedicated logger for the worker
-const workerLogger = winston.createLogger({
-    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
-    format: winston.format.json(),
-    transports: [
-        new winston.transports.File({ filename: 'worker.log', level: 'debug' }),
-        new winston.transports.Console({
-            level: process.env.NODE_ENV === 'production' ? 'info' : 'info',
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.simple()
-            ),
-        }),
-    ],
-});
-import { Team } from "./Team";
-import { Player } from "././Player";
-import { PlayerTeamHistory } from "./PlayerTeamHistory";
-import { Game } from "./Game";
-import { GameEvent } from "./GameEvent";
-import { GameTeamStats } from "./GameTeamStats";
-import { GamePlayerStats } from "./GamePlayerStats";
-import { VideoAnalysisJob } from "./worker/VideoAnalysisJob";
+async function main() {
+    await AppDataSource.initialize();
+    jobLogger.info("Data Source has been initialized for worker!");
 
-const AppDataSource = new DataSource({
-    type: "postgres",
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT) || 5432,
-    username: process.env.DB_USERNAME || "statvision",
-    password: process.env.DB_PASSWORD || "statvision",
-    database: process.env.DB_DATABASE || "statvision",
-    synchronize: true, // Use migrations in production
-    logging: false,
-    entities: [User, Team, Player, PlayerTeamHistory, Game, GameEvent, GameTeamStats, GamePlayerStats, VideoAnalysisJob],
-    migrations: [],
-    subscribers: [],
-});
+    // --- Startup Reconciliation ---
+    jobLogger.info("[Startup] Starting reconciliation for jobs in intermediate states...");
+    const jobRepository = new VideoAnalysisJobRepository(AppDataSource);
+    const jobFinalizer = new JobFinalizerService(AppDataSource);
 
-AppDataSource.initialize()
-    .then(() => {
-        workerLogger.info("Data Source has been initialized!");
-        const videoProcessorWorker = new VideoProcessorWorker(AppDataSource);
-        videoProcessorWorker.startConsumingMessages();
-
-        const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, workerLogger);
-        videoAnalysisResultService.startConsumingResults();
-    })
-    .catch((err) => {
-        workerLogger.error("Error during Data Source initialization:", err);
+    const jobsToReconcile = await jobRepository.find({
+        where: {
+            status: In([VideoAnalysisJobStatus.PROCESSING, VideoAnalysisJobStatus.RETRYABLE_FAILED])
+        }
     });
+
+    if (jobsToReconcile.length > 0) {
+        jobLogger.info(`[Startup] Found ${jobsToReconcile.length} jobs to reconcile.`);
+        for (const job of jobsToReconcile) {
+            await jobFinalizer.finalizeJob(job.id);
+        }
+        jobLogger.info(`[Startup] Reconciliation complete.`);
+    } else {
+        jobLogger.info(`[Startup] No jobs found needing reconciliation.`);
+    }
+    // --- End of Startup Reconciliation ---
+
+    const processingMode = process.env.PROCESSING_MODE || 'PARALLEL';
+    jobLogger.info(`[Startup] Starting VideoOrchestratorService in ${processingMode} mode.`);
+
+    const videoOrchestratorService = new VideoOrchestratorService(AppDataSource, processingMode);
+    videoOrchestratorService.startConsumingMessages();
+
+    const chunkProcessorWorker = new ChunkProcessorWorker(AppDataSource);
+    chunkProcessorWorker.startConsumingMessages();
+
+    const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, jobLogger);
+    videoAnalysisResultService.startConsumingResults();
+}
+
+main().catch((err) => {
+    jobLogger.error("Error during worker startup:", err);
+    process.exit(1);
+});
