@@ -1,6 +1,6 @@
 import { DataSource, Repository } from "typeorm";
 import { Chunk, ChunkStatus } from "./Chunk";
-import logger from "../config/logger";
+import { chunkLogger as logger } from "../config/loggers";
 
 export class ChunkRepository {
     private repository: Repository<Chunk>;
@@ -10,17 +10,20 @@ export class ChunkRepository {
     }
 
     async create(chunk: Chunk): Promise<Chunk> {
-        logger.debug(`Creating new chunk for job ${chunk.jobId}, sequence ${chunk.sequence}`);
+        logger.debug(`Creating new chunk for job ${chunk.jobId}, sequence ${chunk.sequence}`, { phase: 'database' });
         return this.repository.save(chunk);
     }
 
     async createMany(chunks: Chunk[]): Promise<Chunk[]> {
-        logger.debug(`Creating ${chunks.length} chunks.`);
+        logger.debug(`Creating ${chunks.length} chunks.`, { phase: 'database' });
         return this.repository.save(chunks);
     }
 
     async findByJobId(jobId: string): Promise<Chunk[]> {
-        return this.repository.find({ where: { jobId }, order: { sequence: "ASC" } });
+        logger.debug(`[ChunkRepository] Finding chunks for jobId: ${jobId}`, { phase: 'database' });
+        const chunks = await this.repository.find({ where: { jobId }, order: { sequence: "ASC" } });
+        logger.debug(`[ChunkRepository] Found ${chunks.length} chunks for jobId: ${jobId}`, { phase: 'database' });
+        return chunks;
     }
 
     async findOneById(chunkId: string): Promise<Chunk | null> {
@@ -28,7 +31,7 @@ export class ChunkRepository {
     }
 
     async update(chunk: Chunk): Promise<Chunk> {
-        logger.debug(`Updating chunk ${chunk.id} for job ${chunk.jobId}, status: ${chunk.status}`);
+        logger.debug(`Updating chunk ${chunk.id} for job ${chunk.jobId}, status: ${chunk.status}`, { phase: 'database' });
         return this.repository.save(chunk);
     }
 

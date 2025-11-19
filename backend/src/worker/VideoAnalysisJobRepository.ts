@@ -1,6 +1,6 @@
 import { DataSource, Repository, In } from "typeorm";
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
-import logger from "../config/logger";
+import { jobLogger as logger } from "../config/loggers";
 
 export class VideoAnalysisJobRepository {
     private repository: Repository<VideoAnalysisJob>;
@@ -10,7 +10,7 @@ export class VideoAnalysisJobRepository {
     }
 
     async create(job: VideoAnalysisJob): Promise<VideoAnalysisJob> {
-        logger.info(`Creating new video analysis job for game ${job.gameId}`);
+        logger.info(`Creating new video analysis job for game ${job.gameId}`, { phase: 'database' });
         return this.repository.save(job);
     }
 
@@ -23,7 +23,7 @@ export class VideoAnalysisJobRepository {
     }
 
     async update(id: string, partialJob: Partial<VideoAnalysisJob>): Promise<void> {
-        logger.debug(`Updating partial video analysis job ${id}: ${JSON.stringify(partialJob)}`);
+        logger.debug(`Updating partial video analysis job ${id}: ${JSON.stringify(partialJob)}`, { phase: 'database' });
         await this.repository.update(id, partialJob);
     }
 
