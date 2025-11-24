@@ -1,4 +1,5 @@
 import { PubSub, Message, SubscriptionOptions } from '@google-cloud/pubsub';
+import { workerConfig } from '../config/workerConfig';
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from './VideoAnalysisJob';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
@@ -27,15 +28,16 @@ export class VideoOrchestratorService {
     private videoChunkerService: VideoChunkerService;
     private jobLogger = jobLogger;
     private chunkLogger = chunkLogger;
+    private processingMode: string;
 
     constructor(
-        private dataSource: DataSource,
-        private processingMode: string = 'PARALLEL'
+        private dataSource: DataSource
     ) {
         this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
+        this.processingMode = workerConfig.processingMode;
     }
 
     public async startConsumingMessages(): Promise<void> {
@@ -43,7 +45,7 @@ export class VideoOrchestratorService {
 
         const subscriptionOptions: SubscriptionOptions = {
             flowControl: {
-                maxMessages: this.processingMode === 'SEQUENTIAL' ? 1 : 5, // Only 1 message at a time for sequential mode
+                maxMessages: this.processingMode === 'SEQUENTIAL' ? 1 : workerConfig.parallelJobLimit,
             },
         };
 
@@ -56,11 +58,11 @@ export class VideoOrchestratorService {
 
             let heartbeat: NodeJS.Timeout | null = null;
             const extendAckDeadline = () => {
-                message.modAck(60);
+                message.modAck(workerConfig.ackDeadlineSeconds);
                 this.jobLogger.debug(`Extended ack deadline for message ${message.id}`, { phase: 'orchestration' });
             };
 
-            heartbeat = setInterval(extendAckDeadline, 45 * 1000);
+            heartbeat = setInterval(extendAckDeadline, workerConfig.heartbeatIntervalSeconds * 1000);
 
             let job: VideoAnalysisJob | null = null;
             try {
@@ -145,8 +147,8 @@ export class VideoOrchestratorService {
     private async orchestrateChunking(job: VideoAnalysisJob, tempDir: string, chunkAnalysisTopic: any): Promise<void> {
         this.jobLogger.info(`[Orchestrator] Starting chunk-by-chunk orchestration for job ${job.id}`, { phase: 'orchestration' });
 
-        const chunkDuration = 150;
-        const overlap = 30;
+        const chunkDuration = workerConfig.chunkDurationSeconds;
+        const overlap = workerConfig.chunkOverlapSeconds;
 
         const metadata = await this.videoChunkerService.getVideoMetadata(job.filePath);
         const totalDuration = metadata.duration;
@@ -247,7 +249,8 @@ export class VideoOrchestratorService {
     }
 
     private async waitForJobCompletion(jobId: string): Promise<void> {
-        const pollInterval = 15000; // 15 seconds
+        // A simple polling mechanism to wait for job completion in SEQUENTIAL mode.
+        const pollInterval = workerConfig.heartbeatIntervalSeconds * 1000;
         while (true) {
             const job = await this.jobRepository.findOneById(jobId);
             if (!job) {

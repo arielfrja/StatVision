@@ -8,6 +8,7 @@ import { GeminiAnalysisService } from './GeminiAnalysisService';
 import { EventProcessorService } from './EventProcessorService';
 import { Chunk, ChunkStatus } from './Chunk';
 import { VideoAnalysisJobStatus } from './VideoAnalysisJob';
+import { workerConfig } from '../config/workerConfig';
 import { GoogleGenAI } from '@google/genai';
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../interfaces/video-analysis.interfaces';
 import { JobFinalizerService } from './JobFinalizerService';
@@ -27,6 +28,7 @@ export class ChunkProcessorWorker {
     private eventProcessorService: EventProcessorService;
     private jobFinalizerService: JobFinalizerService;
     private logger = chunkLogger;
+    private processingMode: string;
 
     constructor(private dataSource: DataSource) {
         this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
@@ -34,6 +36,7 @@ export class ChunkProcessorWorker {
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
         this.jobFinalizerService = new JobFinalizerService(dataSource);
+        this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
@@ -57,11 +60,11 @@ export class ChunkProcessorWorker {
 
             let heartbeat: NodeJS.Timeout | null = null;
             const extendAckDeadline = () => {
-                message.modAck(60);
+                message.modAck(workerConfig.ackDeadlineSeconds);
                 this.logger.debug(`Extended ack deadline for chunk message ${message.id}`, { phase: 'analyzing' });
             };
 
-            heartbeat = setInterval(extendAckDeadline, 45 * 1000);
+            heartbeat = setInterval(extendAckDeadline, workerConfig.heartbeatIntervalSeconds * 1000);
 
             let chunk: Chunk | null = null;
             let jobId: string | null = null;
@@ -83,6 +86,39 @@ export class ChunkProcessorWorker {
                     message.ack();
                     return;
                 }
+
+                // --- Queue Indexing Logic for Sequential Mode ---
+                if (this.processingMode === 'SEQUENTIAL' && chunk.sequence > 0) {
+                    const previousChunk = await this.chunkRepository.findByJobIdAndSequence(jobId, chunk.sequence - 1);
+                    if (!previousChunk) {
+                        this.logger.error(`[SEQUENTIAL] Previous chunk (sequence ${chunk.sequence - 1}) for job ${jobId} not found for chunk ${chunk.sequence}. This indicates a data inconsistency. Nacking.`, { phase: 'analyzing' });
+                        message.nack(); // Nack to retry later, hoping consistency is restored
+                        if (heartbeat) clearInterval(heartbeat);
+                        return;
+                    }
+
+                    if (previousChunk.status !== ChunkStatus.COMPLETED) {
+                        this.logger.info(`[SEQUENTIAL] Previous chunk (sequence ${previousChunk.sequence}) for job ${jobId} is not yet COMPLETED (status: ${previousChunk.status}). Nacking message for chunk ${chunk.sequence}.`, { phase: 'analyzing' });
+                        message.nack(); // Nack to retry later
+                        if (heartbeat) clearInterval(heartbeat);
+                        return;
+                    }
+                    this.logger.info(`[SEQUENTIAL] Previous chunk (sequence ${previousChunk.sequence}) for job ${jobId} is COMPLETED. Proceeding with chunk ${chunk.sequence}.`, { phase: 'analyzing' });
+                
+                } else if (this.processingMode === 'PARALLEL') {
+                    // --- WIP-Limit per Stage Logic for Parallel Mode ---
+                    const stageLimit = workerConfig.parallelStageLimit;
+                    const analyzingInStage = await this.chunkRepository.countAnalyzingChunksForSequence(chunk.sequence);
+
+                    if (analyzingInStage >= stageLimit) {
+                        this.logger.info(`[PARALLEL_WIP] Stage ${chunk.sequence} is at capacity (${analyzingInStage}/${stageLimit}). Nacking message for chunk ${chunk.sequence} of job ${jobId}.`, { phase: 'analyzing' });
+                        message.nack();
+                        if (heartbeat) clearInterval(heartbeat);
+                        return;
+                    }
+                    this.logger.info(`[PARALLEL_WIP] Stage ${chunk.sequence} has capacity (${analyzingInStage}/${stageLimit}). Proceeding with chunk ${chunk.sequence} of job ${jobId}.`, { phase: 'analyzing' });
+                }
+                // --- End Concurrency Logic ---
 
                 this.logger.info(`[CHUNK_PROCESSOR] Processing chunk ${chunk.sequence} (ID: ${chunk.id}) for job ${jobId}`, { phase: 'analyzing' });
 
@@ -106,9 +142,6 @@ export class ChunkProcessorWorker {
                 const allProcessedEvents: ProcessedGameEvent[] = job.processedEvents || [];
                 const processedEventKeys = new Set<string>(allProcessedEvents.map(e => `${e.eventType}-${Math.floor(e.absoluteTimestamp / 5)}-${e.assignedPlayerId || e.assignedTeamId || ''}`));
 
-                const chunkDuration = 150;
-                const overlapDuration = 30;
-
                 const videoChunkInfo = {
                     chunkPath: chunk.chunkPath,
                     startTime: chunk.startTime,
@@ -124,8 +157,8 @@ export class ChunkProcessorWorker {
                         result.events,
                         job.gameId,
                         videoChunkInfo,
-                        chunkDuration,
-                        overlapDuration,
+                        workerConfig.chunkDurationSeconds,
+                        workerConfig.chunkOverlapSeconds,
                         processedEventKeys,
                         identifiedPlayers,
                         identifiedTeams

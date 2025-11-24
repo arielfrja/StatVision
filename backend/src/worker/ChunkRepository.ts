@@ -30,6 +30,11 @@ export class ChunkRepository {
         return this.repository.findOne({ where: { id: chunkId } });
     }
 
+    async findByJobIdAndSequence(jobId: string, sequence: number): Promise<Chunk | null> {
+        logger.debug(`[ChunkRepository] Finding chunk for jobId: ${jobId}, sequence: ${sequence}`, { phase: 'database' });
+        return this.repository.findOne({ where: { jobId, sequence } });
+    }
+
     async update(chunk: Chunk): Promise<Chunk> {
         logger.debug(`Updating chunk ${chunk.id} for job ${chunk.jobId}, status: ${chunk.status}`, { phase: 'database' });
         return this.repository.save(chunk);
@@ -37,5 +42,16 @@ export class ChunkRepository {
 
     async updateStatus(chunkId: string, status: ChunkStatus): Promise<void> {
         await this.repository.update(chunkId, { status });
+    }
+
+    async countAnalyzingChunksForSequence(sequence: number): Promise<number> {
+        const count = await this.repository.count({
+            where: {
+                sequence: sequence,
+                status: ChunkStatus.ANALYZING
+            }
+        });
+        logger.debug(`[ChunkRepository] Found ${count} ANALYZING chunks for sequence ${sequence}.`, { phase: 'database' });
+        return count;
     }
 }

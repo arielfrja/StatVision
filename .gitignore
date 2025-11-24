@@ -7,6 +7,7 @@ frontend-test/
 team_creation_response*.json
 team_creation_error.log
 uploads/
+statvision_db_backup.sql
 
 # Backend
 backend/node_modules/

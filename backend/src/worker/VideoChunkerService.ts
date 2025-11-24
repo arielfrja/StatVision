@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
+import { workerConfig } from '../config/workerConfig';
 import { ProgressManager } from './ProgressManager';
 import { chunkLogger } from '../config/loggers';
 
@@ -161,8 +162,8 @@ export class VideoChunkerService {
         const args = [
             '-y', '-v', 'quiet', '-stats',
             '-ss', String(startTime), '-i', filePath, '-t', String(chunkDuration),
-            '-vf', 'eq=contrast=1.2:gamma=1.1, unsharp=3:3:0.5:3:3:0.0',
-            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac',
+            '-vf', workerConfig.ffmpegVideoFilter,
+            '-c:v', 'libx264', '-preset', workerConfig.ffmpegPreset, '-crf', workerConfig.ffmpegCrf, '-c:a', 'aac',
             chunkPath
         ];
 

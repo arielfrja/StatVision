@@ -1,6 +1,7 @@
 import { GoogleGenAI, Part } from "@google/genai";
 import * as fs from 'fs';
 import * as path from 'path';
+import { workerConfig } from "../config/workerConfig";
 import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../interfaces/video-analysis.interfaces";
@@ -33,7 +34,7 @@ export class GeminiAnalysisService {
         let uploadedFileName: string | null = null;
 
         try {
-            const modelName = process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash';
+            const modelName = workerConfig.geminiModelName;
             logger.info(`[GeminiAnalysisService] Using Gemini model: ${modelName}`, { phase: 'analyzing' });
 
             logger.info(`[GeminiAnalysisService] Uploading file to Gemini File API: ${chunkPath}`, { phase: 'analyzing' });
@@ -52,8 +53,8 @@ export class GeminiAnalysisService {
 
             // Poll for active state
             let file = await this.genAI.files.get({ name: uploadedFileName });
-            const pollInterval = 5000; // 5 seconds
-            const maxRetries = 24; // 2 minutes timeout
+            const pollInterval = workerConfig.geminiFilePollIntervalMs;
+            const maxRetries = workerConfig.geminiFilePollMaxRetries;
             let retryCount = 0;
 
             while (file.state === 'PROCESSING' && retryCount < maxRetries) {

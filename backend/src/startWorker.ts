@@ -15,6 +15,7 @@ import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService
 import { VideoAnalysisJobRepository } from './worker/VideoAnalysisJobRepository';
 import { VideoAnalysisJobStatus } from './worker/VideoAnalysisJob';
 import { JobFinalizerService } from './worker/JobFinalizerService';
+import { workerConfig } from './config/workerConfig';
 
 async function main() {
     await AppDataSource.initialize();
@@ -42,10 +43,9 @@ async function main() {
     }
     // --- End of Startup Reconciliation ---
 
-    const processingMode = process.env.PROCESSING_MODE || 'PARALLEL';
-    jobLogger.info(`[Startup] Starting VideoOrchestratorService in ${processingMode} mode.`);
+    jobLogger.info(`[Startup] Starting workers in ${workerConfig.processingMode} mode.`);
 
-    const videoOrchestratorService = new VideoOrchestratorService(AppDataSource, processingMode);
+    const videoOrchestratorService = new VideoOrchestratorService(AppDataSource);
     videoOrchestratorService.startConsumingMessages();
 
     const chunkProcessorWorker = new ChunkProcessorWorker(AppDataSource);
