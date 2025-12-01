@@ -16,6 +16,12 @@ import { VideoAnalysisJobRepository } from './worker/VideoAnalysisJobRepository'
 import { VideoAnalysisJobStatus } from './worker/VideoAnalysisJob';
 import { JobFinalizerService } from './worker/JobFinalizerService';
 import { workerConfig } from './config/workerConfig';
+import { GameEventRepository } from './repository/GameEventRepository';
+import { PlayerRepository } from './repository/PlayerRepository';
+import { TeamRepository } from './repository/TeamRepository';
+import { GameEvent } from './GameEvent';
+import { Player } from './Player';
+import { Team } from './Team';
 
 async function main() {
     await AppDataSource.initialize();
@@ -48,7 +54,17 @@ async function main() {
     const videoOrchestratorService = new VideoOrchestratorService(AppDataSource);
     videoOrchestratorService.startConsumingMessages();
 
-    const chunkProcessorWorker = new ChunkProcessorWorker(AppDataSource);
+    // Instantiate Repositories for ChunkProcessorWorker
+    const gameEventRepository = new GameEventRepository(AppDataSource);
+    const playerRepository = new PlayerRepository(AppDataSource);
+    const teamRepository = new TeamRepository(AppDataSource.getRepository(Team)); // TeamRepository needs base TypeORM repo
+
+    const chunkProcessorWorker = new ChunkProcessorWorker(
+        AppDataSource,
+        gameEventRepository,
+        playerRepository,
+        teamRepository
+    );
     chunkProcessorWorker.startConsumingMessages();
 
     const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, jobLogger);

@@ -18,7 +18,7 @@ export const authMiddleware = (AppDataSource: DataSource, authProvider: IAuthPro
 
   return async (req: Request, res: Response, next: NextFunction) => {
     // Allow /api-docs to bypass authentication
-    if (req.path.startsWith("/api-docs")) {
+    if (req.path.startsWith("/api-docs") || req.path.startsWith("/analysis")) {
         return next();
     }
 

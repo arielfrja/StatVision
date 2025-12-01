@@ -20,6 +20,8 @@ import { Game } from "./Game";
 import { GameEvent } from "./GameEvent";
 import { GameTeamStats } from "./GameTeamStats";
 import { GamePlayerStats } from "./GamePlayerStats";
+import { VideoAnalysisJob } from "./worker/VideoAnalysisJob"; // Import VideoAnalysisJob
+import { Chunk } from "./worker/Chunk"; // Import Chunk
 import { TeamRepository } from "./repository/TeamRepository";
 import { GameEventRepository } from "./repository/GameEventRepository";
 import { TeamService } from "./service/TeamService";
@@ -38,9 +40,11 @@ import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
 import { playerRoutes } from "./routes/playerRoutes";
 import { gameRoutes } from "./routes/gameRoutes";
+import { analysisRoutes } from "./routes/analysisRoutes"; // Import the new analysis routes
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { IAuthProvider } from "./auth/authProvider";
+import { PubSub } from '@google-cloud/pubsub'; // Import PubSub
 
   logger.debug("Environment Variables Loaded:");
   logger.debug(`PORT: ${process.env.PORT}`);
@@ -71,7 +75,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_DATABASE,
     synchronize: false, // Use migrations in production
     logging: false,
-    entities: [User, Team, Player, PlayerTeamHistory, Game, GameEvent, GameTeamStats, GamePlayerStats],
+    entities: [User, Team, Player, PlayerTeamHistory, Game, GameEvent, GameTeamStats, GamePlayerStats, VideoAnalysisJob, Chunk],
     subscribers: [],
     migrations: [__dirname + "/migration/**/*.ts"],
 });
@@ -227,11 +231,17 @@ AppDataSource.initialize()
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
 
+        app.use(authMiddleware(AppDataSource, authProvider));
+
+        // Instantiate Pub/Sub Client
+        const pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+
         // Import and use routes
         app.use("/", authRoutes(AppDataSource));
         app.use("/teams", teamRoutes(AppDataSource, teamService)); // Pass teamService
         app.use("/teams/:teamId/players", playerRoutes(AppDataSource, teamService, playerService)); // Pass services
         app.use("/games", gameRoutes(AppDataSource, gameService, gameStatsService, gameEventRepository));
+        app.use("/analysis", analysisRoutes(AppDataSource, pubSubClient)); // Use the new analysis routes and pass dependencies
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {

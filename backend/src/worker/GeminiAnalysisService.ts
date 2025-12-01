@@ -1,10 +1,37 @@
-import { GoogleGenAI, Part } from "@google/genai";
+import { GoogleGenAI, Part, Type, FunctionCallingConfigMode } from "@google/genai";
 import * as fs from 'fs';
 import * as path from 'path';
 import { workerConfig } from "../config/workerConfig";
 import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../interfaces/video-analysis.interfaces";
+
+const GameAnalysisTool = {
+    name: 'record_game_events',
+    description: 'Records all identified basketball game events from the video chunk.',
+    parameters: {
+        type: Type.OBJECT,
+        properties: {
+            events: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        eventType: { type: Type.STRING, description: 'Type of the gameplay event from the allowed list.' },
+                        timestamp: { type: Type.STRING, description: 'Timestamp of the event in MM:SS format relative to this video chunk.' },
+                        description: { type: Type.STRING, description: 'A brief text description of what occurred.' },
+                        isSuccessful: { type: Type.BOOLEAN, description: 'For events like shots, indicates if it was successful.' },
+                        identifiedJerseyNumber: { type: Type.STRING, description: 'Jersey number of the key player in the event.' },
+                        identifiedTeamColor: { type: Type.STRING, description: 'Jersey color of the team involved.' },
+                        assignedTeamType: { type: Type.STRING, enum: ['HOME', 'AWAY'], description: "The player's assigned team type." }
+                    },
+                    required: ['eventType', 'timestamp', 'description']
+                }
+            }
+        },
+        required: ['events']
+    }
+};
 
 // This should be managed via a shared constants file or similar
 const ALLOWED_EVENT_TYPES = [
@@ -18,7 +45,7 @@ const ALLOWED_EVENT_TYPES = [
     'End of Period', 'End of Game'
 ];
 
-export type GeminiApiResponse = { status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
+export type GeminiApiResponse = { status: 'fulfilled'; events: any[], thoughtSignature?: string, rawApiResponse?: any } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
 
 export class GeminiAnalysisService {
     private genAI: GoogleGenAI;
@@ -27,7 +54,7 @@ export class GeminiAnalysisService {
         this.genAI = genAI;
     }
 
-    public async callGeminiApi(chunkInfo: VideoChunk, identifiedPlayers: IdentifiedPlayer[], identifiedTeams: IdentifiedTeam[]): Promise<GeminiApiResponse> {
+    public async callGeminiApi(chunkInfo: VideoChunk, identifiedPlayers: IdentifiedPlayer[], identifiedTeams: IdentifiedTeam[], previousSignature?: string | null): Promise<GeminiApiResponse> {
         const { chunkPath } = chunkInfo;
         logger.info(`[GeminiAnalysisService] Starting API call for ${chunkPath}`, { phase: 'analyzing' });
 
@@ -93,7 +120,18 @@ Known Players from previous chunks: ${JSON.stringify(identifiedPlayers)}. Use th
 
 The 'eventType' field must be one of the following exact values: ${ALLOWED_EVENT_TYPES.join(", ")}. 
 
-Respond with a JSON array.`;
+Follow the output schema precisely. Here is an example of a perfect event object:
+{
+  "eventType": "Shot Attempt",
+  "timestamp": "00:45",
+  "description": "Player in white jersey #23 attempts a 3-point shot from the top of the key.",
+  "isSuccessful": false,
+  "identifiedJerseyNumber": "23",
+  "identifiedTeamColor": "white",
+  "assignedTeamType": "HOME"
+}
+
+Analyze the video and provide all events by calling the 'record_game_events' tool. Your final response MUST be a call to the 'record_game_events' tool, containing an array of all identified events. DO NOT include any other text or markdown outside of this tool call.`;
 
             const parts: Part[] = [
                 {
@@ -105,36 +143,39 @@ Respond with a JSON array.`;
                 { text: prompt }
             ];
 
-            const result = await this.genAI.models.generateContent({ model: modelName, contents: [{ role: "user", parts }] });
+            const generateContentConfig: any = {
+                tools: [{ functionDeclarations: [GameAnalysisTool] }],
+                toolConfig: {
+                    functionCallingConfig: {
+                        // Force the model to call our function
+                        mode: FunctionCallingConfigMode.ANY,
+                    }
+                }
+            };
+
+            if (previousSignature) {
+                generateContentConfig.thoughtSignature = previousSignature;
+            }
+
+            const result = await this.genAI.models.generateContent({
+                model: modelName,
+                contents: [{ role: "user", parts }],
+                config: generateContentConfig
+            });
             logger.info(`[GeminiAnalysisService] API call complete for ${chunkPath}. Processing response...`, { phase: 'analyzing' });
+            logger.debug(`[GeminiAnalysisService] Raw Gemini API response for ${chunkPath}:`, { fullResponse: result });
 
-            const response = result;
+            const call = result.candidates?.[0]?.content?.parts?.[0]?.functionCall;
+            const thoughtSignature = result.candidates?.[0]?.content?.parts?.[0]?.thoughtSignature;
 
-            if (!response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0) {
-                logger.warn(`[GeminiAnalysisService] No valid candidates or content found in Gemini API response for ${chunkPath}.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
-            }
-
-            const text = response.candidates[0].content.parts[0].text;
-            if (!text) {
-                logger.warn(`[GeminiAnalysisService] Empty text response received for ${chunkPath}.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
-            }
-
-            logger.debug(`[GeminiAnalysisService] Raw Gemini response for ${chunkPath}:`, { rawResponse: text, phase: 'analyzing' });
-
-            // Clean the response to remove markdown formatting
-            const cleanedText = text.replace(/^```json\s*|```$/g, '').trim();
-
-            const parsedEvents = JSON.parse(cleanedText);
-
-            if (Array.isArray(parsedEvents)) {
-                logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
+            if (call?.name === 'record_game_events' && call.args?.events) {
+                const parsedEvents = call.args.events as any[]; // This is already a valid JS array
+                logger.info(`Successfully parsed ${parsedEvents.length} events from structured response.`);
                 const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata };
+                return { status: 'fulfilled', events: eventsWithMetadata, thoughtSignature, rawApiResponse: result };
             } else {
-                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a JSON array.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
+                logger.warn(`Response did not contain the expected function call. Full Gemini API response:`, { fullResponse: result });
+                return { status: 'fulfilled', events: [], rawApiResponse: result };
             }
 
         } catch (error: any) {

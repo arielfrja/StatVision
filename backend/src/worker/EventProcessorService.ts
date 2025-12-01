@@ -5,7 +5,14 @@ import { VideoChunk } from "./VideoChunkerService";
 
 // This should be managed via a shared constants file or similar
 const ALLOWED_EVENT_TYPES = [
-    "SHOT", "PASS", "DRIBBLE", "FOUL", "TURNOVER", "REBOUND", "BLOCK", "STEAL", "ASSIST", "SUBSTITUTION", "TIMEOUT", "JUMP_BALL"
+    'Game Start', 'Period Start', 'Jump Ball', 'Jump Ball Possession', 'Possession Change',
+    'Shot Attempt', 'Shot Made', 'Shot Missed', '3PT Shot Attempt', '3PT Shot Made', '3PT Shot Missed',
+    'Free Throw Attempt', 'Free Throw Made', 'Free Throw Missed',
+    'Offensive Rebound', 'Defensive Rebound', 'Team Rebound',
+    'Assist', 'Steal', 'Block', 'Turnover', 'Pass',
+    'Personal Foul', 'Shooting Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul',
+    'Violation', 'Out of Bounds', 'Substitution', 'Timeout Taken',
+    'End of Period', 'End of Game'
 ];
 const NAMESPACE_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Define once
 

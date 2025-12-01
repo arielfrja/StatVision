@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Unique } from "typeorm";
 import { VideoAnalysisJob } from "./VideoAnalysisJob";
 
 export enum ChunkStatus {
@@ -12,6 +12,7 @@ export enum ChunkStatus {
 }
 
 @Entity("worker_video_analysis_chunks")
+@Unique(["jobId", "sequence"])
 export class Chunk {
     @PrimaryGeneratedColumn("uuid")
     id: string;
@@ -37,6 +38,12 @@ export class Chunk {
 
     @Column({ name: "failure_reason", type: "text", nullable: true })
     failureReason: string | null;
+
+    @Column({ name: "thought_signature", type: "text", nullable: true })
+    thoughtSignature: string | null;
+
+    @Column({ name: "raw_gemini_response", type: "jsonb", nullable: true })
+    rawGeminiResponse: any | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;

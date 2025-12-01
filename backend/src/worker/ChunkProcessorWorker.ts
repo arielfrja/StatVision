@@ -12,6 +12,12 @@ import { workerConfig } from '../config/workerConfig';
 import { GoogleGenAI } from '@google/genai';
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../interfaces/video-analysis.interfaces';
 import { JobFinalizerService } from './JobFinalizerService';
+import { GameEventRepository } from '../repository/GameEventRepository'; // Import GameEventRepository
+import { PlayerRepository } from '../repository/PlayerRepository';     // Import PlayerRepository
+import { TeamRepository } from '../repository/TeamRepository';         // Import TeamRepository
+import { GameEvent } from '../GameEvent'; // Import GameEvent entity
+import { Player } from '../Player';     // Import Player entity
+import { Team } from '../Team';         // Import Team entity
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -20,24 +26,34 @@ interface ChunkMessage {
     chunkId: string;
 }
 
-export class ChunkProcessorWorker {
-    private pubSubClient: PubSub;
-    private jobRepository: VideoAnalysisJobRepository;
-    private chunkRepository: ChunkRepository;
-    private geminiAnalysisService: GeminiAnalysisService;
-    private eventProcessorService: EventProcessorService;
-    private jobFinalizerService: JobFinalizerService;
-    private logger = chunkLogger;
-    private processingMode: string;
+    export class ChunkProcessorWorker {
+        private pubSubClient: PubSub;
+        private jobRepository: VideoAnalysisJobRepository;
+        private chunkRepository: ChunkRepository;
+        private geminiAnalysisService: GeminiAnalysisService;
+        private eventProcessorService: EventProcessorService;
+        private jobFinalizerService: JobFinalizerService;
+        private gameEventRepository: GameEventRepository; // New
+        private playerRepository: PlayerRepository;     // New
+        private teamRepository: TeamRepository;         // New
+        private logger = chunkLogger;
+        private processingMode: string;
 
-    constructor(private dataSource: DataSource) {
-        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
-        this.jobRepository = new VideoAnalysisJobRepository(dataSource);
-        this.chunkRepository = new ChunkRepository(dataSource);
-        this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource);
-        this.processingMode = workerConfig.processingMode;
-
+        constructor(
+            private dataSource: DataSource,
+            gameEventRepository: GameEventRepository, // Injected
+            playerRepository: PlayerRepository,     // Injected
+            teamRepository: TeamRepository          // Injected
+        ) {
+            this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+            this.jobRepository = new VideoAnalysisJobRepository(dataSource);
+            this.chunkRepository = new ChunkRepository(dataSource);
+            this.eventProcessorService = new EventProcessorService();
+            this.jobFinalizerService = new JobFinalizerService(dataSource);
+            this.gameEventRepository = gameEventRepository; // Assign
+            this.playerRepository = playerRepository;     // Assign
+            this.teamRepository = teamRepository;         // Assign
+            this.processingMode = workerConfig.processingMode;
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY environment variable not set!");
@@ -87,8 +103,13 @@ export class ChunkProcessorWorker {
                     return;
                 }
 
+                let previousSignature: string | null = null;
+
                 // --- Queue Indexing Logic for Sequential Mode ---
                 if (this.processingMode === 'SEQUENTIAL' && chunk.sequence > 0) {
+                    // Introduce a small delay to mitigate race conditions where previous chunk's status
+                    // might not have been committed/propagated to the database yet.
+                    await new Promise(resolve => setTimeout(resolve, 1000)); 
                     const previousChunk = await this.chunkRepository.findByJobIdAndSequence(jobId, chunk.sequence - 1);
                     if (!previousChunk) {
                         this.logger.error(`[SEQUENTIAL] Previous chunk (sequence ${chunk.sequence - 1}) for job ${jobId} not found for chunk ${chunk.sequence}. This indicates a data inconsistency. Nacking.`, { phase: 'analyzing' });
@@ -104,6 +125,7 @@ export class ChunkProcessorWorker {
                         return;
                     }
                     this.logger.info(`[SEQUENTIAL] Previous chunk (sequence ${previousChunk.sequence}) for job ${jobId} is COMPLETED. Proceeding with chunk ${chunk.sequence}.`, { phase: 'analyzing' });
+                    previousSignature = previousChunk.thoughtSignature;
                 
                 } else if (this.processingMode === 'PARALLEL') {
                     // --- WIP-Limit per Stage Logic for Parallel Mode ---
@@ -148,7 +170,7 @@ export class ChunkProcessorWorker {
                     sequence: chunk.sequence
                 };
 
-                const result = await this.geminiAnalysisService.callGeminiApi(videoChunkInfo, identifiedPlayers, identifiedTeams);
+                const result = await this.geminiAnalysisService.callGeminiApi(videoChunkInfo, identifiedPlayers, identifiedTeams, previousSignature);
 
                 ProgressManager.getInstance().stopChunkBar();
 
@@ -174,7 +196,67 @@ export class ChunkProcessorWorker {
                         processedEvents: job.processedEvents,
                     });
 
+                    // Save new/updated teams
+                    for (const teamData of processedResult.updatedIdentifiedTeams) {
+                        const existingTeam = await this.teamRepository.findOneById(teamData.id);
+                        if (!existingTeam) {
+                            const newTeam = new Team();
+                            newTeam.id = teamData.id;
+                            newTeam.userId = job.userId; // Associate with job's user
+                            newTeam.name = teamData.color ? `${teamData.type} ${teamData.color}` : teamData.type; // Generate a name
+                            newTeam.isTemp = true; // Mark as temporary
+                            // Other properties as needed
+                            await this.teamRepository.save(newTeam);
+                            this.logger.debug(`Saved new Team: ${newTeam.name} (ID: ${newTeam.id})`);
+                        }
+                    }
+
+                    // Save new/updated players
+                    for (const playerData of processedResult.updatedIdentifiedPlayers) {
+                        const existingPlayer = await this.playerRepository.findOneById(playerData.id);
+                        if (!existingPlayer) {
+                            const newPlayer = new Player();
+                            newPlayer.id = playerData.id;
+                            newPlayer.name = playerData.description || `Player ${playerData.jerseyNumber || playerData.id.substring(0, 4)}`; // Generate a name
+                            newPlayer.isTemp = true; // Mark as temporary
+                            // Other properties as needed
+                            await this.playerRepository.save(newPlayer);
+                            this.logger.debug(`Saved new Player: ${newPlayer.name} (ID: ${newPlayer.id})`);
+                        }
+                    }
+
+                    // Save final events
+                    const gameEventsToSave = processedResult.finalEvents.map(eventData => {
+                        const gameEvent = new GameEvent();
+                        gameEvent.id = eventData.id;
+                        gameEvent.gameId = eventData.gameId;
+                        gameEvent.assignedTeamId = eventData.assignedTeamId;
+                        gameEvent.assignedPlayerId = eventData.assignedPlayerId;
+                        gameEvent.identifiedTeamColor = eventData.identifiedTeamColor;
+                        gameEvent.identifiedJerseyNumber = eventData.identifiedJerseyNumber ? parseInt(eventData.identifiedJerseyNumber) : null;
+                        gameEvent.eventType = eventData.eventType;
+                        gameEvent.eventDetails = { // Map relevant fields to eventDetails JSONB
+                            // description: eventData.description, // Removed as per fix
+                            isSuccessful: eventData.isSuccessful,
+                            period: eventData.period,
+                            timeRemaining: eventData.timeRemaining,
+                            xCoord: eventData.xCoord,
+                            yCoord: eventData.yCoord,
+                            eventSubType: eventData.eventSubType,
+                            relatedEventId: eventData.relatedEventId,
+                            onCourtPlayerIds: eventData.onCourtPlayerIds,
+                        };
+                        gameEvent.absoluteTimestamp = eventData.absoluteTimestamp;
+                        gameEvent.videoClipStartTime = eventData.videoClipStartTime;
+                        gameEvent.videoClipEndTime = eventData.videoClipEndTime;
+                        return gameEvent;
+                    });
+                    await this.gameEventRepository.batchInsert(gameEventsToSave);
+                    this.logger.debug(`Saved ${gameEventsToSave.length} game events.`);
+
                     chunk.status = ChunkStatus.COMPLETED;
+                    chunk.thoughtSignature = result.thoughtSignature || null;
+                    chunk.rawGeminiResponse = result || null; // Store the entire result object
                     this.logger.info(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) completed successfully.`, { phase: 'analyzing' });
                     ProgressManager.getInstance().updateJob(jobId, 1, `Chunk ${chunk.sequence} analyzed`);
                 } else {
@@ -192,6 +274,7 @@ export class ChunkProcessorWorker {
                     });
                     chunk.status = ChunkStatus.FAILED;
                     chunk.failureReason = errorMessage;
+                    chunk.rawGeminiResponse = result || null; // Store the entire result object
                 }
                 
                 await this.chunkRepository.update(chunk);
