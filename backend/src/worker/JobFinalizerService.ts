@@ -10,7 +10,7 @@ import { VideoChunkerService } from "./VideoChunkerService";
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
-import { UPPERCASE_ALLOWED_EVENT_TYPES } from "../constants/eventTypes";
+
 
 export class JobFinalizerService {
     private jobRepository: VideoAnalysisJobRepository;
@@ -75,21 +75,12 @@ export class JobFinalizerService {
             // Publish the final result to the results topic
             try {
                 const resultsTopic = this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME);
-                // Filter the events before publishing, based on the allowed types.
-                const allEvents = job.processedEvents || [];
-                const filteredEvents = allEvents.filter(event => {
-                    if (!event.eventType) return false;
-                    return UPPERCASE_ALLOWED_EVENT_TYPES.has(String(event.eventType).toUpperCase());
-                });
-
-                this.logger.info(`[JobFinalizerService] Filtered ${allEvents.length} total events down to ${filteredEvents.length} allowed events for job ${jobId}.`, { phase: 'finalizing' });
-
                 const message = {
                     jobId: job.id,
                     gameId: job.gameId,
                     status: finalStatus,
                     failureReason: failureReason,
-                    processedEvents: finalStatus === VideoAnalysisJobStatus.COMPLETED ? filteredEvents : null,
+                    processedEvents: finalStatus === VideoAnalysisJobStatus.COMPLETED ? job.processedEvents : null,
                 };
                 await resultsTopic.publishMessage({ json: message });
                 this.logger.info(`[JobFinalizerService] Published final status '${finalStatus}' for job ${jobId} to topic ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}.`, { phase: 'finalizing' });

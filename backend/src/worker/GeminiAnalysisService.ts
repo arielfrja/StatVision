@@ -60,6 +60,42 @@ export class GeminiAnalysisService {
             
             logger.info(`[GeminiAnalysisService] File is now ACTIVE. URI: ${file.uri}, Name: ${file.name}`, { phase: 'analyzing' });
 
+            const eventSchema = {
+                type: "object",
+                properties: {
+                    events: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                eventType: {
+                                    type: "string",
+                                    enum: ALLOWED_EVENT_TYPES,
+                                },
+                                eventSubType: { type: "string", nullable: true },
+                                timestamp: { type: "string" },
+                                isSuccessful: { type: "boolean", nullable: true },
+                                period: { type: "number", nullable: true },
+                                timeRemaining: { type: "string", nullable: true },
+                                xCoord: { type: "number", nullable: true },
+                                yCoord: { type: "number", nullable: true },
+                                assignedPlayerId: { type: "string", nullable: true },
+                                assignedTeamId: { type: "string", nullable: true },
+                                relatedEventId: { type: "string", nullable: true },
+                                onCourtPlayerIds: { type: "array", items: { type: "string" }, nullable: true },
+                                identifiedTeamColor: { type: "string", nullable: true },
+                                identifiedJerseyNumber: { type: "number", nullable: true },
+                                identifiedPlayerDescription: { type: "string", nullable: true },
+                                identifiedTeamDescription: { type: "string", nullable: true },
+                                assignedTeamType: { type: "string", enum: ["HOME", "AWAY"], nullable: true }
+                            },
+                            required: ["eventType", "timestamp"]
+                        }
+                    }
+                },
+                required: ["events"]
+            };
+
             let prompt = `You are an expert basketball analyst. Your task is to watch this video chunk, including its audio, and identify all significant gameplay events. For each event, provide its type, a brief description, and its timestamp relative to the start of this video chunk.\n\nUse audio cues to improve your analysis. A sharp whistle likely indicates a foul or a stoppage of play. The sound of the ball hitting the rim followed by cheers can help confirm if a shot was made. The sound of the ball bouncing can indicate possession.\n\n`;
 
             const isFirstChunk = identifiedTeams.length === 0 && identifiedPlayers.length === 0;
@@ -79,12 +115,6 @@ Known Teams from previous chunks: ${JSON.stringify(identifiedTeams)}. Use this i
 Known Players from previous chunks: ${JSON.stringify(identifiedPlayers)}. Use this information to consistently identify players.`;
             }
 
-            prompt += `
-
-The 'eventType' field must be one of the following exact values: ${ALLOWED_EVENT_TYPES.join(", ")}. 
-
-Respond with a JSON array.`;
-
             const parts: Part[] = [
                 {
                     fileData: {
@@ -95,7 +125,15 @@ Respond with a JSON array.`;
                 { text: prompt }
             ];
 
-            const result = await this.genAI.models.generateContent({ model: modelName, contents: [{ role: "user", parts }] });
+            const result = await this.genAI.models.generateContent({
+                model: modelName,
+                contents: [{ role: "user", parts }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: eventSchema,
+                }
+            });
+
             logger.info(`[GeminiAnalysisService] API call complete for ${chunkPath}. Processing response...`, { phase: 'analyzing' });
 
             const response = result;
@@ -105,27 +143,18 @@ Respond with a JSON array.`;
                 return { status: 'fulfilled', events: [], rawResponse: '' };
             }
 
-            const text = response.candidates[0].content.parts[0].text;
-            if (!text) {
-                logger.warn(`[GeminiAnalysisService] Empty text response received for ${chunkPath}.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [], rawResponse: '' };
-            }
+            const parsedResponse = response.candidates[0].content.parts[0].json as { events: any[] };
 
-            logger.debug(`[GeminiAnalysisService] Raw Gemini response for ${chunkPath}:`, { rawResponse: text, phase: 'analyzing' });
-
-            // Clean the response to remove markdown formatting
-            const cleanedText = text.replace(/^```json\s*|```$/g, '').trim();
-
-            const parsedEvents = JSON.parse(cleanedText);
-
-            if (Array.isArray(parsedEvents)) {
+            if (parsedResponse && Array.isArray(parsedResponse.events)) {
+                const parsedEvents = parsedResponse.events;
                 logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
                 const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
+                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: JSON.stringify(parsedResponse, null, 2) };
             } else {
-                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a JSON array.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [], rawResponse: '' };
+                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a valid events object.`, { parsedResponse, phase: 'analyzing' });
+                return { status: 'fulfilled', events: [], rawResponse: JSON.stringify(parsedResponse, null, 2) || '' };
             }
+
 
         } catch (error: any) {
             const errorMessage = error.message || 'An unknown error occurred during Gemini API call.';

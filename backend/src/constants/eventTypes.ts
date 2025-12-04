@@ -36,6 +36,3 @@ export const ALLOWED_EVENT_TYPES = [
     "Turnover",
     "Violation"
 ];
-
-// Create a Set of uppercase event types for efficient, case-insensitive lookups.
-export const UPPERCASE_ALLOWED_EVENT_TYPES = new Set(ALLOWED_EVENT_TYPES.map(t => t.toUpperCase()));
