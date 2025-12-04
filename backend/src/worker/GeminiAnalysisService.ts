@@ -6,17 +6,7 @@ import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../interfaces/video-analysis.interfaces";
 
-// This should be managed via a shared constants file or similar
-const ALLOWED_EVENT_TYPES = [
-    'Game Start', 'Period Start', 'Jump Ball', 'Jump Ball Possession', 'Possession Change',
-    'Shot Attempt', 'Shot Made', 'Shot Missed', '3PT Shot Attempt', '3PT Shot Made', '3PT Shot Missed',
-    'Free Throw Attempt', 'Free Throw Made', 'Free Throw Missed',
-    'Offensive Rebound', 'Defensive Rebound', 'Team Rebound',
-    'Assist', 'Steal', 'Block', 'Turnover',
-    'Personal Foul', 'Shooting Foul', 'Offensive Foul', 'Technical Foul', 'Flagrant Foul',
-    'Violation', 'Out of Bounds', 'Substitution', 'Timeout Taken',
-    'End of Period', 'End of Game'
-];
+import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes";
 
 export type GeminiApiResponse = { status: 'fulfilled'; events: any[]; rawResponse: string; } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
 
