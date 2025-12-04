@@ -153,6 +153,9 @@ export class ChunkProcessorWorker {
                 ProgressManager.getInstance().stopChunkBar();
 
                 if (result.status === 'fulfilled') {
+                    // Save the raw response before any filtering occurs.
+                    chunk.rawGeminiResponse = result.rawResponse;
+
                     const processedResult = this.eventProcessorService.processEvents(
                         result.events,
                         job.gameId,

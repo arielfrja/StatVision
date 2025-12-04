@@ -18,7 +18,7 @@ const ALLOWED_EVENT_TYPES = [
     'End of Period', 'End of Game'
 ];
 
-export type GeminiApiResponse = { status: 'fulfilled'; events: any[] } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
+export type GeminiApiResponse = { status: 'fulfilled'; events: any[]; rawResponse: string; } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
 
 export class GeminiAnalysisService {
     private genAI: GoogleGenAI;
@@ -112,13 +112,13 @@ Respond with a JSON array.`;
 
             if (!response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0) {
                 logger.warn(`[GeminiAnalysisService] No valid candidates or content found in Gemini API response for ${chunkPath}.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
+                return { status: 'fulfilled', events: [], rawResponse: '' };
             }
 
             const text = response.candidates[0].content.parts[0].text;
             if (!text) {
                 logger.warn(`[GeminiAnalysisService] Empty text response received for ${chunkPath}.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
+                return { status: 'fulfilled', events: [], rawResponse: '' };
             }
 
             logger.debug(`[GeminiAnalysisService] Raw Gemini response for ${chunkPath}:`, { rawResponse: text, phase: 'analyzing' });
@@ -131,10 +131,10 @@ Respond with a JSON array.`;
             if (Array.isArray(parsedEvents)) {
                 logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
                 const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata };
+                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
             } else {
                 logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a JSON array.`, { phase: 'analyzing' });
-                return { status: 'fulfilled', events: [] };
+                return { status: 'fulfilled', events: [], rawResponse: '' };
             }
 
         } catch (error: any) {
