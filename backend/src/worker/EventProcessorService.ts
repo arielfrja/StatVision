@@ -8,6 +8,8 @@ const ALLOWED_EVENT_TYPES = [
     "SHOT", "PASS", "DRIBBLE", "FOUL", "TURNOVER", "REBOUND", "BLOCK", "STEAL", "ASSIST", "SUBSTITUTION", "TIMEOUT", "JUMP_BALL",
     "Game Start", "Possession Change", "Shot Attempt", "Shot Missed", "Offensive Rebound", "Shot Made", "Defensive Rebound", "Shooting Foul", "Free Throw Made", "End of Period", "Violation", "Out of Bounds"
 ];
+// Create a Set of uppercase event types for efficient, case-insensitive lookups.
+const UPPERCASE_ALLOWED_EVENT_TYPES = new Set(ALLOWED_EVENT_TYPES.map(t => t.toUpperCase()));
 const NAMESPACE_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Define once
 
 export class EventProcessorService {
@@ -48,7 +50,8 @@ export class EventProcessorService {
                     continue;
                 }
 
-                if (!ALLOWED_EVENT_TYPES.includes(rawEvent.eventType)) {
+                // Perform a case-insensitive check against the allowed event types.
+                if (!UPPERCASE_ALLOWED_EVENT_TYPES.has(String(rawEvent.eventType).toUpperCase())) {
                     logger.debug(`Filtering out non-gameplay event type: ${rawEvent.eventType}`, { chunkSequence: chunk.sequence, phase: 'processing' });
                     continue;
                 }
