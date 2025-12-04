@@ -50,11 +50,6 @@ export class EventProcessorService {
                     continue;
                 }
 
-                // Perform a case-insensitive check against the allowed event types.
-                if (!UPPERCASE_ALLOWED_EVENT_TYPES.has(String(rawEvent.eventType).toUpperCase())) {
-                    logger.debug(`Filtering out non-gameplay event type: ${rawEvent.eventType}`, { chunkSequence: chunk.sequence, phase: 'processing' });
-                    continue;
-                }
 
                 // --- Timestamp Calculation ---
                 const timestampParts = String(rawEvent.timestamp).split(':').map(Number);
