@@ -5,7 +5,7 @@ import { workerConfig } from "../config/workerConfig";
 import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../interfaces/video-analysis.interfaces";
-
+import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes"; // Added this import
 import {
     EVENT_SCHEMA,
     BASE_PROMPT,
@@ -14,6 +14,8 @@ import {
     KNOWN_TEAMS_PROMPT_TEMPLATE,
     KNOWN_PLAYERS_PROMPT_TEMPLATE
 } from "../constants/gemini";
+
+
 
 export type GeminiApiResponse = { status: 'fulfilled'; events: any[]; rawResponse: string; } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
 
@@ -97,12 +99,11 @@ export class GeminiAnalysisService {
             const result = await this.genAI.models.generateContent({
                 model: modelName,
                 contents: [{ role: "user", parts }],
-                generationConfig: {
+                config: { // Correct way to pass structured output config
                     responseMimeType: "application/json",
                     responseSchema: EVENT_SCHEMA,
-                }
+                },
             });
-
             logger.info(`[GeminiAnalysisService] API call complete for ${chunkPath}. Processing response...`, { phase: 'analyzing' });
 
             const response = result;
@@ -112,18 +113,30 @@ export class GeminiAnalysisService {
                 return { status: 'fulfilled', events: [], rawResponse: '' };
             }
 
-            const parsedResponse = response.candidates[0].content.parts[0].json as { events: any[] };
+            // Parse response from text()
+            const responseText = response.candidates[0].content.parts[0].text;
+            if (!responseText) {
+                logger.warn(`[GeminiAnalysisService] Empty text response received for ${chunkPath}.`, { phase: 'analyzing' });
+                return { status: 'fulfilled', events: [], rawResponse: '' };
+            }
 
+            logger.debug(`[GeminiAnalysisService] Raw Gemini response for ${chunkPath}:`, { rawResponse: responseText, phase: 'analyzing' });
+
+            // The response should already be clean JSON if schema is used, but keep trim for safety
+            const cleanedText = responseText.trim(); 
+
+            const parsedResponse = JSON.parse(cleanedText);
+
+            // Expecting an object with an 'events' array based on EVENT_SCHEMA
             if (parsedResponse && Array.isArray(parsedResponse.events)) {
                 const parsedEvents = parsedResponse.events;
                 logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
-                const eventsWithMetadata = parsedEvents.map(event => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: JSON.stringify(parsedResponse, null, 2) };
+                const eventsWithMetadata = parsedEvents.map((event: any) => ({ ...event, chunkMetadata: chunkInfo }));
+                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
             } else {
-                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a valid events object.`, { parsedResponse, phase: 'analyzing' });
-                return { status: 'fulfilled', events: [], rawResponse: JSON.stringify(parsedResponse, null, 2) || '' };
+                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a valid events object.`, { parsedResponse: cleanedText, phase: 'analyzing' });
+                return { status: 'fulfilled', events: [], rawResponse: cleanedText || '' };
             }
-
 
         } catch (error: any) {
             const errorMessage = error.message || 'An unknown error occurred during Gemini API call.';

@@ -38,6 +38,9 @@ export class Chunk {
     @Column({ name: "failure_reason", type: "text", nullable: true })
     failureReason: string | null;
 
+    @Column({ name: "raw_gemini_response", type: "text", nullable: true })
+    rawGeminiResponse: string | null;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
 
