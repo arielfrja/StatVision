@@ -3,12 +3,12 @@ import * as cliProgress from 'cli-progress';
 export class ProgressManager {
     private multiBar: cliProgress.MultiBar;
     private jobBars: Map<string, cliProgress.SingleBar> = new Map();
-    private ephemeralBar: cliProgress.SingleBar | null = null;
+    private subTaskBars: Map<string, cliProgress.SingleBar> = new Map(); // Replaced ephemeralBar
     private static instance: ProgressManager;
 
     private constructor() {
         this.multiBar = new cliProgress.MultiBar({
-            clearOnComplete: true,
+            clearOnComplete: false, // Set to false to see final state
             hideCursor: true,
             format: ' {bar} | {percentage}% | {phase} | {details}',
         }, cliProgress.Presets.shades_classic);
@@ -46,33 +46,44 @@ export class ProgressManager {
         }
     }
 
-    public startChunkBar(total: number, phase: string, details: string) {
-        if (this.ephemeralBar) {
-            this.multiBar.remove(this.ephemeralBar);
+    // Updated to handle multiple bars
+    public startChunkBar(id: string, total: number, phase: string, details: string) {
+        if (this.subTaskBars.has(id)) {
+            this.stopChunkBar(id);
         }
-        this.ephemeralBar = this.multiBar.create(total, 0, { phase, details });
+        const bar = this.multiBar.create(total, 0, { phase, details });
+        this.subTaskBars.set(id, bar);
     }
 
-    public updateChunkBar(value: number, details?: string) {
-        if (this.ephemeralBar) {
+    // Updated to handle multiple bars
+    public updateChunkBar(options: { id?: string; value: number; details?: string; }) {
+        const { id, value, details } = options;
+        if (!id) return;
+        const bar = this.subTaskBars.get(id);
+        if (bar) {
             const payload = details ? { details } : {};
-            this.ephemeralBar.update(value, payload);
+            bar.update(value, payload);
         }
     }
     
-    public startIndeterminateBar(phase: string, details: string) {
-        if (this.ephemeralBar) {
-            this.multiBar.remove(this.ephemeralBar);
+    // Updated to handle multiple bars
+    public startIndeterminateBar(id: string, phase: string, details: string) {
+        if (this.subTaskBars.has(id)) {
+            this.stopChunkBar(id);
         }
-        this.ephemeralBar = this.multiBar.create(100, 0, { phase, details });
-        this.ephemeralBar.start(100, 0); // This will make it look like it's waiting
+        const bar = this.multiBar.create(100, 0, { phase, details });
+        this.subTaskBars.set(id, bar);
+        bar.start(100, 0); // This will make it look like it's waiting
     }
 
-    public stopChunkBar() {
-        if (this.ephemeralBar) {
-            this.ephemeralBar.stop();
-            this.multiBar.remove(this.ephemeralBar);
-            this.ephemeralBar = null;
+    // Updated to handle multiple bars
+    public stopChunkBar(id?: string) {
+        if (!id) return;
+        const bar = this.subTaskBars.get(id);
+        if (bar) {
+            bar.stop();
+            this.multiBar.remove(bar);
+            this.subTaskBars.delete(id);
         }
     }
 

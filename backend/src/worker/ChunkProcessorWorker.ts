@@ -122,7 +122,7 @@ export class ChunkProcessorWorker {
 
                 this.logger.info(`[CHUNK_PROCESSOR] Processing chunk ${chunk.sequence} (ID: ${chunk.id}) for job ${jobId}`, { phase: 'analyzing' });
 
-                ProgressManager.getInstance().startIndeterminateBar('Analyzing', `Chunk ${chunk.sequence}`);
+                ProgressManager.getInstance().startIndeterminateBar(chunk.id, 'Analyzing', `Chunk ${chunk.sequence}`); // MODIFIED LINE
 
                 chunk.status = ChunkStatus.ANALYZING;
                 await this.chunkRepository.update(chunk);
@@ -133,7 +133,7 @@ export class ChunkProcessorWorker {
                     chunk.status = ChunkStatus.FAILED;
                     await this.chunkRepository.update(chunk);
                     message.ack();
-                    ProgressManager.getInstance().stopChunkBar();
+                    ProgressManager.getInstance().stopChunkBar(chunk.id); // MODIFIED LINE
                     return;
                 }
 
@@ -150,7 +150,7 @@ export class ChunkProcessorWorker {
 
                 const result = await this.geminiAnalysisService.callGeminiApi(videoChunkInfo, identifiedPlayers, identifiedTeams);
 
-                ProgressManager.getInstance().stopChunkBar();
+                ProgressManager.getInstance().stopChunkBar(chunk.id); // MODIFIED LINE
 
                 if (result.status === 'fulfilled') {
                     // Save the raw response before any filtering occurs.
@@ -213,7 +213,7 @@ export class ChunkProcessorWorker {
                     },
                     phase: 'analyzing'
                 });
-                ProgressManager.getInstance().stopChunkBar();
+                ProgressManager.getInstance().stopChunkBar(chunk?.id);
                 if (chunk) {
                     chunk.status = ChunkStatus.FAILED;
                     chunk.failureReason = errorMessage;

@@ -160,7 +160,7 @@ export class VideoChunkerService {
         
         const command = 'ffmpeg';
         const args = [
-            '-y', '-v', 'quiet', '-stats',
+            '-y', '-stats',
             '-ss', String(startTime), '-i', filePath, '-t', String(chunkDuration),
             '-vf', workerConfig.ffmpegVideoFilter,
             '-c:v', 'libx264', '-preset', workerConfig.ffmpegPreset, '-crf', workerConfig.ffmpegCrf, '-c:a', 'aac',
@@ -168,10 +168,12 @@ export class VideoChunkerService {
         ];
 
         chunkLogger.info(`[VideoChunkerService] Executing ffmpeg for sequence ${sequence + 1}/${totalChunks}`, { phase: 'chunking' });
+        chunkLogger.debug(`[VideoChunkerService] FFmpeg command: ${command} ${args.join(' ')}`, { phase: 'chunking' });
         
         const progressManager = ProgressManager.getInstance();
         const totalFramesInChunk = Math.floor(chunkDuration * frameRate);
-        progressManager.startChunkBar(totalFramesInChunk, 'Chunking', `Chunk ${sequence + 1}/${totalChunks}`);
+        const barId = `chunking-${jobId}-${sequence}`; // Unique ID for the bar
+        progressManager.startChunkBar(barId, totalFramesInChunk, 'Chunking', `Chunk ${sequence + 1}/${totalChunks}`); // MODIFIED LINE
 
         return new Promise<string>((resolve, reject) => {
             const ffmpegProcess = spawn(command, args);
@@ -185,18 +187,52 @@ export class VideoChunkerService {
                     stderrBuffer = stderrBuffer.substring(lineEnd + 1);
                     
                     const frameMatch = line.match(/frame=\s*(\d+)/);
-                    if (frameMatch) {
+                    const fpsMatch = line.match(/fps=\s*([\d\.]+)/);
+
+                    if (frameMatch && fpsMatch) {
                         const currentFrame = parseInt(frameMatch[1], 10);
-                        progressManager.updateChunkBar(currentFrame);
+                        const currentFps = parseFloat(fpsMatch[1]);
+                        
+                        const bitrateMatch = line.match(/bitrate=\s*([\d\.]+[a-zA-Z\/s]+)/);
+                        const speedMatch = line.match(/speed=\s*([\d\.]+)x/);
+
+                        const bitrate = bitrateMatch ? bitrateMatch[1] : '...';
+                        const speed = speedMatch ? speedMatch[1] + 'x' : '...';
+
+                        let details = `Chunk ${sequence + 1}/${totalChunks} | Pace: ${currentFps.toFixed(1)} fps | Speed: ${speed} | Bitrate: ${bitrate}`;
+                        
+                        if (currentFps > 0) {
+                            const framesRemaining = totalFramesInChunk - currentFrame;
+                            const etaSeconds = Math.round(framesRemaining / currentFps);
+                            details += ` | ETA: ${etaSeconds}s`;
+                        }
+
+                        progressManager.updateChunkBar({ id: barId, value: currentFrame, details });
                     }
                 }
             });
 
             ffmpegProcess.on('close', (code) => {
-                progressManager.stopChunkBar();
+                progressManager.stopChunkBar(barId); // MODIFIED LINE
                 if (code === 0) {
-                    chunkLogger.info(`[VideoChunkerService] FFmpeg successful for sequence ${sequence}`, { phase: 'chunking' });
-                    resolve(chunkPath);
+                    if (fs.existsSync(chunkPath)) {
+                        chunkLogger.info(`[VideoChunkerService] FFmpeg successful for sequence ${sequence}, file created at ${chunkPath}.`, { phase: 'chunking' });
+                        resolve(chunkPath);
+                    } else {
+                        const errorMessage = `FFmpeg exited with code 0 but the output file was not found at ${chunkPath}.`;
+                        chunkLogger.error(`[VideoChunkerService] FFmpeg process had a silent failure for job ${jobId}, sequence ${sequence}.`, {
+                            error: {
+                                message: errorMessage,
+                                exitCode: code,
+                                jobId: jobId,
+                                sequence: sequence,
+                                filePath: filePath,
+                                chunkPath: chunkPath,
+                            },
+                            phase: 'chunking'
+                        });
+                        reject(new Error(errorMessage));
+                    }
                 } else {
                     const errorMessage = `FFmpeg exited with code ${code}.\nStderr: ${stderrBuffer}`;
                     chunkLogger.error(`[VideoChunkerService] FFmpeg process failed for job ${jobId}, sequence ${sequence}.`, {
@@ -215,7 +251,7 @@ export class VideoChunkerService {
             });
 
             ffmpegProcess.on('error', (err) => {
-                progressManager.stopChunkBar();
+                progressManager.stopChunkBar(barId); // MODIFIED LINE
                 chunkLogger.error(`[VideoChunkerService] Failed to start ffmpeg process for job ${jobId}, sequence ${sequence}.`, {
                     error: {
                         message: err.message,
