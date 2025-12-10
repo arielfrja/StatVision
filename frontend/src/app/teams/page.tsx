@@ -205,11 +205,7 @@ function TeamsPage() {
   );
 }
 
-const TeamsPageWithAuth = withAuthenticationRequired(TeamsPage, {
-    onRedirecting: () => {
-      return <Loader />;
-    },
-});
+const TeamsPageWithAuth = TeamsPage;
 
 export default function TeamsPageWrapper() {
     return (

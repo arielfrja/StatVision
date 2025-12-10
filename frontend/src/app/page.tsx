@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useRouter } from 'next/navigation'; // Import useRouter
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/icon/icon.js';
@@ -29,12 +30,12 @@ const DashboardCard = ({ href, icon, title, description }: { href: string, icon:
     // @ts-ignore
     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
     >
-      <md-icon style={{ 
-        fontSize: '48px', 
-        width: '48px', 
-        height: '48px', 
-        color: 'var(--md-sys-color-primary)', 
-        marginBottom: 'var(--spacing-md)' 
+      <md-icon style={{
+        fontSize: '48px',
+        width: '48px',
+        height: '48px',
+        color: 'var(--md-sys-color-primary)',
+        marginBottom: 'var(--spacing-md)'
       }}>{icon}</md-icon>
       <h2 style={{ fontSize: 'var(--md-sys-typescale-title-large-size)', marginBottom: 'var(--spacing-sm)' }}>{title}</h2>
       <p style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>{description}</p>
@@ -43,7 +44,8 @@ const DashboardCard = ({ href, icon, title, description }: { href: string, icon:
 );
 
 export default function Home() {
-  const { user, isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0();
+  const { user, isAuthenticated, isLoading, error } = useAuth0();
+  const router = useRouter(); // Initialize useRouter
 
   if (isLoading) {
     return (
@@ -69,10 +71,10 @@ export default function Home() {
           <h1 style={{ color: 'var(--md-sys-color-on-surface)', marginBottom: 'var(--spacing-md)' }}>Welcome to StatVision</h1>
           <p style={{ color: 'var(--md-sys-color-on-surface-variant)', marginBottom: 'var(--spacing-lg)' }}>Please log in or sign up to continue.</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-sm)' }}>
-            <md-filled-button onClick={() => loginWithRedirect({ authorizationParams: { prompt: 'login' } })}>
+            <md-filled-button onClick={() => router.push('/login')}>
               Login
             </md-filled-button>
-            <md-outlined-button onClick={() => loginWithRedirect({ authorizationParams: { screen_hint: 'signup', prompt: 'login' } })}>
+            <md-outlined-button onClick={() => router.push('/login?screen_hint=signup')}>
               Sign Up
             </md-outlined-button>
           </div>
@@ -83,6 +85,7 @@ export default function Home() {
 
   // Authenticated Dashboard View
   return (
+
     <main style={{ padding: 'var(--spacing-md)', maxWidth: '1200px', margin: 'auto' }}>
       <h1 style={{ marginBottom: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface)' }}>
         Welcome back, {user?.name || user?.email || 'Analyst'}!

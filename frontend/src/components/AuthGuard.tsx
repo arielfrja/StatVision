@@ -7,10 +7,10 @@ import Loader from './Loader';
 import SideNav from './SideNav';
 import BottomNav from './BottomNav';
 
-const publicPaths = ['/']; // Only the root path is public
+const publicPaths = ['/', '/login']; // Root and login path are public
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-    const { isAuthenticated, isLoading, error, loginWithRedirect } = useAuth0();
+    const { isAuthenticated, isLoading, error } = useAuth0();
     const pathname = usePathname();
     const router = useRouter();
 
@@ -19,17 +19,12 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         if (isLoading) return;
 
-        // If there's an authentication error or not authenticated and on a protected path, redirect to login
+        // If there's an authentication error or not authenticated and on a protected path, redirect to login page
         if ((error || !isAuthenticated) && !isPublicPath) {
-            console.log("AuthGuard: Redirecting to login due to error or unauthenticated state.");
-            loginWithRedirect({
-                appState: { returnTo: window.location.pathname },
-                authorizationParams: {
-                    prompt: 'login', // Force login prompt
-                },
-            });
+            console.log("AuthGuard: Redirecting to /login due to error or unauthenticated state.");
+            router.push('/login');
         }
-    }, [isAuthenticated, isLoading, error, isPublicPath, loginWithRedirect, pathname]);
+    }, [isAuthenticated, isLoading, error, isPublicPath, router, pathname]);
 
     // 1. Show Loader while loading Auth0 state
     if (isLoading) {

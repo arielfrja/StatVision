@@ -177,8 +177,4 @@ function GamesPage() {
   );
 }
 
-export default withAuthenticationRequired(GamesPage, {
-  onRedirecting: () => {
-    return <Loader />;
-  },
-});
+export default GamesPage;

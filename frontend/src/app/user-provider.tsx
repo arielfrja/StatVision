@@ -36,6 +36,7 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
       authorizationParams={{
         redirect_uri: baseUrl,
         audience: audience,
+        scope: "openid profile email offline_access",
       }}
       onRedirectCallback={onRedirectCallback}
       useRefreshTokens={true}

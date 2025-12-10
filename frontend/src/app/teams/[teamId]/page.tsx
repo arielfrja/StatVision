@@ -340,11 +340,7 @@ function TeamPlayersPage() {
   );
 }
 
-const TeamPlayersPageWithAuth = withAuthenticationRequired(TeamPlayersPage, {
-  onRedirecting: () => {
-    return <Loader />;
-  },
-});
+const TeamPlayersPageWithAuth = TeamPlayersPage;
 
 export default function TeamPlayersPageWrapper() {
   return (
