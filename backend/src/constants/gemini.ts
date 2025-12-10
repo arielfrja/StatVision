@@ -42,17 +42,25 @@ Use audio cues to improve your analysis. A sharp whistle likely indicates a foul
 
 `;
 
-export const FIRST_CHUNK_PROMPT = `Identify the two teams in this clip by their jersey colors and any other distinguishing features. Assign one team as 'TEAM_A' and the other as 'TEAM_B'. For players, identify them by jersey number if clear, otherwise by a brief physical description. Ensure consistent identification of teams and players throughout this chunk.`;
+export const FIRST_CHUNK_PROMPT = `You are analyzing the first chunk of a basketball game. Your primary goal is to identify all players and teams and assign them consistent IDs.
 
-export const SUBSEQUENT_CHUNK_PROMPT = `Identify players and teams using the following guidelines:
-- If identifiable, provide the jersey number (identifiedJerseyNumber) and team color (identifiedTeamColor).
-- If jersey number or team color are not clear, provide a brief physical description of the player (identifiedPlayerDescription, e.g., "tall player with red shoes", "player with a headband").
-- If team color is not clear, provide a brief description of the team (identifiedTeamDescription, e.g., "team in dark shirts", "team in light shirts").
-- Crucially, assign each player to either the 'HOME' or 'AWAY' team (assignedTeamType). Maintain this distinction consistently throughout the analysis.
+1.  **Identify Teams:** Identify the two teams. Assign one as 'HOME' and the other as 'AWAY' based on context if possible.
+2.  **Assign Team IDs:** Populate the \`assignedTeamId\` using the format \`TEMP_TEAM_1\` for the first distinct team and \`TEMP_TEAM_2\` for the second.
+3.  **Identify Players:** For each player, identify them by their jersey number.
+4.  **Assign Player IDs:** Populate the \`assignedPlayerId\` using the format \`TEMP_PLAYER_<JERSEY_NUMBER>\`. For example, a player with jersey number 22 should have \`assignedPlayerId: "TEMP_PLAYER_22"\`.
 
-Prioritize jersey number and team color if available and clear. Ensure consistent descriptions for the same player/team across events within this video chunk.
+It is critical that you use these exact same IDs for the same player or team in all events within this chunk.`;
 
-`;
+export const SUBSEQUENT_CHUNK_PROMPT = `You are analyzing a subsequent chunk of a basketball game. You have been provided with lists of players and teams that have already been identified.
+
+1.  **Match Existing Entities:** For each player or team in an event, you MUST check if they match an entity in the 'Known Teams' or 'Known Players' lists provided below.
+2.  **Assign Existing IDs:** If a match is found, you MUST use the existing \`id\` from the list and populate the \`assignedPlayerId\` or \`assignedTeamId\` field with it.
+3.  **Identify New Players/Teams:** If a player or team appears that is NOT in the known lists, you must identify them.
+4.  **Assign New Temporary IDs:** For any new entity, create a new temporary ID.
+    *   For new teams, use the format \`TEMP_TEAM_3\`, \`TEMP_TEAM_4\`, and so on.
+    *   For new players, use the format \`TEMP_PLAYER_<JERSEY_NUMBER>\`.
+
+Ensure you are populating \`assignedPlayerId\` and \`assignedTeamId\` for every event where a player or team is identifiable.`;
 
 export const KNOWN_TEAMS_PROMPT_TEMPLATE = `
 Known Teams from previous chunks: {{teams}}. Use this information to consistently identify teams and assign them as HOME or AWAY based on the established mapping.`;

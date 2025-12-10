@@ -32,17 +32,69 @@ export class EventProcessorService {
         chunk: VideoChunk,
         chunkDuration: number,
         overlapDuration: number,
-        processedEventKeys: Set<string>, // Pass the Set in to maintain state across calls
+        processedEventKeys: Set<string>,
         identifiedPlayers: IdentifiedPlayer[],
         identifiedTeams: IdentifiedTeam[]
     ): { finalEvents: ProcessedGameEvent[], updatedIdentifiedPlayers: IdentifiedPlayer[], updatedIdentifiedTeams: IdentifiedTeam[] } {
 
         logger.info(`[EventProcessorService] Processing ${rawEvents.length} raw events for chunk ${chunk.sequence}`, { phase: 'processing' });
-        const finalEvents: ProcessedGameEvent[] = [];
         
+        const finalEvents: ProcessedGameEvent[] = [];
         const currentIdentifiedPlayers = [...identifiedPlayers];
         const currentIdentifiedTeams = [...identifiedTeams];
+        const tempIdToUuidMap = new Map<string, string>();
+        const TEMP_TEAM_PREFIX = 'TEMP_TEAM_';
+        const TEMP_PLAYER_PREFIX = 'TEMP_PLAYER_';
 
+        // First pass: Process teams and create permanent IDs for new ones
+        for (const rawEvent of rawEvents) {
+            if (rawEvent.assignedTeamId && typeof rawEvent.assignedTeamId === 'string' && rawEvent.assignedTeamId.startsWith(TEMP_TEAM_PREFIX)) {
+                const tempTeamId = rawEvent.assignedTeamId;
+                if (!tempIdToUuidMap.has(tempTeamId)) {
+                    const permanentTeamId = this.generateConsistentUuid(tempTeamId);
+                    tempIdToUuidMap.set(tempTeamId, permanentTeamId);
+                    
+                    if (!currentIdentifiedTeams.some(team => team.id === permanentTeamId)) {
+                        currentIdentifiedTeams.push({
+                            id: permanentTeamId,
+                            type: rawEvent.assignedTeamType || null,
+                            color: rawEvent.identifiedTeamColor || null,
+                            description: rawEvent.identifiedTeamDescription || null,
+                        });
+                        logger.info(`[EventProcessorService] New team identified and added: ${tempTeamId} -> ${permanentTeamId}`, { phase: 'processing' });
+                    }
+                }
+            }
+        }
+        
+        // Second pass: Process players and create permanent IDs
+        for (const rawEvent of rawEvents) {
+            // Ensure team IDs are permanent before processing players
+            if (rawEvent.assignedTeamId && tempIdToUuidMap.has(rawEvent.assignedTeamId)) {
+                rawEvent.assignedTeamId = tempIdToUuidMap.get(rawEvent.assignedTeamId);
+            }
+            
+            if (rawEvent.assignedPlayerId && typeof rawEvent.assignedPlayerId === 'string' && rawEvent.assignedPlayerId.startsWith(TEMP_PLAYER_PREFIX)) {
+                const tempPlayerId = rawEvent.assignedPlayerId;
+                if (!tempIdToUuidMap.has(tempPlayerId)) {
+                    const permanentPlayerId = this.generateConsistentUuid(tempPlayerId);
+                    tempIdToUuidMap.set(tempPlayerId, permanentPlayerId);
+
+                    if (!currentIdentifiedPlayers.some(player => player.id === permanentPlayerId)) {
+                        currentIdentifiedPlayers.push({
+                            id: permanentPlayerId,
+                            teamId: rawEvent.assignedTeamId, // Should be permanent now
+                            jerseyNumber: rawEvent.identifiedJerseyNumber || null,
+                            description: rawEvent.identifiedPlayerDescription || null,
+                        });
+                         logger.info(`[EventProcessorService] New player identified and added: ${tempPlayerId} -> ${permanentPlayerId}`, { phase: 'processing' });
+                    }
+                }
+            }
+        }
+
+
+        // Final pass: Create event objects with permanent IDs
         for (const rawEvent of rawEvents) {
             try {
                 if (!rawEvent.eventType || !rawEvent.timestamp || typeof chunk.startTime === 'undefined') {
@@ -50,56 +102,20 @@ export class EventProcessorService {
                     continue;
                 }
 
-
-                // --- Timestamp Calculation ---
                 const timestampParts = String(rawEvent.timestamp).split(':').map(Number);
                 let eventTimestampInChunk = 0;
-                if (timestampParts.length === 2) {
+                if (timestampParts.length === 2) { // MM:SS
                     eventTimestampInChunk = timestampParts[0] * 60 + timestampParts[1];
-                } else if (timestampParts.length === 3) {
+                } else if (timestampParts.length === 3) { // HH:MM:SS
                     eventTimestampInChunk = timestampParts[0] * 3600 + timestampParts[1] * 60 + timestampParts[2];
                 } else {
                     logger.warn(`Could not parse timestamp format: ${rawEvent.timestamp}. Skipping event.`, { chunkSequence: chunk.sequence, phase: 'processing' });
                     continue;
                 }
-                
                 const absoluteEventTimestamp = chunk.startTime + eventTimestampInChunk;
-
-                // --- Player & Team Identification ---
-                let assignedTeamId: string | null = null;
-                let teamIdentifier = rawEvent.identifiedTeamColor?.toLowerCase() || rawEvent.identifiedTeamDescription?.toLowerCase() || '';
                 
-                if (teamIdentifier && rawEvent.assignedTeamType) {
-                    const teamKey = `${rawEvent.assignedTeamType}-${teamIdentifier}`;
-                    assignedTeamId = this.generateConsistentUuid(teamKey);
-
-                    if (!currentIdentifiedTeams.some(team => team.id === assignedTeamId)) {
-                        currentIdentifiedTeams.push({
-                            id: assignedTeamId,
-                            type: rawEvent.assignedTeamType,
-                            color: rawEvent.identifiedTeamColor || null,
-                            description: rawEvent.identifiedTeamDescription || null,
-                        });
-                    }
-                }
-                
-                let assignedPlayerId: string | null = null;
-                const jerseyNumber = rawEvent.identifiedJerseyNumber;
-                const playerDescription = rawEvent.identifiedPlayerDescription?.toLowerCase();
-
-                if (assignedTeamId && (jerseyNumber || playerDescription)) {
-                    const playerKey = `${assignedTeamId}-${jerseyNumber || playerDescription}`;
-                    assignedPlayerId = this.generateConsistentUuid(playerKey);
-                    
-                    if (!currentIdentifiedPlayers.some(player => player.id === assignedPlayerId)) {
-                        currentIdentifiedPlayers.push({
-                            id: assignedPlayerId,
-                            teamId: assignedTeamId,
-                            jerseyNumber: jerseyNumber || null,
-                            description: playerDescription || null,
-                        });
-                    }
-                }
+                const finalAssignedTeamId = rawEvent.assignedTeamId && tempIdToUuidMap.get(rawEvent.assignedTeamId) || rawEvent.assignedTeamId;
+                const finalAssignedPlayerId = rawEvent.assignedPlayerId && tempIdToUuidMap.get(rawEvent.assignedPlayerId) || rawEvent.assignedPlayerId;
 
                 const gameEventData: ProcessedGameEvent = {
                     id: uuidv4(),
@@ -107,25 +123,23 @@ export class EventProcessorService {
                     eventType: rawEvent.eventType,
                     eventSubType: rawEvent.eventSubType || null,
                     isSuccessful: rawEvent.isSuccessful || false,
-                    period: rawEvent.period || null, // Added missing property
-                    timeRemaining: rawEvent.timeRemaining || null, // Added missing property
-                    xCoord: rawEvent.xCoord || null, // Added missing property
-                    yCoord: rawEvent.yCoord || null, // Added missing property
+                    period: rawEvent.period || null,
+                    timeRemaining: rawEvent.timeRemaining || null,
+                    xCoord: rawEvent.xCoord || null,
+                    yCoord: rawEvent.yCoord || null,
                     absoluteTimestamp: absoluteEventTimestamp,
-                    assignedPlayerId: assignedPlayerId,
-                    assignedTeamId: assignedTeamId,
-                    relatedEventId: rawEvent.relatedEventId || null, // Added missing property
-                    onCourtPlayerIds: rawEvent.onCourtPlayerIds || null, // Added missing property
-                    identifiedTeamColor: rawEvent.identifiedTeamColor || null, // Added missing property
-                    identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null, // Added missing property
+                    assignedPlayerId: finalAssignedPlayerId,
+                    assignedTeamId: finalAssignedTeamId,
+                    relatedEventId: rawEvent.relatedEventId || null,
+                    onCourtPlayerIds: rawEvent.onCourtPlayerIds || null,
+                    identifiedTeamColor: rawEvent.identifiedTeamColor || null,
+                    identifiedJerseyNumber: rawEvent.identifiedJerseyNumber || null,
                     videoClipStartTime: chunk.startTime,
                     videoClipEndTime: chunk.startTime + chunkDuration,
                 };
 
-                // --- Deduplication Logic ---
-                // A more robust key using a 5-second tolerance window for the timestamp.
                 const timeWindow = Math.floor(absoluteEventTimestamp / 5);
-                const eventUniqueKey = `${gameEventData.eventType}-${timeWindow}-${assignedPlayerId || assignedTeamId || ''}`;
+                const eventUniqueKey = `${gameEventData.eventType}-${timeWindow}-${finalAssignedPlayerId || finalAssignedTeamId || ''}`;
 
                 if (!processedEventKeys.has(eventUniqueKey)) {
                     finalEvents.push(gameEventData);
@@ -133,6 +147,7 @@ export class EventProcessorService {
                 } else {
                     logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`, { chunkSequence: chunk.sequence, phase: 'processing' });
                 }
+
             } catch (error: any) {
                 logger.error(`[EventProcessorService] Unexpected error processing a raw event for chunk ${chunk.sequence}.`, {
                     error: {
@@ -144,7 +159,6 @@ export class EventProcessorService {
                     },
                     phase: 'processing'
                 });
-                // Continue to the next event, do not crash the whole chunk processing
             }
         }
 
