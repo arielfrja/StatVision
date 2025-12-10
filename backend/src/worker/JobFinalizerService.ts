@@ -97,9 +97,11 @@ export class JobFinalizerService {
                 // A retry mechanism for publishing could be added if it's critical.
             }
 
-            // Clean up all chunk files associated with the job
-            const chunkPaths = chunks.map(c => c.chunkPath);
-            await this.videoChunkerService.cleanupChunks(chunkPaths);
+            // Clean up only the chunk files that were successfully processed
+            const completedChunks = chunks.filter(c => c.status === ChunkStatus.COMPLETED);
+            const chunkPathsToClean = completedChunks.map(c => c.chunkPath);
+            this.logger.info(`[JobFinalizerService] Cleaning up ${chunkPathsToClean.length} completed chunk files for job ${jobId}.`, { phase: 'finalizing' });
+            await this.videoChunkerService.cleanupChunks(chunkPathsToClean);
         } else {
             this.logger.info(`[JobFinalizerService] Job ${jobId} is not yet in a terminal state. Waiting for more chunks to complete.`, { phase: 'finalizing' });
         }

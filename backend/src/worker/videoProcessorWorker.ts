@@ -162,11 +162,14 @@ export class VideoOrchestratorService {
 
         const existingChunks = await this.chunkRepository.findByJobId(job.id);
         const chunkMap = new Map(existingChunks.map(c => [c.sequence, c]));
+        this.chunkLogger.debug(`[Orchestrator] Initial chunkMap for job ${job.id}: ${JSON.stringify(Array.from(chunkMap.entries()))}`, { phase: 'chunking' });
         this.chunkLogger.info(`[Orchestrator] Found ${existingChunks.length} existing chunk records for this job.`, { phase: 'chunking' });
 
         for (let sequence = 0; sequence < totalChunks; sequence++) {
             const startTime = sequence * step;
-            let chunk = chunkMap.get(sequence);
+            let chunk: Chunk | null | undefined = chunkMap.get(sequence);
+
+            this.chunkLogger.debug(`[Orchestrator] Debugging sequence ${sequence}: chunkMap.get(${sequence}) returned: ${chunk ? JSON.stringify(chunk) : 'undefined'}`, { phase: 'chunking' });
 
             if (chunk) {
                 const status = chunk.status;
@@ -176,15 +179,34 @@ export class VideoOrchestratorService {
                 }
                 this.chunkLogger.info(`[Orchestrator] Retrying chunk ${sequence} with status ${status}.`, { phase: 'chunking' });
             } else {
-                this.chunkLogger.info(`[Orchestrator] Creating new record for chunk ${sequence}.`, { phase: 'chunking' });
-                let newChunk = new Chunk();
-                newChunk.jobId = job.id;
-                newChunk.sequence = sequence;
-                newChunk.startTime = startTime;
-                newChunk.status = ChunkStatus.PENDING;
-                newChunk.chunkPath = ''; // No path yet
-                chunk = await this.chunkRepository.create(newChunk);
-                this.chunkLogger.info(`[Orchestrator] Saved new chunk record ${chunk.id} for sequence ${sequence}.`, { phase: 'chunking' });
+                this.chunkLogger.info(`[Orchestrator] Attempting to create new record for chunk ${sequence}.`, { phase: 'chunking' });
+                try {
+                    let newChunk = new Chunk();
+                    newChunk.jobId = job.id;
+                    newChunk.sequence = sequence;
+                    newChunk.startTime = startTime;
+                    newChunk.status = ChunkStatus.PENDING;
+                    newChunk.chunkPath = ''; // No path yet
+                    chunk = await this.chunkRepository.create(newChunk);
+                    this.chunkLogger.info(`[Orchestrator] Saved new chunk record ${chunk.id} for sequence ${sequence}.`, { phase: 'chunking' });
+                } catch (error: any) {
+                    // Handle race condition where another process created the chunk in the meantime.
+                    // '23505' is the PostgreSQL error code for unique_violation.
+                    if (error.code === '23505') {
+                        this.chunkLogger.warn(`[Orchestrator] Race condition detected for chunk ${sequence}. Record already exists. Fetching it.`, { phase: 'chunking' });
+                        chunk = await this.chunkRepository.findByJobIdAndSequence(job.id, sequence);
+                        if (!chunk) {
+                            // This should be logically impossible if the error was a duplicate key violation.
+                            // But as a safeguard, we throw a more specific error.
+                            const criticalError = new Error(`[Orchestrator] Race condition led to duplicate key error, but could not fetch the existing chunk for sequence ${sequence}.`);
+                            this.chunkLogger.error(criticalError.message, { error, phase: 'chunking' });
+                            throw criticalError;
+                        }
+                    } else {
+                        // Re-throw any other unexpected errors
+                        throw error;
+                    }
+                }
             }
 
             if (!chunk) {
