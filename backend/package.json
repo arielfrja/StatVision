@@ -7,7 +7,7 @@
     "start": "npx ts-node src/app.ts",
     "start:worker": "LOG_LEVEL=debug npx ts-node src/startWorker.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "typeorm": "npx typeorm-ts-node-commonjs"
+    "typeorm": "dotenv -e .env -- npx typeorm-ts-node-commonjs"
   },
   "keywords": [],
   "author": "",
@@ -44,6 +44,7 @@
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
     "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.8"
+    "@types/swagger-ui-express": "^4.1.8",
+    "dotenv-cli": "^11.0.0"
   }
 }
