@@ -39,7 +39,7 @@ export const workerConfig = {
     // Gemini API settings
     geminiModelName: process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash',
     geminiFilePollIntervalMs: parseInt(process.env.GEMINI_POLL_INTERVAL_MS || '5000', 10),
-    geminiFilePollMaxRetries: parseInt(process.env.GEMINI_POLL_MAX_RETRIES || '24', 10),
+    geminiFilePollMaxRetries: parseInt(process.env.GEMINI_POLL_MAX_RETRIES || '48', 10),
 
     // Chunk Processor settings
     parallelStageLimit: parseInt(process.env.PARALLEL_STAGE_LIMIT || '3', 10),

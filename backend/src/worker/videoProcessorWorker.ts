@@ -43,6 +43,9 @@ export class VideoOrchestratorService {
     public async startConsumingMessages(): Promise<void> {
         this.jobLogger.info(`VideoOrchestratorService: Starting to consume messages in ${this.processingMode} mode...`, { phase: 'orchestration' });
 
+        // Process any existing jobs that are not in a terminal state on startup
+        await this._processExistingJobs();
+
         const subscriptionOptions: SubscriptionOptions = {
             flowControl: {
                 maxMessages: this.processingMode === 'SEQUENTIAL' ? 1 : workerConfig.parallelJobLimit,
@@ -280,11 +283,61 @@ export class VideoOrchestratorService {
                 return;
             }
             if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
-                this.jobLogger.info(`[waitForJobCompletion] Job ${jobId} reached terminal state: ${job.status}`, { phase: 'orchestration' });
+                this.jobLogger.info(`[waitForJobCompletion] Job ${job.id} reached terminal state: ${job.status}`, { phase: 'orchestration' });
                 return;
             }
-            this.jobLogger.debug(`[waitForJobCompletion] Job ${jobId} is still in state: ${job.status}. Waiting ${pollInterval / 1000}s...`, { phase: 'orchestration' });
+            this.jobLogger.debug(`[waitForJobCompletion] Job ${job.id} is still in state: ${job.status}. Waiting ${pollInterval / 1000}s...`, { phase: 'orchestration' });
             await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
+    }
+
+    private async _processExistingJobs(): Promise<void> {
+        this.jobLogger.info('[ORCHESTRATOR] Checking for existing non-terminal jobs on startup.', { phase: 'orchestration' });
+
+        const nonTerminalStatuses = [
+            VideoAnalysisJobStatus.PENDING,
+            VideoAnalysisJobStatus.PROCESSING,
+            VideoAnalysisJobStatus.RETRYABLE_FAILED,
+        ];
+
+        const existingJobs = await this.jobRepository.find({
+            where: nonTerminalStatuses.map(status => ({ status })),
+        });
+
+        if (existingJobs.length > 0) {
+            this.jobLogger.info(`[ORCHESTRATOR] Found ${existingJobs.length} existing non-terminal job(s). Re-orchestrating...`, { phase: 'orchestration' });
+        } else {
+            this.jobLogger.info('[ORCHESTRATOR] No existing non-terminal jobs found.', { phase: 'orchestration' });
+            return;
+        }
+
+        const chunkAnalysisTopic = this.pubSubClient.topic(CHUNK_ANALYSIS_TOPIC_NAME);
+        const tempDir = path.join(__dirname, '../../tmp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        for (const job of existingJobs) {
+            this.jobLogger.info(`[ORCHESTRATOR] Resuming orchestration for job ${job.id} (Status: ${job.status}).`, { phase: 'orchestration' });
+            try {
+                // Ensure the job's status is set to PROCESSING before re-orchestration
+                await this.jobRepository.update(job.id, { status: VideoAnalysisJobStatus.PROCESSING, processingHeartbeatAt: new Date() });
+                await this.orchestrateChunking(job, tempDir, chunkAnalysisTopic);
+            } catch (error: any) {
+                const errorMessage = error.message || 'An unknown error occurred during re-orchestration of existing job.';
+                this.jobLogger.error(`[ORCHESTRATOR] Error re-orchestrating existing job ${job.id}: ${errorMessage}`, {
+                    error: {
+                        message: errorMessage,
+                        stack: error.stack,
+                        jobId: job.id,
+                    },
+                    phase: 'orchestration'
+                });
+                await this.jobRepository.update(job.id, {
+                    status: VideoAnalysisJobStatus.RETRYABLE_FAILED,
+                    failureReason: errorMessage,
+                    retryCount: (job.retryCount || 0) + 1
+                });
+            }
+        }
+        this.jobLogger.info('[ORCHESTRATOR] Finished checking and re-orchestrating existing jobs.', { phase: 'orchestration' });
     }
 }

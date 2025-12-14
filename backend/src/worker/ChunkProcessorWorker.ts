@@ -183,7 +183,8 @@ export class ChunkProcessorWorker {
                 } else {
                     const errorMessage = result.error?.message || 'Unknown Gemini analysis error';
                     const errorStack = result.error?.stack || 'No stack trace available.';
-                    this.logger.error(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) failed Gemini analysis.`, {
+                    chunk.status = ChunkStatus.FAILED;
+                    this.logger.error(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) failed Gemini analysis with error: ${errorMessage}`, {
                         error: {
                             message: errorMessage,
                             stack: errorStack,
@@ -193,7 +194,6 @@ export class ChunkProcessorWorker {
                         },
                         phase: 'analyzing'
                     });
-                    chunk.status = ChunkStatus.FAILED;
                     chunk.failureReason = errorMessage;
                 }
                 
@@ -216,6 +216,16 @@ export class ChunkProcessorWorker {
                 ProgressManager.getInstance().stopChunkBar(chunk?.id);
                 if (chunk) {
                     chunk.status = ChunkStatus.FAILED;
+                    this.logger.error(`Error processing chunk message ${message.id} for chunk ${chunk?.id} with error: ${errorMessage}`, {
+                        error: {
+                            message: errorMessage,
+                            stack: errorStack,
+                            jobId: jobId,
+                            chunkId: chunk?.id,
+                            messageId: message.id,
+                        },
+                        phase: 'analyzing'
+                    });
                     chunk.failureReason = errorMessage;
                     await this.chunkRepository.update(chunk);
                 }

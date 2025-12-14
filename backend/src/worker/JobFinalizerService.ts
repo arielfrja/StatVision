@@ -60,7 +60,7 @@ export class JobFinalizerService {
             finalStatus = VideoAnalysisJobStatus.FAILED;
             const failedChunkReasons = failedChunks.map(c => `Chunk ${c.sequence}: ${c.failureReason || 'Unknown reason'}`).join('\n');
             failureReason = `Job failed because ${failedChunks.length} out of ${totalChunks} chunk(s) failed processing.\nDetails:\n${failedChunkReasons}`;
-            this.logger.warn(`[JobFinalizerService] Marking job ${jobId} as FAILED due to failed chunks.`, { phase: 'finalizing' });
+            this.logger.warn(`[JobFinalizerService] Marking job ${jobId} as FAILED due to failed chunks. Details: ${failureReason}`, { phase: 'finalizing' });
         }
         // Rule 2: If all chunks are completed, the job is COMPLETED.
         else if (completedChunks === totalChunks) {

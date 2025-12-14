@@ -126,17 +126,10 @@ export class GeminiAnalysisService {
             const cleanedText = responseText.trim(); 
 
             const parsedResponse = JSON.parse(cleanedText);
-
-            // Expecting an object with an 'events' array based on EVENT_SCHEMA
-            if (parsedResponse && Array.isArray(parsedResponse.events)) {
-                const parsedEvents = parsedResponse.events;
-                logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
-                const eventsWithMetadata = parsedEvents.map((event: any) => ({ ...event, chunkMetadata: chunkInfo }));
-                return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
-            } else {
-                logger.warn(`[GeminiAnalysisService] Parsed structured response for ${chunkPath} was not a valid events object.`, { parsedResponse: cleanedText, phase: 'analyzing' });
-                return { status: 'fulfilled', events: [], rawResponse: cleanedText || '' };
-            }
+            const parsedEvents = parsedResponse.events;
+            logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
+            const eventsWithMetadata = parsedEvents.map((event: any) => ({ ...event, chunkMetadata: chunkInfo }));
+            return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
 
         } catch (error: any) {
             const errorMessage = error.message || 'An unknown error occurred during Gemini API call.';

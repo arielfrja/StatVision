@@ -1,0 +1,3 @@
+I cannot directly execute SQL queries on your database. You will need to run the `update_job_status.sql` script yourself.
+
+You can do this by connecting to your PostgreSQL database (`statsvision_db`) using a suitable client (like `psql`, DBeaver, pgAdmin, or similar) and then executing the commands found in the `update_job_status.sql` file. Please ensure you are connected with appropriate credentials, such as the `statsvision` user.

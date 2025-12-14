@@ -2,7 +2,7 @@
   "type": "postgres",
   "host": "localhost",
   "port": 5432,
-  "username": "statsvision_user",
+  "username": "statsvision",
   "password": "statsvision_password",
   "database": "statsvision_db",
   "synchronize": true,
