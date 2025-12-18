@@ -74,10 +74,21 @@ export class ChunkProcessorWorker {
                 jobId = parsedMessage.jobId;
                 const { chunkId } = parsedMessage;
 
-                chunk = await this.chunkRepository.findOneById(chunkId);
+                // Retry logic for fetching chunk
+                let retryCount = 0;
+                const maxRetries = 3;
+                while (retryCount < maxRetries) {
+                    chunk = await this.chunkRepository.findOneById(chunkId);
+                    if (chunk) break;
+
+                    this.logger.warn(`Chunk ${chunkId} not found for job ${jobId}. Retrying (${retryCount + 1}/${maxRetries})...`, { phase: 'analyzing' });
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    retryCount++;
+                }
+
                 if (!chunk) {
-                    this.logger.error(`Chunk ${chunkId} not found for job ${jobId}. Acknowledging message.`, { phase: 'analyzing' });
-                    message.ack();
+                    this.logger.error(`Chunk ${chunkId} not found for job ${jobId} after ${maxRetries} retries. Nacking message.`, { phase: 'analyzing' });
+                    message.nack();
                     return;
                 }
 
