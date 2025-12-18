@@ -176,7 +176,7 @@ export class VideoOrchestratorService {
 
             if (chunk) {
                 const status = chunk.status;
-                if (status === ChunkStatus.COMPLETED || status === ChunkStatus.AWAITING_ANALYSIS || status === ChunkStatus.ANALYZING) {
+                if (status === ChunkStatus.COMPLETED || status === ChunkStatus.ANALYZING || (status === ChunkStatus.AWAITING_ANALYSIS && !chunk.failureReason)) {
                     this.chunkLogger.debug(`[Orchestrator] Chunk ${sequence} already processed or in progress (status: ${status}). Skipping.`, { phase: 'chunking' });
                     continue;
                 }

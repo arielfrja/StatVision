@@ -41,6 +41,7 @@ import { gameRoutes } from "./routes/gameRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { IAuthProvider } from "./auth/authProvider";
+import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
 
   logger.debug("Environment Variables Loaded:");
   logger.debug(`PORT: ${process.env.PORT}`);
@@ -223,6 +224,10 @@ AppDataSource.initialize()
             teamStatsRepository,
             playerStatsRepository
         );
+
+        // Initialize VideoAnalysisResultService to consume worker results
+        const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, logger);
+        videoAnalysisResultService.startConsumingResults();
 
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
