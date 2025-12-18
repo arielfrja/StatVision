@@ -87,7 +87,22 @@ export class ChunkProcessorWorker {
                 }
 
                 if (!chunk) {
-                    this.logger.error(`Chunk ${chunkId} not found for job ${jobId} after ${maxRetries} retries. Nacking message.`, { phase: 'analyzing' });
+                    // Check if the job itself is valid and active before Nacking
+                    const job = await this.jobRepository.findOneById(jobId);
+
+                    if (!job) {
+                        this.logger.warn(`Job ${jobId} not found for chunk message ${chunkId}. Message is orphaned. Acknowledging.`, { phase: 'analyzing' });
+                        message.ack();
+                        return;
+                    }
+
+                    if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
+                        this.logger.info(`Job ${jobId} is already in terminal state (${job.status}). Ignoring missing chunk ${chunkId}. Acknowledging.`, { phase: 'analyzing' });
+                        message.ack();
+                        return;
+                    }
+
+                    this.logger.error(`Chunk ${chunkId} not found for active job ${jobId} after ${maxRetries} retries. Nacking message.`, { phase: 'analyzing' });
                     message.nack();
                     return;
                 }
