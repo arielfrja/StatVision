@@ -23,10 +23,8 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   }
 
   const onRedirectCallback = (appState?: AppState) => {
-    console.log("UserProviderWrapper: onRedirectCallback triggered.");
-    console.log("UserProviderWrapper: appState:", appState);
-    console.log("UserProviderWrapper: window.location.pathname:", window.location.pathname);
-    router.push(appState?.returnTo || window.location.pathname);
+    // After login, redirect to the dashboard by default, unless a specific returnTo was requested.
+    router.push(appState?.returnTo || '/dashboard');
   };
 
   return (
