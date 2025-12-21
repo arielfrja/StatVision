@@ -1,141 +1,115 @@
-.page {
-  --background: #fafafa;
-  --foreground: #fff;
+/*
+ * Landing Page Specific Styles
+ *
+ * This file contains styles for the new, joyful landing page.
+ * It uses a combination of CSS variables for theming and Flexbox/Grid for layout.
+ */
 
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
-}
-
+/* Main container */
 .main {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
-}
-
-.intro {
+  font-family: var(--font-geist-sans);
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
-}
-
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
-}
-
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
-}
-
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.ctas {
-  display: flex;
-  flex-direction: row;
+  align-items: center;
   width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
 }
 
-.ctas a {
+/* Hero Section */
+.hero {
+  width: 100%;
+  padding: 80px var(--spacing-lg);
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+  text-align: center;
+  background: linear-gradient(135deg, var(--md-sys-color-primary-container), var(--md-sys-color-tertiary-container));
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
-  gap: 8px;
+.heroContent {
+  max-width: 800px;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-primary-container);
+  margin-bottom: var(--spacing-md);
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
-  }
-
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
+.heroSubtitle {
+  font-size: 1.25rem;
+  color: var(--md-sys-color-on-primary-container);
+  margin-bottom: var(--spacing-xl);
+  line-height: 1.6;
 }
 
-@media (max-width: 600px) {
-  .main {
-    padding: 48px 24px;
-  }
-
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
-    font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
-  }
+.heroActions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
+/* Features Section */
+.features {
+  width: 100%;
+  max-width: 1200px;
+  padding: 80px var(--spacing-lg);
+  text-align: center;
+}
 
-  .page {
-    --background: #000;
-    --foreground: #000;
+.sectionTitle {
+  font-size: 2.5rem;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+  margin-bottom: var(--spacing-xl);
+}
 
-    --text-primary: #ededed;
-    --text-secondary: #999;
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
 
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
+.featureCard {
+  background-color: var(--md-sys-color-surface-container-low);
+  padding: var(--spacing-xl);
+  border-radius: var(--spacing-lg);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.featureIcon {
+  font-size: 48px;
+  color: var(--md-sys-color-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.featureTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.featureDescription {
+  color: var(--md-sys-color-on-surface-variant);
+  line-height: 1.5;
+}
+
+/* Footer */
+.footer {
+  width: 100%;
+  text-align: center;
+  padding: var(--spacing-lg);
+  background-color: var(--md-sys-color-surface-container);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  margin-top: auto;
 }
