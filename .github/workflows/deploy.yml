@@ -2,7 +2,7 @@ name: StatVision Backend Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
 
 env:
   PROJECT_ID: statvision-mvp
