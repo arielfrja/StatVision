@@ -10,7 +10,7 @@ import "./globals.css";
 
 import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && typescaleStyles.styleSheet) {
   document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
 }
 

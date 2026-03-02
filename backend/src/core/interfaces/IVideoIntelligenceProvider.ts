@@ -11,6 +11,10 @@ export interface AnalysisResult {
     events: any[];
     rawResponse: string;
     updatedHistory?: any[];
+    error?: {
+        message: string;
+        stack?: string;
+    };
 }
 
 export interface IVideoIntelligenceProvider {

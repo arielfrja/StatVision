@@ -625,7 +625,7 @@ export const gameRoutes = (
             logger.info(`Published video upload event for Game ID: ${gameId} to topic ${VIDEO_UPLOAD_TOPIC_NAME}.`);
         } catch (error) {
             logger.error(`Failed to publish video upload event for Game ID: ${gameId}:`, error);
-            throw new Error(`Pub/Sub publishing failed: ${(error as any).message}`);
+            throw new Error(`Pub/Sub publishing failed: ${(error as any).message}`, { cause: error });
         }
     }
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { DataSource } from 'typeorm';
-import { User } from '../User';
+import { User } from '../core/entities/User';
 import logger from '../config/logger';
 import { IAuthProvider } from '../auth/authProvider';
 

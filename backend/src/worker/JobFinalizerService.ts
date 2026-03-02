@@ -66,11 +66,12 @@ export class JobFinalizerService {
 
         if (finalStatus) {
             await this.dataSource.transaction(async (transactionalEntityManager) => {
-                let allEvents: any[] = [];
+                const currentStatus = finalStatus!;
+                const allEvents: any[] = [];
                 let allPlayers: any[] = [];
                 let allTeams: any[] = [];
 
-                if (finalStatus === VideoAnalysisJobStatus.COMPLETED) {
+                if (currentStatus === VideoAnalysisJobStatus.COMPLETED) {
                     // Merge data from all chunks
                     const playerMap = new Map<string, any>();
                     const teamMap = new Map<string, any>();
@@ -102,7 +103,7 @@ export class JobFinalizerService {
 
                 // Update the job with aggregated results
                 await transactionalEntityManager.update(VideoAnalysisJob, jobId, {
-                    status: finalStatus,
+                    status: currentStatus,
                     failureReason,
                     processedEvents: allEvents.length > 0 ? allEvents : null,
                     identifiedPlayers: allPlayers.length > 0 ? allPlayers : null,

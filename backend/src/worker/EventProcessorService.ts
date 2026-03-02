@@ -2,7 +2,7 @@ import { chunkLogger as logger } from "../config/loggers";
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../core/interfaces/video-analysis.interfaces";
 import { VideoChunk } from "./VideoChunkerService";
-import { GameType, IdentityMode } from "../entities/Game";
+import { GameType, IdentityMode } from "../core/entities/Game";
 
 // This should be managed via a shared constants file or similar
 const ALLOWED_EVENT_TYPES = [
@@ -49,7 +49,8 @@ export class EventProcessorService {
 
         // Authoritative Window logic
         const segmentStart = 0;
-        const segmentEnd = chunk.sequence === chunk.totalChunks - 1 ? chunkDuration : (chunkDuration - overlapDuration);
+        const totalChunks = chunk.totalChunks || 0;
+        const segmentEnd = chunk.sequence === totalChunks - 1 ? chunkDuration : (chunkDuration - overlapDuration);
         
         logger.info(`[EventProcessorService] Authoritative Window for chunk ${chunk.sequence}: [${segmentStart}, ${segmentEnd})s within chunk.`, { phase: 'processing' });
 

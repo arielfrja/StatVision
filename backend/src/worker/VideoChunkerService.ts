@@ -9,6 +9,7 @@ export interface VideoChunk {
     chunkPath: string;
     startTime: number;
     sequence: number;
+    totalChunks?: number;
 }
 
 export interface VideoMetadata {

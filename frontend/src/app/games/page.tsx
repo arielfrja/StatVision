@@ -95,8 +95,8 @@ function GamesPage() {
               {games.map(game => {
                 const statusInfo = getStatusIcon(game.status);
                 const uploadedDate = new Date(game.uploadedAt).toLocaleDateString();
-                const teamA = game.assignedTeamA?.name || 'Team A (Unassigned)';
-                const teamB = game.assignedTeamB?.name || 'Team B (Unassigned)';
+                const teamA = game.homeTeam?.name || 'Home Team (Unassigned)';
+                const teamB = game.awayTeam?.name || 'Away Team (Unassigned)';
 
                 return (
                   <div 

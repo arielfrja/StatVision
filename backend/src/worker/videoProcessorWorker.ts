@@ -178,7 +178,7 @@ export class VideoOrchestratorService {
             } else {
                 this.chunkLogger.info(`[Orchestrator] Attempting to create new record for chunk ${sequence}.`, { phase: 'chunking' });
                 try {
-                    let newChunk = new Chunk();
+                    const newChunk = new Chunk();
                     newChunk.jobId = job.id;
                     newChunk.sequence = sequence;
                     newChunk.startTime = startTime;
@@ -335,4 +335,3 @@ export class VideoOrchestratorService {
     }
 }
 
-}

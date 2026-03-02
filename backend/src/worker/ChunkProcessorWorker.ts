@@ -34,7 +34,7 @@ export class ChunkProcessorWorker {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource);
+        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus);
         this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -152,6 +152,22 @@ export class ChunkProcessorWorker {
                     message.ack();
                     ProgressManager.getInstance().stopChunkBar(chunk.id);
                     return;
+                }
+
+                // Initialize missing variables for identifying players and teams
+                let identifiedPlayers: IdentifiedPlayer[] = [];
+                let identifiedTeams: IdentifiedTeam[] = [];
+                let processedEventKeys: Set<string> = new Set();
+
+                // If not the first chunk, we should inherit context from previous chunks
+                if (chunk.sequence > 0) {
+                    const previousChunk = await this.chunkRepository.findByJobIdAndSequence(jobId, chunk.sequence - 1);
+                    if (previousChunk) {
+                        identifiedPlayers = previousChunk.identifiedPlayers || [];
+                        identifiedTeams = previousChunk.identifiedTeams || [];
+                        // We might also need to populate processedEventKeys if that's shared across chunks.
+                        // Assuming processedEventKeys tracks unique events across chunks to avoid duplicates.
+                    }
                 }
 
                 // Fetch visualContext and chatHistory from the Game and Job entities

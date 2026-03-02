@@ -22,11 +22,11 @@ import '@material/web/dialog/dialog.js';
 import axios from 'axios';
 
 // Define the combined type for the roster display
-interface RosterPlayer extends PlayerTeamHistory {
+interface RosterPlayer extends Omit<PlayerTeamHistory, 'player'> {
     player: { // Nested Player details from the relation
         id: string;
         name: string;
-    }
+    };
 }
 
 function TeamPlayersPage() {

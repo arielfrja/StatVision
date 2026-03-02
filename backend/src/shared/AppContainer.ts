@@ -58,7 +58,6 @@ export class AppContainer {
 
         // Services
         const teamService = new TeamService(this.dataSource);
-        const playerService = new PlayerService(this.dataSource, gameStatsService);
         const gameService = new GameService(this.dataSource);
         
         const gameStatsService = new GameStatsService(
@@ -67,6 +66,7 @@ export class AppContainer {
             playerStatsRepository
         );
         
+        const playerService = new PlayerService(this.dataSource, gameStatsService);
         const gameAssignmentService = new GameAssignmentService(this.dataSource, gameStatsService);
         const gameAnalysisService = new GameAnalysisService(this.dataSource);
         

@@ -5,15 +5,9 @@ import { workerConfig } from "../config/workerConfig";
 import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../core/interfaces/video-analysis.interfaces";
-import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes"; // Added this import
-import {
-    EVENT_SCHEMA,
-    BASE_PROMPT,
-    FIRST_CHUNK_PROMPT,
-    SUBSEQUENT_CHUNK_PROMPT,
-    KNOWN_TEAMS_PROMPT_TEMPLATE,
-    KNOWN_PLAYERS_PROMPT_TEMPLATE
-} from "../constants/gemini";
+import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes";
+import { EVENT_SCHEMA } from "../constants/gemini";
+import { PromptLoader } from "../shared/utils/PromptLoader";
 
 
 
@@ -95,21 +89,21 @@ export class GeminiAnalysisService {
             
             logger.info(`[GeminiAnalysisService] File is now ACTIVE. URI: ${file.uri}, Name: ${file.name}`, { phase: 'analyzing' });
 
-            let prompt = BASE_PROMPT;
+            let prompt = PromptLoader.loadPrompt('system_instruction');
 
             const isFirstChunk = identifiedTeams.length === 0 && identifiedPlayers.length === 0;
 
             if (isFirstChunk) {
-                prompt += FIRST_CHUNK_PROMPT;
+                prompt += PromptLoader.loadPrompt('first_chunk');
             } else {
-                prompt += SUBSEQUENT_CHUNK_PROMPT;
+                prompt += PromptLoader.loadPrompt('subsequent_chunk');
             }
 
             if (identifiedTeams.length > 0) {
-                prompt += KNOWN_TEAMS_PROMPT_TEMPLATE.replace('{{teams}}', JSON.stringify(identifiedTeams));
+                prompt += `\n\n**Known Teams in this Game:**\n${JSON.stringify(identifiedTeams)}`;
             }
             if (identifiedPlayers.length > 0) {
-                prompt += KNOWN_PLAYERS_PROMPT_TEMPLATE.replace('{{players}}', JSON.stringify(identifiedPlayers));
+                prompt += `\n\n**Known Players in this Game:**\n${JSON.stringify(identifiedPlayers)}`;
             }
 
             const parts: Part[] = [

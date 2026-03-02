@@ -9,6 +9,7 @@ export enum GameStatus {
     ASSIGNMENT_PENDING = "ASSIGNMENT_PENDING",
     COMPLETED = "COMPLETED",
     FAILED = "FAILED",
+    ANALYSIS_FAILED_RETRYABLE = "ANALYSIS_FAILED_RETRYABLE",
 }
 
 export enum GameType {
@@ -41,6 +42,7 @@ export interface Game {
     opponentName: string | null;
     quarterDuration: number | null;
     season: string | null;
+    failureReason?: string | null;
 
     // Renamed Team Assignment Fields
     homeTeamId: string | null;

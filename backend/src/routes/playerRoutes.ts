@@ -1,6 +1,6 @@
 import { Router, Request } from 'express';
 import { DataSource } from 'typeorm';
-import { User } from '../User';
+import { User } from '../core/entities/User';
 import { TeamService } from '../service/TeamService';
 import { PlayerService } from '../service/PlayerService';
 import logger from '../config/logger';

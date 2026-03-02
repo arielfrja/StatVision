@@ -36,6 +36,10 @@ export class GameEventRepository {
         return this.repository.save(event);
     }
 
+    async remove(event: GameEvent): Promise<GameEvent> {
+        return this.repository.remove(event);
+    }
+
     async findUniqueEntityIdsByGameId(gameId: string): Promise<{ playerIds: string[], teamIds: string[] }> {
         const results = await this.repository.createQueryBuilder("event")
             .select("event.assignedPlayerId", "playerId")

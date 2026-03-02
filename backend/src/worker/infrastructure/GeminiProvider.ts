@@ -38,16 +38,20 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
             const modelName = workerConfig.geminiModelName;
             
             // 1. Upload File
-            let uploadResponse = await this.genAI.files.upload({
+            const uploadResponse = await this.genAI.files.upload({
                 file: chunkPath,
                 config: { mimeType: 'video/mp4' }
             });
-            uploadedFileName = uploadResponse.name;
+            const fileName = uploadResponse.name;
+            if (!fileName) {
+                throw new Error("File upload failed: No filename returned from Gemini API");
+            }
+            uploadedFileName = fileName;
 
             // 2. Poll for ACTIVE state
-            await this.waitForFileActive(uploadedFileName);
+            await this.waitForFileActive(fileName);
             
-            const file = await this.genAI.files.get({ name: uploadedFileName });
+            const file = await this.genAI.files.get({ name: fileName });
 
             // 3. Build Multi-turn Conversation using PromptLoader
             const formatInstructions = PromptLoader.getRulesetInstruction(gameType);
@@ -80,14 +84,16 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
             const contents = [...chatHistory, currentTurn];
 
-            // 4. Generate Content with System Instruction
+            // 4. Generate Content (systemInstruction passed via prompt concatenation)
+            const combinedPrompt = `System Instructions:\n${systemInstruction}\n\nUser Request:\n${userPrompt}`;
+            currentTurn.parts[1].text = combinedPrompt;
+
             const result = await this.genAI.models.generateContent({
                 model: modelName,
-                systemInstruction: { text: systemInstruction },
                 contents: contents,
                 config: {
                     responseMimeType: "application/json",
-                    responseSchema: EVENT_SCHEMA,
+                    responseSchema: EVENT_SCHEMA as any,
                 },
             });
 

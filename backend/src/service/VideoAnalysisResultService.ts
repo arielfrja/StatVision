@@ -159,7 +159,7 @@ export class VideoAnalysisResultService {
                         }
 
                         // 2. Find or Create GameTeamStats and update game-specific details
-                        let gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
+                        const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
                         gameTeamStats.gameId = result.gameId;
                         gameTeamStats.teamId = teamData.id;
                         gameTeamStats.type = teamData.type;
@@ -186,7 +186,7 @@ export class VideoAnalysisResultService {
                         }
 
                         // 2. Find or Create GamePlayerStats and update game-specific details
-                        let gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
+                        const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
                         gamePlayerStats.gameId = result.gameId;
                         gamePlayerStats.playerId = playerData.id;
                         gamePlayerStats.teamId = playerData.teamId;

@@ -15,7 +15,7 @@ export class GameAssignmentService {
     private gameRepository: GameRepository;
     private gameStatsService: GameStatsService;
 
-    constructor(dataSource: DataSource, gameStatsService: GameStatsService) {
+    constructor(private dataSource: DataSource, gameStatsService: GameStatsService) {
         this.gameEventRepository = new GameEventRepository(dataSource);
         this.gameRepository = new GameRepository(dataSource);
         this.gameStatsService = gameStatsService;
@@ -25,7 +25,7 @@ export class GameAssignmentService {
         logger.info(`GameAssignmentService: Starting assignment for game ${gameId}.`);
 
         // Transactional assignment
-        await this.gameEventRepository.manager.transaction(async (transactionalEntityManager) => {
+        await this.dataSource.transaction(async (transactionalEntityManager) => {
              // 1. Update GameEvents in batch
             // Note: GameEventRepository methods might need to be transaction-aware or we use the transactionalEntityManager directly
             // For now, assuming the repository handles the simple updates, but ideally we pass the manager.

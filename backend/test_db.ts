@@ -1,5 +1,5 @@
 import { AppDataSource } from "./src/data-source";
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./src/worker/VideoAnalysisJob";
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./src/core/entities/VideoAnalysisJob";
 
 async function test() {
     await AppDataSource.initialize();
