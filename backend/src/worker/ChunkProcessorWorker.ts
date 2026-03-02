@@ -1,17 +1,18 @@
 import { ProgressManager } from './ProgressManager';
-import { PubSub, Message } from '@google-cloud/pubsub';
+import { Message } from '@google-cloud/pubsub';
 import { DataSource } from 'typeorm';
 import { chunkLogger } from '../config/loggers';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { ChunkRepository } from './ChunkRepository';
-import { GeminiAnalysisService } from './GeminiAnalysisService';
+import { IVideoIntelligenceProvider } from '../core/interfaces/IVideoIntelligenceProvider';
+import { GeminiProvider } from './infrastructure/GeminiProvider';
+import { IEventBus } from '../core/interfaces/IEventBus';
 import { EventProcessorService } from './EventProcessorService';
-import { Chunk, ChunkStatus } from './Chunk';
-import { VideoAnalysisJobStatus } from './VideoAnalysisJob';
-import { workerConfig } from '../config/workerConfig';
-import { GoogleGenAI } from '@google/genai';
-import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../interfaces/video-analysis.interfaces';
 import { JobFinalizerService } from './JobFinalizerService';
+import { workerConfig } from '../config/workerConfig';
+import { Chunk, ChunkStatus } from '../core/entities/Chunk';
+import { VideoAnalysisJobStatus } from '../core/entities/VideoAnalysisJob';
+import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../core/interfaces/video-analysis.interfaces';
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -21,17 +22,15 @@ interface ChunkMessage {
 }
 
 export class ChunkProcessorWorker {
-    private pubSubClient: PubSub;
     private jobRepository: VideoAnalysisJobRepository;
     private chunkRepository: ChunkRepository;
-    private geminiAnalysisService: GeminiAnalysisService;
+    private videoIntelligenceProvider: IVideoIntelligenceProvider;
     private eventProcessorService: EventProcessorService;
     private jobFinalizerService: JobFinalizerService;
     private logger = chunkLogger;
     private processingMode: string;
 
-    constructor(private dataSource: DataSource) {
-        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+    constructor(private dataSource: DataSource, private eventBus: IEventBus) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
@@ -42,22 +41,15 @@ export class ChunkProcessorWorker {
         if (!GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY environment variable not set!");
         }
-        const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-        this.geminiAnalysisService = new GeminiAnalysisService(genAI);
+        this.videoIntelligenceProvider = new GeminiProvider(GEMINI_API_KEY);
     }
 
     public async startConsumingMessages(): Promise<void> {
         this.logger.info('ChunkProcessorWorker: Starting to consume messages from Pub/Sub...', { phase: 'analyzing' });
-        const subscription = this.pubSubClient.subscription(CHUNK_ANALYSIS_SUBSCRIPTION_NAME, {
-            flowControl: {
-                maxMessages: 1, // Only process one message at a time
-            },
-        });
-
-        subscription.on('message', async (message: Message) => {
+        
+        await this.eventBus.subscribe(CHUNK_ANALYSIS_SUBSCRIPTION_NAME, async (parsedMessage: ChunkMessage, message: Message) => {
             this.logger.info(`Received chunk message ${message.id}:`, { phase: 'analyzing' });
-            this.logger.info(`	Data: ${message.data}`, { phase: 'analyzing' });
-
+            
             let heartbeat: NodeJS.Timeout | null = null;
             const extendAckDeadline = () => {
                 message.modAck(workerConfig.ackDeadlineSeconds);
@@ -70,7 +62,6 @@ export class ChunkProcessorWorker {
             let jobId: string | null = null;
 
             try {
-                const parsedMessage: ChunkMessage = JSON.parse(message.data.toString());
                 jobId = parsedMessage.jobId;
                 const { chunkId } = parsedMessage;
 
@@ -159,14 +150,16 @@ export class ChunkProcessorWorker {
                     chunk.status = ChunkStatus.FAILED;
                     await this.chunkRepository.update(chunk);
                     message.ack();
-                    ProgressManager.getInstance().stopChunkBar(chunk.id); // MODIFIED LINE
+                    ProgressManager.getInstance().stopChunkBar(chunk.id);
                     return;
                 }
 
-                let identifiedPlayers: IdentifiedPlayer[] = job.identifiedPlayers || [];
-                let identifiedTeams: IdentifiedTeam[] = job.identifiedTeams || [];
-                const allProcessedEvents: ProcessedGameEvent[] = job.processedEvents || [];
-                const processedEventKeys = new Set<string>(allProcessedEvents.map(e => `${e.eventType}-${Math.floor(e.absoluteTimestamp / 5)}-${e.assignedPlayerId || e.assignedTeamId || ''}`));
+                // Fetch visualContext and chatHistory from the Game and Job entities
+                const game = await this.dataSource.getRepository("Game").findOne({ where: { id: job.gameId } }) as any;
+                const visualContextString = game?.visualContext ? JSON.stringify(game.visualContext, null, 2) : 'No specific visual context provided.';
+                const gameType = game?.gameType;
+                const identityMode = game?.identityMode;
+                const chatHistory = job.chatHistory || [];
 
                 const videoChunkInfo = {
                     chunkPath: chunk.chunkPath,
@@ -174,11 +167,19 @@ export class ChunkProcessorWorker {
                     sequence: chunk.sequence
                 };
 
-                const result = await this.geminiAnalysisService.callGeminiApi(videoChunkInfo, identifiedPlayers, identifiedTeams);
+                const result = await this.videoIntelligenceProvider.analyzeVideoChunk(
+                    videoChunkInfo, 
+                    identifiedPlayers, 
+                    identifiedTeams, 
+                    visualContextString,
+                    gameType,
+                    identityMode,
+                    chatHistory
+                );
 
-                ProgressManager.getInstance().stopChunkBar(chunk.id); // MODIFIED LINE
+                ProgressManager.getInstance().stopChunkBar(chunk.id);
 
-                if (result.status === 'fulfilled') {
+                if (result.events) {
                     // Save the raw response before any filtering occurs.
                     chunk.rawGeminiResponse = result.rawResponse;
 
@@ -190,18 +191,20 @@ export class ChunkProcessorWorker {
                         workerConfig.chunkOverlapSeconds,
                         processedEventKeys,
                         identifiedPlayers,
-                        identifiedTeams
+                        identifiedTeams,
+                        gameType,
+                        identityMode
                     );
                     
-                    job.identifiedPlayers = processedResult.updatedIdentifiedPlayers;
-                    job.identifiedTeams = processedResult.updatedIdentifiedTeams;
-                    job.processedEvents = [...allProcessedEvents, ...processedResult.finalEvents];
-                    
-                    await this.jobRepository.update(job.id, {
-                        identifiedPlayers: job.identifiedPlayers,
-                        identifiedTeams: job.identifiedTeams,
-                        processedEvents: job.processedEvents,
-                    });
+                    chunk.identifiedPlayers = processedResult.updatedIdentifiedPlayers;
+                    chunk.identifiedTeams = processedResult.updatedIdentifiedTeams;
+                    chunk.processedEvents = processedResult.finalEvents;
+
+                    // Update job's chat history
+                    if (result.updatedHistory) {
+                        job.chatHistory = result.updatedHistory;
+                        await this.jobRepository.update(job.id, { chatHistory: result.updatedHistory });
+                    }
 
                     chunk.status = ChunkStatus.COMPLETED;
                     this.logger.info(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) completed successfully.`, { phase: 'analyzing' });
@@ -263,10 +266,10 @@ export class ChunkProcessorWorker {
                     await this.jobFinalizerService.finalizeJob(jobId);
                 }
             }
-        });
-
-        subscription.on('error', error => {
-            this.logger.error('Received error from Pub/Sub subscription:', error);
+        }, {
+            flowControl: {
+                maxMessages: 1, // Only process one message at a time
+            },
         });
     }
 }

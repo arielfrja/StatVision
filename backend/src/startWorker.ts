@@ -9,11 +9,12 @@ import "reflect-metadata";
 import { In } from "typeorm";
 import { AppDataSource } from "./data-source";
 import { jobLogger } from "./config/loggers";
+import { AppContainer } from "./shared/AppContainer";
 import { VideoOrchestratorService } from "./worker/videoProcessorWorker";
 import { ChunkProcessorWorker } from "./worker/ChunkProcessorWorker";
 import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
 import { VideoAnalysisJobRepository } from './worker/VideoAnalysisJobRepository';
-import { VideoAnalysisJobStatus } from './worker/VideoAnalysisJob';
+import { VideoAnalysisJobStatus } from './core/entities/VideoAnalysisJob';
 import { JobFinalizerService } from './worker/JobFinalizerService';
 import { workerConfig } from './config/workerConfig';
 
@@ -21,10 +22,12 @@ async function main() {
     await AppDataSource.initialize();
     jobLogger.info("Data Source has been initialized for worker!");
 
+    const container = AppContainer.getInstance(AppDataSource);
+
     // --- Startup Reconciliation ---
     jobLogger.info("[Startup] Starting reconciliation for jobs in intermediate states...");
-    const jobRepository = new VideoAnalysisJobRepository(AppDataSource);
-    const jobFinalizer = new JobFinalizerService(AppDataSource);
+    const jobRepository = container.get<VideoAnalysisJobRepository>("VideoAnalysisJobRepository");
+    const jobFinalizer = container.get<JobFinalizerService>(JobFinalizerService);
 
     const jobsToReconcile = await jobRepository.find({
         where: {
@@ -45,13 +48,13 @@ async function main() {
 
     jobLogger.info(`[Startup] Starting workers in ${workerConfig.processingMode} mode.`);
 
-    const videoOrchestratorService = new VideoOrchestratorService(AppDataSource);
+    const videoOrchestratorService = container.get<VideoOrchestratorService>(VideoOrchestratorService);
     videoOrchestratorService.startConsumingMessages();
 
-    const chunkProcessorWorker = new ChunkProcessorWorker(AppDataSource);
+    const chunkProcessorWorker = container.get<ChunkProcessorWorker>(ChunkProcessorWorker);
     chunkProcessorWorker.startConsumingMessages();
 
-    const videoAnalysisResultService = new VideoAnalysisResultService(AppDataSource, jobLogger);
+    const videoAnalysisResultService = container.get<VideoAnalysisResultService>(VideoAnalysisResultService);
     videoAnalysisResultService.startConsumingResults();
 }
 

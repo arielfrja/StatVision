@@ -50,5 +50,72 @@ export const authRoutes = (AppDataSource: DataSource) => {
         });
     });
 
+    /**
+     * @swagger
+     * /me:
+     *   get:
+     *     summary: Get current user info including preferences.
+     *     tags: [User]
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       200:
+     *         description: Current user information.
+     */
+    router.get("/me", async (req, res) => {
+        try {
+            const providerUid = req.user?.uid;
+            if (!providerUid) return res.status(401).send("Unauthorized");
+
+            const user = await userRepository.findOneBy({ providerUid });
+            if (!user) return res.status(404).send("User not found");
+
+            res.status(200).json(user);
+        } catch (error) {
+            logger.error("Error fetching user info:", error);
+            res.status(500).send("Internal server error");
+        }
+    });
+
+    /**
+     * @swagger
+     * /me/preferences:
+     *   put:
+     *     summary: Update current user preferences.
+     *     tags: [User]
+     *     security:
+     *       - bearerAuth: []
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               visibleStats:
+     *                 type: array
+     *                 items: { type: 'string' }
+     *     responses:
+     *       200:
+     *         description: Preferences updated successfully.
+     */
+    router.put("/me/preferences", async (req, res) => {
+        try {
+            const providerUid = req.user?.uid;
+            if (!providerUid) return res.status(401).send("Unauthorized");
+
+            const user = await userRepository.findOneBy({ providerUid });
+            if (!user) return res.status(404).send("User not found");
+
+            user.preferences = { ...user.preferences, ...req.body };
+            await userRepository.save(user);
+
+            res.status(200).json(user.preferences);
+        } catch (error) {
+            logger.error("Error updating preferences:", error);
+            res.status(500).send("Internal server error");
+        }
+    });
+
     return router;
 };

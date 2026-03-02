@@ -7,7 +7,7 @@ import Loader from './Loader';
 import SideNav from './SideNav';
 import BottomNav from './BottomNav';
 
-const publicPaths = ['/']; // Only the new landing page is public
+const publicPaths = ['/', '/login']; // Only the new landing page and login are public
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
     const { isAuthenticated, isLoading, error } = useAuth0();

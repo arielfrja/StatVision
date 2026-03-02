@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth0, withAuthenticationRequired } from '@auth0/auth0-react';
+import { useAuth0 } from '@auth0/auth0-react';
+import useSWR, { useSWRConfig } from 'swr';
 import Loader from '@/components/Loader';
-import { Game, GameStatus } from '@/types/game'; // Import Game type and status
-import axios from 'axios';
-import { useRouter } from 'next/navigation'; // New Import
+import { Game, GameStatus } from '@/types/game';
+import { useRouter } from 'next/navigation';
 import ResponsiveFab from '@/components/ResponsiveFab';
-import UploadForm from '@/components/UploadForm'; // New Import
+import UploadForm from '@/components/UploadForm';
 
 import '@material/web/button/filled-button.js';
 import '@material/web/list/list.js';
@@ -16,15 +16,15 @@ import '@material/web/icon/icon.js';
 import '@material/web/iconbutton/icon-button.js';
 
 function GamesPage() {
-  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
+  const { loginWithRedirect } = useAuth0();
   const router = useRouter();
-  const [games, setGames] = useState<Game[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { mutate } = useSWRConfig();
+  const { data: games, error, isLoading: isDataLoading } = useSWR<Game[]>('/games', {
+    refreshInterval: 5000,
+  });
   const [areMdcComponentsReady, setAreMdcComponentsReady] = useState(false);
-  const [isUploadMode, setIsUploadMode] = useState(false); // New state for upload mode
+  const [isUploadMode, setIsUploadMode] = useState(false);
 
-  // Utility to check if Material Web Components are ready (copied from teams/page.tsx)
   useEffect(() => {
     const checkMdcComponents = () => {
       if (customElements.get('md-list') && customElements.get('md-list-item') && customElements.get('md-filled-button') && customElements.get('md-icon') && customElements.get('md-icon-button')) {
@@ -35,35 +35,6 @@ function GamesPage() {
     };
     checkMdcComponents();
   }, []);
-
-  useEffect(() => {
-    if (!areMdcComponentsReady) return;
-    fetchGames();
-  }, [getAccessTokenSilently, areMdcComponentsReady]);
-
-  const fetchGames = async () => {
-    setIsLoading(true);
-    try {
-      const token = await getAccessTokenSilently();
-
-      const response = await axios.get('http://localhost:3000/games', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setGames(response.data);
-    } catch (error: any) {
-      console.error("An error occurred in fetchGames:", error);
-      setError(error.message);
-      // If there's an authentication error, redirect to login
-      if (error.error === 'login_required' || error.error === 'consent_required' || error.error === 'unauthorized') {
-        loginWithRedirect();
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getStatusIcon = (status: GameStatus) => {
     switch (status) {
@@ -81,7 +52,7 @@ function GamesPage() {
     }
   };
 
-  if (isLoading || !areMdcComponentsReady) {
+  if (isDataLoading || !areMdcComponentsReady) {
     return (
       <main style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <Loader />
@@ -93,7 +64,8 @@ function GamesPage() {
     return (
       <main style={{ padding: 'var(--spacing-md)', color: 'var(--md-sys-color-error)' }}>
         <h1 style={{ color: 'var(--md-sys-color-on-surface)' }}>Error</h1>
-        <p>{error}</p>
+        <p>{error.message || 'An unexpected error occurred.'}</p>
+        <md-filled-button onClick={() => loginWithRedirect()}>Login</md-filled-button>
       </main>
     );
   }
@@ -106,13 +78,13 @@ function GamesPage() {
         <UploadForm 
           onUploadComplete={() => {
             setIsUploadMode(false);
-            fetchGames(); // Refresh the list of games
+            mutate('/games'); // Refresh the list of games
           }}
           onCancel={() => setIsUploadMode(false)}
         />
       ) : (
         <>
-          {games.length === 0 ? (
+          {!games || games.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
               <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>sports_basketball</md-icon>
               <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No games found. Upload a video to start analyzing!</p>

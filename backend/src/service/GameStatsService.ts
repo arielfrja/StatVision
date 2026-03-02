@@ -1,7 +1,7 @@
 import { Repository } from "typeorm";
-import { GameTeamStats } from "../GameTeamStats";
-import { GamePlayerStats } from "../GamePlayerStats";
-import { GameEvent } from "../GameEvent";
+import { GameTeamStats } from "../core/entities/GameTeamStats";
+import { GamePlayerStats } from "../core/entities/GamePlayerStats";
+import { GameEvent } from "../core/entities/GameEvent";
 import { GameTeamStatsRepository } from "../repository/GameTeamStatsRepository";
 import { GamePlayerStatsRepository } from "../repository/GamePlayerStatsRepository";
 import { IGameRepository } from "../repository/IGameRepository";
@@ -75,6 +75,16 @@ export class GameStatsService {
     }
 
     /**
+     * Clears all calculated team and player stats for a specific game.
+     * @param gameId The ID of the game to clear stats for.
+     */
+    async clearStatsForGame(gameId: string): Promise<void> {
+        logger.info(`GameStatsService: Clearing stats for game ${gameId}.`);
+        await this.teamStatsRepository.deleteByGameId(gameId);
+        await this.playerStatsRepository.deleteByGameId(gameId);
+    }
+
+    /**
      * Implements BE-305.1: Calculates and stores derived stats (Box Score).
      * Adheres to the Statistical Flexibility Constraint by defaulting missing data to 0.
      * @param gameId The ID of the game to process.
@@ -89,6 +99,8 @@ export class GameStatsService {
             logger.error(`GameStatsService: Game ${gameId} not found for stats calculation.`);
             return;
         }
+
+        const pointValueRule = game.ruleset?.pointValue || '2_AND_3';
 
         // 2. Initialize Aggregators
         const teamStatsMap = new Map<string, AggregatedStats>();
@@ -120,9 +132,17 @@ export class GameStatsService {
             // Helper function to update stats for both team and player
             const updateStats = (stats: AggregatedStats) => {
                 if (event.eventType === 'Shot') {
-                    const points = event.eventDetails?.points || 0;
                     const isMade = event.isSuccessful;
                     const isThree = event.eventDetails?.isThree || false;
+                    
+                    let points = 0;
+                    if (isMade) {
+                        if (pointValueRule === '1_AND_2') {
+                            points = isThree ? 2 : 1;
+                        } else {
+                            points = isThree ? 3 : 2;
+                        }
+                    }
 
                     stats.fieldGoalsAttempted += 1;
                     if (isMade) {

@@ -18,7 +18,7 @@ export const workerConfig = {
      * SEQUENTIAL: Processes one job at a time, and chunks within that job are processed in strict order.
      * PARALLEL: Processes multiple jobs, with concurrency limits applied at each chunk sequence stage.
      */
-    processingMode: process.env.PROCESSING_MODE || 'PARALLEL',
+    processingMode: process.env.PROCESSING_MODE || 'SEQUENTIAL',
 
     // Pub/Sub settings
     ackDeadlineSeconds: parseInt(process.env.ACK_DEADLINE_SECONDS || '60', 10),
@@ -28,8 +28,8 @@ export const workerConfig = {
     parallelJobLimit: parseInt(process.env.PARALLEL_JOB_LIMIT || '5', 10),
     
     // Chunker settings
-    chunkDurationSeconds: parseInt(process.env.CHUNK_DURATION_SECONDS || '150', 10),
-    chunkOverlapSeconds: parseInt(process.env.CHUNK_OVERLAP_SECONDS || '30', 10),
+    chunkDurationSeconds: parseInt(process.env.CHUNK_DURATION_SECONDS || '120', 10), // 2 minutes
+    chunkOverlapSeconds: parseInt(process.env.CHUNK_OVERLAP_SECONDS || '0', 10), // No overlap needed for Chat Mode
 
     // FFmpeg settings for chunk enhancement
     ffmpegVideoFilter: process.env.FFMPEG_VF || 'eq=contrast=1.2:gamma=1.1, unsharp=3:3:0.5:3:3:0.0',
@@ -37,9 +37,9 @@ export const workerConfig = {
     ffmpegCrf: process.env.FFMPEG_CRF || '23',
 
     // Gemini API settings
-    geminiModelName: process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash',
+    geminiModelName: process.env.GEMINI_MODEL_NAME || 'gemini-3-flash-preview',
     geminiFilePollIntervalMs: parseInt(process.env.GEMINI_POLL_INTERVAL_MS || '5000', 10),
-    geminiFilePollMaxRetries: parseInt(process.env.GEMINI_POLL_MAX_RETRIES || '48', 10),
+    geminiFilePollMaxRetries: parseInt(process.env.GEMINI_POLL_MAX_RETRIES || '200', 10), 
 
     // Chunk Processor settings
     parallelStageLimit: parseInt(process.env.PARALLEL_STAGE_LIMIT || '3', 10),

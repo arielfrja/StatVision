@@ -1,20 +1,19 @@
 import { DataSource } from "typeorm";
-import { PubSub, Message } from "@google-cloud/pubsub";
+import { Message } from "@google-cloud/pubsub";
 import { GameRepository } from "../repository/GameRepository";
 import { GameEventRepository } from "../repository/GameEventRepository";
 import { GameStatsService } from "./GameStatsService";
-import { GameStatus } from "../Game";
-import { GameEvent } from "../GameEvent";
-import { GameTeamStatsRepository } from "../repository/GameTeamStatsRepository";
-import { GamePlayerStatsRepository } from "../repository/GamePlayerStatsRepository";
-import { TeamRepository } from "../repository/TeamRepository"; // New import
-import { PlayerRepository } from "../repository/PlayerRepository"; // New import
-import { Team } from "../Team"; // New import
-import { Player } from "../Player"; // New import
-import { GameTeamStats } from "../GameTeamStats"; // New import
-import { GamePlayerStats } from "../GamePlayerStats"; // New import
-import { VideoAnalysisJobStatus } from "../worker/VideoAnalysisJob";
+import { GameStatus } from "../core/entities/Game";
+import { GameEvent } from "../core/entities/GameEvent";
+import { TeamRepository } from "../repository/TeamRepository";
+import { PlayerRepository } from "../repository/PlayerRepository";
+import { Team } from "../core/entities/Team";
+import { Player } from "../core/entities/Player";
+import { GameTeamStats } from "../core/entities/GameTeamStats";
+import { GamePlayerStats } from "../core/entities/GamePlayerStats";
+import { VideoAnalysisJobStatus } from "../core/entities/VideoAnalysisJob";
 import { v4 as uuidv4 } from 'uuid';
+import { IEventBus } from "../core/interfaces/IEventBus";
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
@@ -37,47 +36,39 @@ export class VideoAnalysisResultService {
     private gameRepository: GameRepository;
     private gameEventRepository: GameEventRepository;
     private gameStatsService: GameStatsService;
-    private pubSubClient: PubSub;
+    private eventBus: IEventBus;
     private logger: winston.Logger; // Add a private logger property
     private teamRepository: TeamRepository; // New property
     private playerRepository: PlayerRepository; // New property
 
-    constructor(dataSource: DataSource, logger: winston.Logger) { // Accept logger in constructor
+    constructor(
+        dataSource: DataSource, 
+        logger: winston.Logger,
+        gameStatsService: GameStatsService,
+        eventBus: IEventBus
+    ) { 
         this.gameRepository = new GameRepository(dataSource);
         this.gameEventRepository = new GameEventRepository(dataSource);
-        this.teamRepository = new TeamRepository(dataSource.getRepository(Team)); // Initialize new repository
-        this.playerRepository = new PlayerRepository(dataSource); // Initialize new repository
-        const gameTeamStatsRepository = new GameTeamStatsRepository(dataSource);
-        this.logger = logger; // Assign the passed logger
-        const gamePlayerStatsRepository = new GamePlayerStatsRepository(dataSource);
-        this.gameStatsService = new GameStatsService(
-            this.gameRepository,
-            gameTeamStatsRepository,
-            gamePlayerStatsRepository
-        );
-        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
+        this.teamRepository = new TeamRepository(dataSource.getRepository(Team));
+        this.playerRepository = new PlayerRepository(dataSource);
+        this.logger = logger;
+        this.gameStatsService = gameStatsService;
+        this.eventBus = eventBus;
     }
 
     public async startConsumingResults(): Promise<void> {
         this.logger.info("VideoAnalysisResultService: Starting to consume analysis results from Pub/Sub...", { phase: 'results_processing' });
-        const subscription = this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME).subscription(VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME);
-
-        subscription.on('message', async (message: Message) => {
+        
+        await this.eventBus.subscribe(VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME, async (result: VideoAnalysisJobResultMessage, message: Message) => {
             this.logger.info(`Received analysis result message ${message.id}:`, { phase: 'results_processing' });
-            this.logger.info(`\tData: ${message.data}`, { phase: 'results_processing' });
-
+            
             try {
-                const result: VideoAnalysisJobResultMessage = JSON.parse(message.data.toString());
                 await this.processAnalysisResult(result);
                 message.ack();
             } catch (error) {
                 this.logger.error(`Error processing analysis result message ${message.id}:`, { error, phase: 'results_processing' });
                 message.nack();
             }
-        });
-
-        subscription.on('error', (error) => {
-            this.logger.error("Pub/Sub analysis results subscription error:", { error, phase: 'results_processing' });
         });
 
         this.logger.info(`VideoAnalysisResultService: Listening for results on subscription: ${VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME}`, { phase: 'results_processing' });

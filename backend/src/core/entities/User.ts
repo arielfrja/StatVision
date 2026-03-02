@@ -13,6 +13,12 @@ export class User {
     @Column({ type: "varchar", nullable: true })
     email: string | null;
 
+    @Column({ type: "jsonb", nullable: true })
+    preferences: {
+        visibleStats?: string[];
+        [key: string]: any;
+    } | null;
+
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;
 

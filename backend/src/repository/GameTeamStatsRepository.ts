@@ -1,5 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { GameTeamStats } from "../GameTeamStats";
+import { GameTeamStats } from "../core/entities/GameTeamStats";
 
 export class GameTeamStatsRepository {
     private repository: Repository<GameTeamStats>;
@@ -19,5 +19,9 @@ export class GameTeamStatsRepository {
 
     async findOneByGameAndTeam(gameId: string, teamId: string): Promise<GameTeamStats | null> {
         return this.repository.findOne({ where: { gameId, teamId } });
+    }
+
+    async deleteByGameId(gameId: string): Promise<void> {
+        await this.repository.delete({ gameId });
     }
 }

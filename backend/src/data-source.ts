@@ -12,16 +12,7 @@ export const AppDataSource = new DataSource({
     synchronize: false, // Set to false for production and rely on migrations
     logger: new TypeOrmLogger(),
     entities: [
-        "src/User.ts",
-        "src/Team.ts",
-        "src/Player.ts",
-        "src/PlayerTeamHistory.ts",
-        "src/Game.ts",
-        "src/GameEvent.ts",
-        "src/GameTeamStats.ts",
-        "src/GamePlayerStats.ts",
-        "src/worker/VideoAnalysisJob.ts",
-        "src/worker/Chunk.ts"
+        "src/core/entities/**/*.ts"
     ],
     migrations: ["src/migration/**/*.ts"],
     subscribers: ["src/subscriber/**/*.ts"],

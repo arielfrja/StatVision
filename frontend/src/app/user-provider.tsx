@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { Auth0Provider, AppState } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
+import SWRProvider from './swr-provider';
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,7 +41,9 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
       useRefreshTokens={true}
       cacheLocation="localstorage"
     >
-      {children}
+      <SWRProvider>
+        {children}
+      </SWRProvider>
     </Auth0Provider>
   );
 }

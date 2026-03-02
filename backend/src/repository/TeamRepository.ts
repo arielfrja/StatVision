@@ -1,7 +1,7 @@
 import logger from "../config/logger";
 import { In, Repository } from "typeorm";
-import { Team } from "../Team";
-import { User } from "../User";
+import { Team } from "../core/entities/Team";
+import { User } from "../core/entities/User";
 
 export class TeamRepository {
     constructor(private teamBaseRepository: Repository<Team>) {}

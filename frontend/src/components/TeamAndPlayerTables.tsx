@@ -5,11 +5,26 @@ import { GamePlayerStats } from '@/types/stats';
 
 interface TeamAndPlayerTablesProps {
     game: Game;
+    visibleStats: string[];
 }
 
-const PlayerTable = ({ players, title }: { players: (GamePlayerStats & { player: Player })[], title: string }) => {
+const PlayerTable = ({ players, title, visibleStats }: { players: (GamePlayerStats & { player: Player })[], title: string, visibleStats: string[] }) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+    const ALL_PLAYER_HEADERS: { [key: string]: string } = {
+        'points': 'PTS',
+        'assists': 'AST',
+        'offensiveRebounds': 'OREB',
+        'defensiveRebounds': 'DREB',
+        'steals': 'STL',
+        'blocks': 'BLK',
+        'turnovers': 'TO',
+        'fouls': 'PF',
+        'fieldGoalsMade': 'FG%',
+        'threePointersMade': '3P%',
+        'freeThrowsMade': 'FT%',
+    };
 
     const handleSort = (column: string) => {
         if (sortColumn === column) {
@@ -42,6 +57,14 @@ const PlayerTable = ({ players, title }: { players: (GamePlayerStats & { player:
             case 'PTS':
                 aValue = a.points;
                 bValue = b.points;
+                break;
+            case 'OREB':
+                aValue = a.offensiveRebounds;
+                bValue = b.offensiveRebounds;
+                break;
+            case 'DREB':
+                aValue = a.defensiveRebounds;
+                bValue = b.defensiveRebounds;
                 break;
             case 'REB':
                 aValue = a.offensiveRebounds + a.defensiveRebounds;
@@ -104,6 +127,18 @@ const PlayerTable = ({ players, title }: { players: (GamePlayerStats & { player:
         return '';
     };
 
+    const activeHeaders = [
+        { id: '#', label: '#' },
+        { id: 'Name', label: 'Name' },
+        { id: 'Pos', label: 'Pos' },
+        ...visibleStats
+            .filter(id => ALL_PLAYER_HEADERS[id])
+            .map(id => ({ id: ALL_PLAYER_HEADERS[id], label: ALL_PLAYER_HEADERS[id] }))
+    ];
+
+    // Special case for REB if both OREB and DREB are not selected but points is? 
+    // Actually let's just use what's in visibleStats.
+
     return (
         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>{title}</h3>
@@ -111,37 +146,37 @@ const PlayerTable = ({ players, title }: { players: (GamePlayerStats & { player:
                 <table className="md-table md-player-stats-table">
                     <thead>
                         <tr>
-                            <th onClick={() => handleSort('#')}># {getSortIndicator('#')}</th>
-                            <th onClick={() => handleSort('Name')}>Name {getSortIndicator('Name')}</th>
-                            <th onClick={() => handleSort('Pos')}>Pos {getSortIndicator('Pos')}</th>
-                            <th onClick={() => handleSort('PTS')}>PTS {getSortIndicator('PTS')}</th>
-                            <th onClick={() => handleSort('REB')}>REB {getSortIndicator('REB')}</th>
-                            <th onClick={() => handleSort('AST')}>AST {getSortIndicator('AST')}</th>
-                            <th onClick={() => handleSort('STL')}>STL {getSortIndicator('STL')}</th>
-                            <th onClick={() => handleSort('BLK')}>BLK {getSortIndicator('BLK')}</th>
-                            <th onClick={() => handleSort('TO')}>TO {getSortIndicator('TO')}</th>
-                            <th onClick={() => handleSort('PF')}>PF {getSortIndicator('PF')}</th>
-                            <th onClick={() => handleSort('FG%')}>FG% {getSortIndicator('FG%')}</th>
-                            <th onClick={() => handleSort('3P%')}>3P% {getSortIndicator('3P%')}</th>
-                            <th onClick={() => handleSort('FT%')}>FT% {getSortIndicator('FT%')}</th>
+                            {activeHeaders.map(header => (
+                                <th key={header.id} onClick={() => handleSort(header.id)}>
+                                    {header.label} {getSortIndicator(header.id)}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
                         {sortedPlayers.map((playerStat) => (
                             <tr key={playerStat.playerId}>
-                                <td>{playerStat.jerseyNumber ?? '-'}</td>
-                                <td>{playerStat.player.name}</td>
-                                <td>{playerStat.player.position ?? '-'}</td>
-                                <td>{playerStat.points}</td>
-                                <td>{playerStat.offensiveRebounds + playerStat.defensiveRebounds}</td>
-                                <td>{playerStat.assists}</td>
-                                <td>{playerStat.steals}</td>
-                                <td>{playerStat.blocks}</td>
-                                <td>{playerStat.turnovers}</td>
-                                <td>{playerStat.fouls}</td>
-                                <td>{playerStat.fieldGoalsAttempted > 0 ? ((playerStat.fieldGoalsMade / playerStat.fieldGoalsAttempted) * 100).toFixed(1) : '0.0'}%</td>
-                                <td>{playerStat.threePointersAttempted > 0 ? ((playerStat.threePointersMade / playerStat.threePointersAttempted) * 100).toFixed(1) : '0.0'}%</td>
-                                <td>{playerStat.freeThrowsAttempted > 0 ? ((playerStat.freeThrowsMade / playerStat.freeThrowsAttempted) * 100).toFixed(1) : '0.0'}%</td>
+                                {activeHeaders.map(header => {
+                                    let content: any = '-';
+                                    switch (header.id) {
+                                        case '#': content = playerStat.jerseyNumber ?? '-'; break;
+                                        case 'Name': content = playerStat.player.name; break;
+                                        case 'Pos': content = playerStat.player.position ?? '-'; break;
+                                        case 'PTS': content = playerStat.points; break;
+                                        case 'OREB': content = playerStat.offensiveRebounds; break;
+                                        case 'DREB': content = playerStat.defensiveRebounds; break;
+                                        case 'REB': content = playerStat.offensiveRebounds + playerStat.defensiveRebounds; break;
+                                        case 'AST': content = playerStat.assists; break;
+                                        case 'STL': content = playerStat.steals; break;
+                                        case 'BLK': content = playerStat.blocks; break;
+                                        case 'TO': content = playerStat.turnovers; break;
+                                        case 'PF': content = playerStat.fouls; break;
+                                        case 'FG%': content = (playerStat.fieldGoalsAttempted > 0 ? ((playerStat.fieldGoalsMade / playerStat.fieldGoalsAttempted) * 100).toFixed(1) : '0.0') + '%'; break;
+                                        case '3P%': content = (playerStat.threePointersAttempted > 0 ? ((playerStat.threePointersMade / playerStat.threePointersAttempted) * 100).toFixed(1) : '0.0') + '%'; break;
+                                        case 'FT%': content = (playerStat.freeThrowsAttempted > 0 ? ((playerStat.freeThrowsMade / playerStat.freeThrowsAttempted) * 100).toFixed(1) : '0.0') + '%'; break;
+                                    }
+                                    return <td key={header.id}>{content}</td>;
+                                })}
                             </tr>
                         ))}
                     </tbody>
@@ -151,7 +186,7 @@ const PlayerTable = ({ players, title }: { players: (GamePlayerStats & { player:
     );
 };
 
-const TeamAndPlayerTables: React.FC<TeamAndPlayerTablesProps> = ({ game }) => {
+const TeamAndPlayerTables: React.FC<TeamAndPlayerTablesProps> = ({ game, visibleStats }) => {
     const [activeTeamTab, setActiveTeamTab] = useState<'home' | 'away'>('home');
 
     const homeTeamPlayers = game.playerStats.filter(ps => ps.teamId === game.homeTeamId);
@@ -179,10 +214,10 @@ const TeamAndPlayerTables: React.FC<TeamAndPlayerTablesProps> = ({ game }) => {
                 <TabButton teamType="away" label={`${game.awayTeam?.name || 'Away Team'}`} />
             </div>
             {activeTeamTab === 'home' && (
-                <PlayerTable players={homeTeamPlayers as (GamePlayerStats & { player: Player })[]} title={`${game.homeTeam?.name || 'Home Team'} Players`} />
+                <PlayerTable players={homeTeamPlayers as (GamePlayerStats & { player: Player })[]} title={`${game.homeTeam?.name || 'Home Team'} Players`} visibleStats={visibleStats} />
             )}
             {activeTeamTab === 'away' && (
-                <PlayerTable players={awayTeamPlayers as (GamePlayerStats & { player: Player })[]} title={`${game.awayTeam?.name || 'Away Team'} Players`} />
+                <PlayerTable players={awayTeamPlayers as (GamePlayerStats & { player: Player })[]} title={`${game.awayTeam?.name || 'Away Team'} Players`} visibleStats={visibleStats} />
             )}
         </div>
     );

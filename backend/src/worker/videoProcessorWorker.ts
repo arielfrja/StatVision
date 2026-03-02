@@ -1,6 +1,6 @@
-import { PubSub, Message, SubscriptionOptions } from '@google-cloud/pubsub';
+import { Message, SubscriptionOptions } from '@google-cloud/pubsub';
 import { workerConfig } from '../config/workerConfig';
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from './VideoAnalysisJob';
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from '../core/entities/VideoAnalysisJob';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
 import { ProgressManager } from './ProgressManager';
@@ -8,9 +8,9 @@ import { jobLogger, chunkLogger } from '../config/loggers';
 import * as path from 'path';
 import * as fs from 'fs';
 import { DataSource } from 'typeorm';
-import { Chunk, ChunkStatus } from './Chunk';
+import { Chunk, ChunkStatus } from '../core/entities/Chunk';
 import { ChunkRepository } from './ChunkRepository';
-import * as cliProgress from 'cli-progress';
+import { IEventBus } from '../core/interfaces/IEventBus';
 
 const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-upload-events-sub';
 const CHUNK_ANALYSIS_TOPIC_NAME = process.env.CHUNK_ANALYSIS_TOPIC_NAME || 'chunk-analysis';
@@ -22,7 +22,6 @@ interface PubSubMessage {
 }
 
 export class VideoOrchestratorService {
-    private pubSubClient: PubSub;
     private jobRepository: VideoAnalysisJobRepository;
     private chunkRepository: ChunkRepository;
     private videoChunkerService: VideoChunkerService;
@@ -31,9 +30,9 @@ export class VideoOrchestratorService {
     private processingMode: string;
 
     constructor(
-        private dataSource: DataSource
+        private dataSource: DataSource,
+        private eventBus: IEventBus
     ) {
-        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
@@ -52,13 +51,9 @@ export class VideoOrchestratorService {
             },
         };
 
-        const subscription = this.pubSubClient.subscription(VIDEO_UPLOAD_SUBSCRIPTION_NAME, subscriptionOptions);
-        const chunkAnalysisTopic = this.pubSubClient.topic(CHUNK_ANALYSIS_TOPIC_NAME);
-
-        subscription.on('message', async (message: Message) => {
+        await this.eventBus.subscribe(VIDEO_UPLOAD_SUBSCRIPTION_NAME, async (parsedMessage: PubSubMessage, message: Message) => {
             this.jobLogger.info(`Received message ${message.id}:`, { phase: 'orchestration' });
-            this.jobLogger.info(`	Data: ${message.data}`, { phase: 'orchestration' });
-
+            
             let heartbeat: NodeJS.Timeout | null = null;
             const extendAckDeadline = () => {
                 message.modAck(workerConfig.ackDeadlineSeconds);
@@ -69,8 +64,6 @@ export class VideoOrchestratorService {
 
             let job: VideoAnalysisJob | null = null;
             try {
-                const parsedMessage: PubSubMessage = JSON.parse(message.data.toString());
-
                 const existingJob = await this.jobRepository.findOneByGameIdAndFilePath(parsedMessage.gameId, parsedMessage.filePath);
 
                 if (existingJob) {
@@ -90,8 +83,13 @@ export class VideoOrchestratorService {
                     job.filePath = parsedMessage.filePath;
                     job.status = VideoAnalysisJobStatus.PENDING;
                     job.chunks = [];
-                    job = await this.jobRepository.create(job);
-                    this.jobLogger.info(`Created new job ${job.id} for game ${job.gameId}.`, { phase: 'orchestration' });
+                    try {
+                        job = await this.jobRepository.create(job);
+                        this.jobLogger.info(`Created new job ${job.id} for game ${job.gameId}.`, { phase: 'orchestration' });
+                    } catch (createError: any) {
+                        this.jobLogger.error(`FAILED to create new job for game ${parsedMessage.gameId}: ${createError.message}`, { error: createError, phase: 'orchestration' });
+                        throw createError;
+                    }
                 }
 
                 if (!job) {
@@ -104,7 +102,7 @@ export class VideoOrchestratorService {
                 const tempDir = path.join(__dirname, '../../tmp');
                 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-                await this.orchestrateChunking(job, tempDir, chunkAnalysisTopic);
+                await this.orchestrateChunking(job, tempDir);
 
                 if (this.processingMode === 'SEQUENTIAL') {
                     this.jobLogger.info(`[SEQUENTIAL MODE] Orchestration for job ${job.id} complete. Now waiting for job to finalize...`, { phase: 'orchestration' });
@@ -140,14 +138,10 @@ export class VideoOrchestratorService {
                 if (heartbeat) clearInterval(heartbeat);
                 message.ack();
             }
-        });
-
-        subscription.on('error', (error: any) => {
-            this.jobLogger.error('Received error from Pub/Sub subscription:', { error, phase: 'orchestration' });
-        });
+        }, subscriptionOptions);
     }
 
-    private async orchestrateChunking(job: VideoAnalysisJob, tempDir: string, chunkAnalysisTopic: any): Promise<void> {
+    private async orchestrateChunking(job: VideoAnalysisJob, tempDir: string): Promise<void> {
         this.jobLogger.info(`[Orchestrator] Starting chunk-by-chunk orchestration for job ${job.id}`, { phase: 'orchestration' });
 
         const chunkDuration = workerConfig.chunkDurationSeconds;
@@ -248,7 +242,7 @@ export class VideoOrchestratorService {
                 await this.chunkRepository.update(chunk);
 
                 this.chunkLogger.info(`[Orchestrator] Publishing analysis message for chunk ${sequence} (ID: ${chunk.id})`, { phase: 'chunking' });
-                await chunkAnalysisTopic.publishMessage({ json: { jobId: job.id, chunkId: chunk.id } });
+                await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, { jobId: job.id, chunkId: chunk.id });
 
             } catch (error: any) {
                 const errorMessage = error.message || 'An unknown error occurred during chunk processing.';
@@ -311,7 +305,6 @@ export class VideoOrchestratorService {
             return;
         }
 
-        const chunkAnalysisTopic = this.pubSubClient.topic(CHUNK_ANALYSIS_TOPIC_NAME);
         const tempDir = path.join(__dirname, '../../tmp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
@@ -320,7 +313,7 @@ export class VideoOrchestratorService {
             try {
                 // Ensure the job's status is set to PROCESSING before re-orchestration
                 await this.jobRepository.update(job.id, { status: VideoAnalysisJobStatus.PROCESSING, processingHeartbeatAt: new Date() });
-                await this.orchestrateChunking(job, tempDir, chunkAnalysisTopic);
+                await this.orchestrateChunking(job, tempDir);
             } catch (error: any) {
                 const errorMessage = error.message || 'An unknown error occurred during re-orchestration of existing job.';
                 this.jobLogger.error(`[ORCHESTRATOR] Error re-orchestrating existing job ${job.id}: ${errorMessage}`, {
@@ -340,4 +333,6 @@ export class VideoOrchestratorService {
         }
         this.jobLogger.info('[ORCHESTRATOR] Finished checking and re-orchestrating existing jobs.', { phase: 'orchestration' });
     }
+}
+
 }

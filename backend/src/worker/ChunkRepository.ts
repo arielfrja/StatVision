@@ -1,5 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { Chunk, ChunkStatus } from "./Chunk";
+import { Chunk, ChunkStatus } from "../core/entities/Chunk";
 import { chunkLogger as logger } from "../config/loggers";
 
 export class ChunkRepository {

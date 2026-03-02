@@ -1,5 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { GameEvent } from "../GameEvent";
+import { GameEvent } from "../core/entities/GameEvent";
 import logger from "../config/logger";
 
 export class GameEventRepository {
@@ -60,5 +60,19 @@ export class GameEventRepository {
             .getRawMany();
 
         return results.map(r => r.playerId);
+    }
+
+    async updateTeamAssignment(gameId: string, tempTeamId: string, officialTeamId: string): Promise<void> {
+        await this.repository.update(
+            { gameId, assignedTeamId: tempTeamId },
+            { assignedTeamId: officialTeamId }
+        );
+    }
+
+    async updatePlayerAssignment(gameId: string, tempPlayerId: string, officialPlayerId: string): Promise<void> {
+        await this.repository.update(
+            { gameId, assignedPlayerId: tempPlayerId },
+            { assignedPlayerId: officialPlayerId }
+        );
     }
 }

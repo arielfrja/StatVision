@@ -1,15 +1,18 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
 import { GameEventRepository } from '../repository/GameEventRepository';
-import { GameEvent } from '../GameEvent';
-import { Game, GameStatus } from '../Game';
-import { User } from '../User';
-import { GameService } from '../service/GameService';
+import { GameEvent } from '../core/entities/GameEvent';
+import { Game, GameStatus } from '../core/entities/Game';
+import { User } from '../core/entities/User';
+import { GameService } from '../modules/games/GameService';
+import { GameAssignmentService } from '../modules/games/GameAssignmentService';
+import { GameAnalysisService } from '../modules/games/GameAnalysisService';
 import { GameStatsService } from '../service/GameStatsService';
 import logger from '../config/logger';
 import multer from 'multer';
 import * as fs from 'fs';
-import { PubSub } from '@google-cloud/pubsub';
+import * as path from 'path';
+import { IEventBus } from '../core/interfaces/IEventBus';
 
 const UPLOAD_DIR = '/data/data/com.termux/files/home/data/development/StatVision/uploads';
 
@@ -28,11 +31,17 @@ const upload = multer({ storage: storage });
 
 const router = Router();
 
-// Initialize Pub/Sub client
-const pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
-const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-upload-events'; // TODO: Define this in .env
+const VIDEO_UPLOAD_TOPIC_NAME = process.env.VIDEO_UPLOAD_TOPIC_NAME || 'video-upload-events';
 
-export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, gameStatsService: GameStatsService, gameEventRepository: GameEventRepository) => {
+export const gameRoutes = (
+    AppDataSource: DataSource, 
+    gameService: GameService, 
+    gameStatsService: GameStatsService, 
+    gameEventRepository: GameEventRepository,
+    gameAssignmentService: GameAssignmentService,
+    gameAnalysisService: GameAnalysisService,
+    eventBus: IEventBus
+) => {
     const gameRepository = AppDataSource.getRepository(Game);
     const userRepository = AppDataSource.getRepository(User);
 
@@ -127,7 +136,7 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             return res.status(401).send("Unauthorized");
         }
 
-        const { name, gameDate, location, season, homeTeamId, awayTeamId } = req.body;
+        const { name, gameDate, location, season, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
 
         if (!name) {
             return res.status(400).json({ message: "Missing game name in body." });
@@ -141,6 +150,10 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
                 season,
                 homeTeamId,
                 awayTeamId,
+                visualContext,
+                gameType,
+                identityMode,
+                ruleset
             });
             res.status(201).json(newGame);
         } catch (error) {
@@ -256,10 +269,87 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             }
 
             // If access is verified, get the identified entities
-            const entities = await gameService.getIdentifiedEntities(gameId);
+            const entities = await gameAnalysisService.getIdentifiedEntities(gameId);
             res.status(200).json(entities);
         } catch (error) {
             logger.error(`Error retrieving identified entities for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    /**
+     * @swagger
+     * /games/{gameId}/assignment:
+     *   post:
+     *     summary: Assign identified teams and players to official ones.
+     *     description: Updates GameEvent records with official team and player IDs and recalculates game statistics.
+     *     tags: [Game]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: gameId
+     *         schema:
+     *           type: string
+     *           format: uuid
+     *         required: true
+     *         description: The ID of the game to perform assignments for.
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               teamMappings:
+     *                 type: array
+     *                 items:
+     *                   type: object
+     *                   properties:
+     *                     tempTeamId: { type: 'string', format: 'uuid' }
+     *                     officialTeamId: { type: 'string', format: 'uuid' }
+     *               playerMappings:
+     *                 type: array
+     *                 items:
+     *                   type: object
+     *                   properties:
+     *                     tempPlayerId: { type: 'string', format: 'uuid' }
+     *                     officialPlayerId: { type: 'string', format: 'uuid' }
+     *     responses:
+     *       200:
+     *         description: Assignments successful and stats recalculated.
+     *       401:
+     *         description: Unauthorized.
+     *       404:
+     *         description: Game not found or does not belong to user.
+     *       500:
+     *         description: Internal server error.
+     */
+    router.post("/:gameId/assignment", async (req, res) => {
+        if (!req.user || !req.user.uid) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+        const { teamMappings, playerMappings } = req.body;
+
+        try {
+            const user = await userRepository.findOne({ where: { providerUid: req.user.uid } });
+            if (!user) {
+                return res.status(404).json({ message: "User record not found in local database." });
+            }
+            const userUuid = user.id;
+
+            const game = await gameRepository.findOne({ where: { id: gameId, userId: userUuid } });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or does not belong to user." });
+            }
+
+            await gameAssignmentService.assignEntities(gameId, { teamMappings, playerMappings });
+
+            res.status(200).json({ message: "Assignments successful and stats recalculated." });
+        } catch (error) {
+            logger.error(`Error during entity assignment for game ${gameId}:`, error);
             res.status(500).json({ message: "Internal server error." });
         }
     });
@@ -338,10 +428,101 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             gameEvent.assignedPlayerId = playerId;
             await gameEventRepository.save(gameEvent);
 
+            // Recalculate stats after assignment
+            await gameStatsService.calculateAndStoreStats(gameEvent.gameId);
+
             res.status(200).json(gameEvent);
         } catch (error) {
             logger.error(`Error assigning player to game event ${gameEventId}:`, error);
             res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    /**
+     * @swagger
+     * /game-events/{gameEventId}:
+     *   put:
+     *     summary: Update a game event.
+     *     description: Updates details of a specific game event and recalculates game statistics.
+     *     tags: [Game Event]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: gameEventId
+     *         schema:
+     *           type: string
+     *           format: uuid
+     *         required: true
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               eventType: { type: 'string' }
+     *               assignedTeamId: { type: 'string', format: 'uuid', nullable: true }
+     *               assignedPlayerId: { type: 'string', format: 'uuid', nullable: true }
+     *     responses:
+     *       200: { description: 'Event updated successfully.' }
+     */
+    router.put("/game-events/:gameEventId", async (req, res) => {
+        if (!req.user || !req.user.uid) return res.status(401).send("Unauthorized");
+        const { gameEventId } = req.params;
+        const { eventType, assignedTeamId, assignedPlayerId } = req.body;
+
+        try {
+            const gameEvent = await gameEventRepository.findOne({ where: { id: gameEventId }, relations: ["game"] });
+            if (!gameEvent) return res.status(404).json({ message: "Event not found." });
+
+            const user = await userRepository.findOne({ where: { providerUid: req.user.uid } });
+            if (!user || gameEvent.game.userId !== user.id) return res.status(401).send("Unauthorized");
+
+            if (eventType) gameEvent.eventType = eventType;
+            gameEvent.assignedTeamId = assignedTeamId || null;
+            gameEvent.assignedPlayerId = assignedPlayerId || null;
+
+            await gameEventRepository.save(gameEvent);
+            await gameStatsService.calculateAndStoreStats(gameEvent.gameId);
+
+            res.status(200).json(gameEvent);
+        } catch (error) {
+            logger.error(`Error updating event ${gameEventId}:`, error);
+            res.status(500).send("Internal server error.");
+        }
+    });
+
+    /**
+     * @swagger
+     * /game-events/{gameEventId}:
+     *   delete:
+     *     summary: Delete a game event.
+     *     tags: [Game Event]
+     *     security:
+     *       - bearerAuth: []
+     *     responses:
+     *       204: { description: 'Event deleted successfully.' }
+     */
+    router.delete("/game-events/:gameEventId", async (req, res) => {
+        if (!req.user || !req.user.uid) return res.status(401).send("Unauthorized");
+        const { gameEventId } = req.params;
+
+        try {
+            const gameEvent = await gameEventRepository.findOne({ where: { id: gameEventId }, relations: ["game"] });
+            if (!gameEvent) return res.status(404).json({ message: "Event not found." });
+
+            const user = await userRepository.findOne({ where: { providerUid: req.user.uid } });
+            if (!user || gameEvent.game.userId !== user.id) return res.status(401).send("Unauthorized");
+
+            const gameId = gameEvent.gameId;
+            await gameEventRepository.remove(gameEvent);
+            await gameStatsService.calculateAndStoreStats(gameId);
+
+            res.status(204).send();
+        } catch (error) {
+            logger.error(`Error deleting event ${gameEventId}:`, error);
+            res.status(500).send("Internal server error.");
         }
     });
 
@@ -438,11 +619,10 @@ export const gameRoutes = (AppDataSource: DataSource, gameService: GameService, 
             filePath,
             userId,
         };
-        const dataBuffer = Buffer.from(JSON.stringify(messageData));
 
         try {
-            const messageId = await pubSubClient.topic(VIDEO_UPLOAD_TOPIC_NAME).publishMessage({ data: dataBuffer });
-            logger.info(`Published video upload event for Game ID: ${gameId} to topic ${VIDEO_UPLOAD_TOPIC_NAME}. Message ID: ${messageId}`);
+            await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, messageData);
+            logger.info(`Published video upload event for Game ID: ${gameId} to topic ${VIDEO_UPLOAD_TOPIC_NAME}.`);
         } catch (error) {
             logger.error(`Failed to publish video upload event for Game ID: ${gameId}:`, error);
             throw new Error(`Pub/Sub publishing failed: ${(error as any).message}`);

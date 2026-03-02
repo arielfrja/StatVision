@@ -1,4 +1,4 @@
-import { Game, GameStatus } from "../Game";
+import { Game, GameStatus } from "../core/entities/Game";
 
 export interface IGameRepository {
     // Method to create a new game record

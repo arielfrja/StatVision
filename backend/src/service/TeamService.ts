@@ -1,7 +1,7 @@
 import logger from "../config/logger";
 import { TeamRepository } from "../repository/TeamRepository";
-import { User } from "../User";
-import { Team } from "../Team";
+import { User } from "../core/entities/User";
+import { Team } from "../core/entities/Team";
 import { DataSource } from "typeorm";
 
 export class TeamService {

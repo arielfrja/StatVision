@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
 import { Chunk } from "./Chunk"; // Import the new Chunk entity
+import { v4 as uuidv4 } from 'uuid';
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
@@ -12,8 +13,8 @@ export enum VideoAnalysisJobStatus {
 
 @Entity("worker_video_analysis_jobs")
 export class VideoAnalysisJob {
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+    @PrimaryColumn("uuid")
+    id: string = uuidv4();
 
     @Column({ name: "game_id", type: "uuid" })
     gameId: string;
@@ -45,6 +46,9 @@ export class VideoAnalysisJob {
 
     @Column({ name: "failure_reason", type: "text", nullable: true })
     failureReason: string | null;
+
+    @Column({ name: "chat_history", type: "jsonb", nullable: true })
+    chatHistory: any[] | null;
 
     @Column({ name: "retry_count", type: "integer", default: 0 })
     retryCount: number;

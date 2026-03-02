@@ -1,5 +1,5 @@
 import { DataSource, LessThan } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "../core/entities/VideoAnalysisJob";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { jobLogger as logger } from "../config/loggers";
 

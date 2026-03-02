@@ -1,5 +1,5 @@
 import { DataSource, Repository, In } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "../core/entities/VideoAnalysisJob";
 import { jobLogger as logger } from "../config/loggers";
 
 export class VideoAnalysisJobRepository {
@@ -11,7 +11,12 @@ export class VideoAnalysisJobRepository {
 
     async create(job: VideoAnalysisJob): Promise<VideoAnalysisJob> {
         logger.info(`Creating new video analysis job for game ${job.gameId}`, { phase: 'database' });
-        return this.repository.save(job);
+        try {
+            return await this.repository.save(job);
+        } catch (error: any) {
+            logger.error(`Failed to create video analysis job: ${error.message}`, { error, phase: 'database' });
+            throw error;
+        }
     }
 
     async findOneByGameIdAndFilePath(gameId: string, filePath: string): Promise<VideoAnalysisJob | null> {
@@ -23,6 +28,10 @@ export class VideoAnalysisJobRepository {
     }
 
     async update(id: string, partialJob: Partial<VideoAnalysisJob>): Promise<void> {
+        if (!id) {
+            logger.warn(`Attempted to update VideoAnalysisJob with empty ID.`, { partialJob, phase: 'database' });
+            return;
+        }
         logger.debug(`Updating partial video analysis job ${id}: ${JSON.stringify(partialJob)}`, { phase: 'database' });
         await this.repository.update(id, partialJob);
     }

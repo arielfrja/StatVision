@@ -1,15 +1,10 @@
-import { GameStatus, Game } from "../Game";
-import { IGameRepository } from "../repository/IGameRepository";
-import logger from "../config/logger";
-import { In, Repository } from "typeorm";
-import { User } from "../User";
-import * as fs from 'fs'; // New import
-import { GameEventRepository } from "../repository/GameEventRepository";
-import { TeamRepository } from "../repository/TeamRepository";
-import { PlayerRepository } from "../repository/PlayerRepository";
-import { Team } from "../Team";
-import { Player } from "../Player";
-import { GamePlayerStatsRepository } from "../repository/GamePlayerStatsRepository";
+import { GameRepository } from "../../repository/GameRepository";
+import { User } from "../../core/entities/User";
+import { Game, GameType, IdentityMode } from "../../core/entities/Game";
+import { GameStatus } from "../../core/entities/Game";
+import logger from "../../config/logger";
+import { DataSource, Repository } from "typeorm";
+import * as fs from 'fs';
 
 interface GameCreationData {
     name: string;
@@ -20,30 +15,21 @@ interface GameCreationData {
     season?: string | null;
     homeTeamId?: string | null;
     awayTeamId?: string | null;
+    visualContext?: any | null;
+    gameType?: GameType;
+    identityMode?: IdentityMode;
+    ruleset?: any | null;
 }
 
 export class GameService {
-    private gameRepository: IGameRepository;
+    private gameRepository: GameRepository;
     private userRepository: Repository<User>;
-    private gameEventRepository: GameEventRepository;
-    private teamRepository: TeamRepository;
-    private playerRepository: PlayerRepository;
-    private playerStatsRepository: GamePlayerStatsRepository;
 
     constructor(
-        gameRepository: IGameRepository, 
-        userRepository: Repository<User>,
-        gameEventRepository: GameEventRepository,
-        teamRepository: TeamRepository,
-        playerRepository: PlayerRepository,
-        playerStatsRepository: GamePlayerStatsRepository
+        dataSource: DataSource
     ) {
-        this.gameRepository = gameRepository;
-        this.userRepository = userRepository;
-        this.gameEventRepository = gameEventRepository;
-        this.teamRepository = teamRepository;
-        this.playerRepository = playerRepository;
-        this.playerStatsRepository = playerStatsRepository;
+        this.gameRepository = new GameRepository(dataSource);
+        this.userRepository = dataSource.getRepository(User);
     }
 
     /**
@@ -73,6 +59,10 @@ export class GameService {
         newGame.season = data.season || null;
         newGame.homeTeamId = data.homeTeamId || null;
         newGame.awayTeamId = data.awayTeamId || null;
+        newGame.visualContext = data.visualContext || null;
+        newGame.gameType = data.gameType || GameType.FULL_COURT;
+        newGame.identityMode = data.identityMode || IdentityMode.JERSEY_COLORS;
+        newGame.ruleset = data.ruleset || null;
 
         return this.gameRepository.create(newGame);
     }
@@ -162,43 +152,5 @@ export class GameService {
         // 3. Delete the game and all its cascade-deleted relations (events, stats)
         await this.gameRepository.delete(gameId, userId);
         logger.info(`GameService: Successfully deleted game ${gameId} and its associated database records.`);
-    }
-
-    async getIdentifiedEntities(gameId: string): Promise<any[]> {
-        logger.info(`GameService: Fetching identified entities for game ${gameId}.`);
-
-        // 1. Get all unique team IDs from the game's events
-        const { teamIds } = await this.gameEventRepository.findUniqueEntityIdsByGameId(gameId);
-        if (teamIds.length === 0) {
-            return [];
-        }
-
-        // 2. Fetch the full team objects
-        const teams = await this.teamRepository.findByIds(teamIds);
-
-        // 3. Fetch all player stats for the game to get jersey numbers and descriptions
-        const playerStatsForGame = await this.playerStatsRepository.findByGameId(gameId);
-        const statsMap = new Map(playerStatsForGame.map(ps => [ps.playerId, { jerseyNumber: ps.jerseyNumber, description: ps.description }]));
-
-        // 4. For each team, find the unique players and enrich them with stats info
-        const teamsWithPlayers = await Promise.all(teams.map(async (team) => {
-            const playerIds = await this.gameEventRepository.findUniquePlayerIdsByGameAndTeam(gameId, team.id);
-            const players = playerIds.length > 0 ? await this.playerRepository.findByIds(playerIds) : [];
-            
-            const enrichedPlayers = players.map(player => {
-                const stats = statsMap.get(player.id);
-                return {
-                    ...player,
-                    jerseyNumber: stats?.jerseyNumber ?? null,
-                    description: stats?.description ?? null,
-                };
-            });
-
-            return { ...team, players: enrichedPlayers };
-        }));
-
-        logger.info(`GameService: Found ${teamsWithPlayers.length} unique teams with their identified players for game ${gameId}.`);
-
-        return teamsWithPlayers;
     }
 }

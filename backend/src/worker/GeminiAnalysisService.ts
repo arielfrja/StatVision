@@ -4,7 +4,7 @@ import * as path from 'path';
 import { workerConfig } from "../config/workerConfig";
 import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
-import { IdentifiedPlayer, IdentifiedTeam } from "../interfaces/video-analysis.interfaces";
+import { IdentifiedPlayer, IdentifiedTeam } from "../core/interfaces/video-analysis.interfaces";
 import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes"; // Added this import
 import {
     EVENT_SCHEMA,
@@ -37,34 +37,60 @@ export class GeminiAnalysisService {
             logger.info(`[GeminiAnalysisService] Using Gemini model: ${modelName}`, { phase: 'analyzing' });
 
             logger.info(`[GeminiAnalysisService] Uploading file to Gemini File API: ${chunkPath}`, { phase: 'analyzing' });
-            const uploadResponse = await this.genAI.files.upload({
-                file: chunkPath,
-                config: {
-                    mimeType: 'video/mp4',
-                }
-            });
+            
+            let uploadResponse;
+            let uploadRetryCount = 0;
+            const maxUploadRetries = 3;
 
-            if (!uploadResponse.name) {
+            while (uploadRetryCount < maxUploadRetries) {
+                try {
+                    uploadResponse = await this.genAI.files.upload({
+                        file: chunkPath,
+                        config: {
+                            mimeType: 'video/mp4',
+                        }
+                    });
+                    break; // Success
+                } catch (uploadError: any) {
+                    uploadRetryCount++;
+                    if (uploadRetryCount >= maxUploadRetries) throw uploadError;
+                    logger.warn(`[GeminiAnalysisService] File upload failed (attempt ${uploadRetryCount}/${maxUploadRetries}). Retrying in 10s...`, { error: uploadError.message, phase: 'analyzing' });
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                }
+            }
+
+            if (!uploadResponse || !uploadResponse.name) {
                 throw new Error("File upload failed: No name returned for uploaded file.");
             }
             uploadedFileName = uploadResponse.name;
             logger.info(`[GeminiAnalysisService] File upload initiated. Name: ${uploadedFileName}. Waiting for it to become ACTIVE.`, { phase: 'analyzing' });
 
             // Poll for active state
-            let file = await this.genAI.files.get({ name: uploadedFileName });
             const pollInterval = workerConfig.geminiFilePollIntervalMs;
             const maxRetries = workerConfig.geminiFilePollMaxRetries;
             let retryCount = 0;
+            let file;
 
-            while (file.state === 'PROCESSING' && retryCount < maxRetries) {
-                logger.debug(`[GeminiAnalysisService] File ${file.name} is still PROCESSING. Waiting ${pollInterval / 1000}s...`, { phase: 'analyzing' });
+            while (retryCount < maxRetries) {
+                try {
+                    file = await this.genAI.files.get({ name: uploadedFileName });
+                    if (file.state === 'ACTIVE') break;
+                    
+                    if (file.state === 'FAILED') {
+                         throw new Error(`File ${uploadedFileName} failed processing in Gemini API.`);
+                    }
+
+                    logger.debug(`[GeminiAnalysisService] File ${file.name} is still ${file.state}. Waiting ${pollInterval / 1000}s... (Attempt ${retryCount + 1}/${maxRetries})`, { phase: 'analyzing' });
+                } catch (pollError: any) {
+                    logger.warn(`[GeminiAnalysisService] Failed to get file status (attempt ${retryCount + 1}/${maxRetries}). Retrying in ${pollInterval / 1000}s...`, { error: pollError.message, phase: 'analyzing' });
+                }
+                
                 await new Promise(resolve => setTimeout(resolve, pollInterval));
-                file = await this.genAI.files.get({ name: uploadedFileName });
                 retryCount++;
             }
 
-            if (file.state !== 'ACTIVE') {
-                throw new Error(`File ${file.name} did not become ACTIVE after ${maxRetries * pollInterval / 1000}s. Current state: ${file.state}`);
+            if (!file || file.state !== 'ACTIVE') {
+                throw new Error(`File ${uploadedFileName} did not become ACTIVE after ${maxRetries * pollInterval / 1000}s. Last known state: ${file?.state || 'unknown'}`);
             }
             
             logger.info(`[GeminiAnalysisService] File is now ACTIVE. URI: ${file.uri}, Name: ${file.name}`, { phase: 'analyzing' });
@@ -96,14 +122,31 @@ export class GeminiAnalysisService {
                 { text: prompt }
             ];
 
-            const result = await this.genAI.models.generateContent({
-                model: modelName,
-                contents: [{ role: "user", parts }],
-                config: { // Correct way to pass structured output config
-                    responseMimeType: "application/json",
-                    responseSchema: EVENT_SCHEMA,
-                },
-            });
+            let result;
+            let retryCountGenerate = 0;
+            const maxRetriesGenerate = 3;
+            
+            while (retryCountGenerate < maxRetriesGenerate) {
+                try {
+                    result = await this.genAI.models.generateContent({
+                        model: modelName,
+                        contents: [{ role: "user", parts }],
+                        config: { // Correct way to pass structured output config
+                            responseMimeType: "application/json",
+                            responseSchema: EVENT_SCHEMA,
+                        },
+                    });
+                    break; // Success
+                } catch (generateError: any) {
+                    retryCountGenerate++;
+                    if (retryCountGenerate >= maxRetriesGenerate) throw generateError;
+                    logger.warn(`[GeminiAnalysisService] generateContent failed (attempt ${retryCountGenerate}/${maxRetriesGenerate}). Retrying in 10s...`, { error: generateError.message, phase: 'analyzing' });
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                }
+            }
+
+            if (!result) throw new Error("Gemini API returned no result after retries.");
+            
             logger.info(`[GeminiAnalysisService] API call complete for ${chunkPath}. Processing response...`, { phase: 'analyzing' });
 
             const response = result;

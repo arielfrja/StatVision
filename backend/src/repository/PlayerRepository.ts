@@ -1,8 +1,8 @@
 import logger from "../config/logger";
 import { DataSource, In, Repository } from "typeorm";
-import { Player } from "../Player";
-import { Team } from "../Team";
-import { PlayerTeamHistory } from "../PlayerTeamHistory";
+import { Player } from "../core/entities/Player";
+import { Team } from "../core/entities/Team";
+import { PlayerTeamHistory } from "../core/entities/PlayerTeamHistory";
 
 export class PlayerRepository {
     private playerBaseRepository: Repository<Player>;
@@ -86,5 +86,14 @@ export class PlayerRepository {
     async findByIds(ids: string[]): Promise<Player[]> {
         logger.info(`PlayerRepository: Finding players by IDs: ${ids.join(', ')}`);
         return this.playerBaseRepository.findBy({ id: In(ids) });
+    }
+
+    async findPlayersByUserId(userId: string): Promise<PlayerTeamHistory[]> {
+        logger.info(`PlayerRepository: Finding all players for user: ${userId}`);
+        return this.playerHistoryRepository.createQueryBuilder("history")
+            .innerJoinAndSelect("history.player", "player")
+            .innerJoin("history.team", "team")
+            .where("team.userId = :userId", { userId })
+            .getMany();
     }
 }

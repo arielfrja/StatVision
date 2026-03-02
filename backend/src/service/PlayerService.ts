@@ -1,15 +1,58 @@
 import logger from "../config/logger";
 import { PlayerRepository } from "../repository/PlayerRepository";
-import { Team } from "../Team";
-import { Player } from "../Player";
-import { PlayerTeamHistory } from "../PlayerTeamHistory";
+import { Team } from "../core/entities/Team";
+import { Player } from "../core/entities/Player";
+import { PlayerTeamHistory } from "../core/entities/PlayerTeamHistory";
 import { DataSource } from "typeorm";
+import { GameStatsService } from "./GameStatsService";
+import { Game } from "../core/entities/Game";
+import { GameEvent } from "../core/entities/GameEvent";
 
 export class PlayerService {
     private playerRepository: PlayerRepository;
 
-    constructor(AppDataSource: DataSource) {
-        this.playerRepository = new PlayerRepository(AppDataSource);
+    constructor(
+        private dataSource: DataSource,
+        private gameStatsService: GameStatsService
+    ) {
+        this.playerRepository = new PlayerRepository(dataSource);
+    }
+
+    /**
+     * Reassigns a player to the opposing team for a specific game and recalculates stats.
+     */
+    async switchPlayerTeam(playerId: string, gameId: string, userId: string): Promise<void> {
+        logger.info(`PlayerService: Switching team for player ${playerId} in game ${gameId}`);
+
+        const gameRepository = this.dataSource.getRepository(Game);
+        const game = await gameRepository.findOne({ where: { id: gameId, userId: userId } });
+
+        if (!game) throw new Error("Game not found or unauthorized.");
+
+        const eventRepository = this.dataSource.getRepository(GameEvent);
+        const playerEvents = await eventRepository.find({ where: { gameId, assignedPlayerId: playerId } });
+
+        if (playerEvents.length === 0) {
+            throw new Error("No events found for this player in this game.");
+        }
+
+        // Determine current team and opposing team
+        const currentTeamId = playerEvents[0].assignedTeamId;
+        const opposingTeamId = (currentTeamId === game.homeTeamId) ? game.awayTeamId : game.homeTeamId;
+
+        if (!opposingTeamId) throw new Error("Opposing team not found for this game.");
+
+        // Update all events for this player in this game
+        await this.dataSource.transaction(async (transactionalEntityManager) => {
+            await transactionalEntityManager.update(GameEvent, 
+                { gameId, assignedPlayerId: playerId }, 
+                { assignedTeamId: opposingTeamId }
+            );
+        });
+
+        // Recalculate stats for the whole game
+        await this.gameStatsService.calculateAndStoreStats(gameId);
+        logger.info(`PlayerService: Team switch and stat recalculation complete for player ${playerId}.`);
     }
 
     /**
@@ -48,6 +91,14 @@ export class PlayerService {
     async getPlayersByTeam(teamId: string): Promise<PlayerTeamHistory[]> {
         logger.info(`PlayerService: Getting active players for team: ${teamId}`);
         return this.playerRepository.findActivePlayersByTeam(teamId);
+    }
+
+    /**
+     * Retrieves all active PlayerTeamHistory records for all teams of a given user.
+     */
+    async getPlayersByUser(userId: string): Promise<PlayerTeamHistory[]> {
+        logger.info(`PlayerService: Getting all players for user: ${userId}`);
+        return this.playerRepository.findPlayersByUserId(userId);
     }
 
     /**

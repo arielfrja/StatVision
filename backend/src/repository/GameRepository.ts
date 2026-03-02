@@ -1,5 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { Game, GameStatus } from "../Game";
+import { Game, GameStatus } from "../core/entities/Game";
 import { IGameRepository } from "./IGameRepository";
 import logger from "../config/logger";
 

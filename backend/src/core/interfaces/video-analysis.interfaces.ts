@@ -10,6 +10,7 @@ export interface IdentifiedPlayer {
     teamId: string | null; // Foreign key to IdentifiedTeam
     jerseyNumber: string | null;
     description: string | null; // e.g., "tall player with red shoes"
+    teamAssignmentConfidence?: number; // 0-1 score based on interaction frequency
 }
 
 // Note: This is a refined version of the existing GameEvent entity for use within the job.

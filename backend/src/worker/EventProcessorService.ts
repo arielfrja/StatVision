@@ -1,7 +1,8 @@
 import { chunkLogger as logger } from "../config/loggers";
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
-import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
+import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../core/interfaces/video-analysis.interfaces";
 import { VideoChunk } from "./VideoChunkerService";
+import { GameType, IdentityMode } from "../entities/Game";
 
 // This should be managed via a shared constants file or similar
 const ALLOWED_EVENT_TYPES = [
@@ -20,24 +21,24 @@ export class EventProcessorService {
         return uuidv5(input, NAMESPACE_UUID);
     }
 
-    // REASON FOR CHANGE:
-    // This is the core logic fix. Instead of a naive `timestamp < 120` check,
-    // we now use a proper temporal window to handle overlaps correctly.
-    // Each chunk is "authoritative" only for events within its new, non-overlapping segment.
-    // Events in the overlap are only included if they haven't been seen, preventing duplicates
-    // while also preventing data loss.
+    // Implement Authoritative Window logic for robust deduplication across overlapping chunks.
+    // Each chunk is only authoritative for events starting within its unique segment.
+    // Segment = [0, chunkDuration - overlapDuration).
+    // EXCEPT for the last chunk, which is authoritative for [0, chunkDuration].
     public processEvents(
         rawEvents: any[],
         gameId: string,
         chunk: VideoChunk,
         chunkDuration: number,
         overlapDuration: number,
-        processedEventKeys: Set<string>,
+        processedEventKeys: Set<string>, // Not used anymore with Authoritative Window logic, but kept for interface compatibility
         identifiedPlayers: IdentifiedPlayer[],
-        identifiedTeams: IdentifiedTeam[]
+        identifiedTeams: IdentifiedTeam[],
+        gameType: GameType = GameType.FULL_COURT,
+        identityMode: IdentityMode = IdentityMode.JERSEY_COLORS
     ): { finalEvents: ProcessedGameEvent[], updatedIdentifiedPlayers: IdentifiedPlayer[], updatedIdentifiedTeams: IdentifiedTeam[] } {
 
-        logger.info(`[EventProcessorService] Processing ${rawEvents.length} raw events for chunk ${chunk.sequence}`, { phase: 'processing' });
+        logger.info(`[EventProcessorService] Processing ${rawEvents.length} raw events for chunk ${chunk.sequence}`, { phase: 'processing', gameType, identityMode });
         
         const finalEvents: ProcessedGameEvent[] = [];
         const currentIdentifiedPlayers = [...identifiedPlayers];
@@ -45,6 +46,15 @@ export class EventProcessorService {
         const tempIdToUuidMap = new Map<string, string>();
         const TEMP_TEAM_PREFIX = 'TEMP_TEAM_';
         const TEMP_PLAYER_PREFIX = 'TEMP_PLAYER_';
+
+        // Authoritative Window logic
+        const segmentStart = 0;
+        const segmentEnd = chunk.sequence === chunk.totalChunks - 1 ? chunkDuration : (chunkDuration - overlapDuration);
+        
+        logger.info(`[EventProcessorService] Authoritative Window for chunk ${chunk.sequence}: [${segmentStart}, ${segmentEnd})s within chunk.`, { phase: 'processing' });
+
+        // ... (passes for teams and players remain the same) ...
+
 
         // First pass: Process teams and create permanent IDs for new ones
         for (const rawEvent of rawEvents) {
@@ -114,6 +124,12 @@ export class EventProcessorService {
                 }
                 const absoluteEventTimestamp = chunk.startTime + eventTimestampInChunk;
                 
+                // Authoritative Window filtering
+                if (eventTimestampInChunk >= segmentEnd) {
+                    logger.debug(`Event at ${eventTimestampInChunk}s is outside authoritative window [0, ${segmentEnd})s for chunk ${chunk.sequence}. Skipping.`, { phase: 'processing' });
+                    continue;
+                }
+
                 const finalAssignedTeamId = rawEvent.assignedTeamId && tempIdToUuidMap.get(rawEvent.assignedTeamId) || rawEvent.assignedTeamId;
                 const finalAssignedPlayerId = rawEvent.assignedPlayerId && tempIdToUuidMap.get(rawEvent.assignedPlayerId) || rawEvent.assignedPlayerId;
 
@@ -138,15 +154,7 @@ export class EventProcessorService {
                     videoClipEndTime: chunk.startTime + chunkDuration,
                 };
 
-                const timeWindow = Math.floor(absoluteEventTimestamp / 5);
-                const eventUniqueKey = `${gameEventData.eventType}-${timeWindow}-${finalAssignedPlayerId || finalAssignedTeamId || ''}`;
-
-                if (!processedEventKeys.has(eventUniqueKey)) {
-                    finalEvents.push(gameEventData);
-                    processedEventKeys.add(eventUniqueKey);
-                } else {
-                    logger.debug(`Duplicate event detected and filtered: ${eventUniqueKey}`, { chunkSequence: chunk.sequence, phase: 'processing' });
-                }
+                finalEvents.push(gameEventData);
 
             } catch (error: any) {
                 logger.error(`[EventProcessorService] Unexpected error processing a raw event for chunk ${chunk.sequence}.`, {

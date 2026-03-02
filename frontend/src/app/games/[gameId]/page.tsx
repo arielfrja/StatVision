@@ -2,241 +2,108 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useRouter, useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { Game } from '@/types/game';
+import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
+import { GameEvent } from '@/types/gameEvent';
 import Loader from '@/components/Loader';
-import axios from 'axios';
+import useSWR from 'swr';
+import apiClient from '@/utils/apiClient';
+
+// Components
+import VideoPlayer from '@/components/analysis/VideoPlayer';
+import TimelineReview from '@/components/analysis/TimelineReview';
+import EventEditor from '@/components/analysis/EventEditor';
+import BoxScoreTable from '@/components/analysis/BoxScoreTable';
+import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
 import TeamAndPlayerTables from '@/components/TeamAndPlayerTables';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
+import EntityAssignmentModal from '@/components/EntityAssignmentModal';
+import StatSelectionControl from '@/components/StatSelectionControl';
 
-// Import the new CSS file
+// CSS and Material
 import '../../analysis-table.css';
-
-// Import Material Web Components
 import '@material/web/icon/icon.js';
 import '@material/web/button/filled-button.js';
-import '@material/web/select/filled-select.js';
-import '@material/web/select/select-option.js';
-
-// Dynamically import ReactPlayer to avoid SSR issues
-const ClientVideoPlayer = dynamic(() => import('react-player'), { ssr: false });
-
-const VideoPlayer = ({ videoUrl, playerRef }: { videoUrl: string | null, playerRef: React.RefObject<any> }) => {
-    if (!videoUrl) {
-        return (
-            <div style={{ height: '100%', backgroundColor: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>videocam_off</md-icon>
-                <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No video linked to this game.</p>
-            </div>
-        );
-    }
-
-    return (
-        <div style={{ width: '100%', height: '100%', borderRadius: 'var(--border-radius-md)', overflow: 'hidden', boxShadow: 'var(--shadow-elevation-2)' }}>
-            <ClientVideoPlayer
-                ref={playerRef}
-                url={videoUrl}
-                width='100%'
-                height='100%'
-                controls={true}
-                config={{
-                    file: {
-                        attributes: {
-                            crossOrigin: 'anonymous'
-                        }
-                    }
-                }}
-            />
-        </div>
-    );
-};
-
-interface PlayByPlayFeedProps {
-    events: any[];
-    onRowClick: (time: number) => void;
-    allPlayers: PlayerTeamHistory[];
-    onAssignPlayer: (gameEventId: string, playerId: string | null) => void;
-}
-
-const PlayByPlayFeed = ({ events, onRowClick, allPlayers, onAssignPlayer }: PlayByPlayFeedProps) => {
-    if (!events || events.length === 0) return <p style={{padding: 'var(--spacing-md)'}}>No events found.</p>;
-
-    return (
-        <div style={{ padding: 'var(--spacing-md)' }}>
-            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Play-by-Play</h2>
-            <table className="md-table interactive">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Event</th>
-                        <th>Player</th>
-                        <th>Details</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {events.map((event) => (
-                        <tr
-                            key={event.id}
-                            className="interactive"
-                            onClick={() => onRowClick(event.absoluteTimestamp)}
-                        >
-                            <td>{event.absoluteTimestamp.toFixed(1)}s</td>
-                            <td>{event.eventType}</td>
-                            <td>
-                                <md-filled-select
-                                    label="Assign Player"
-                                    value={event.assignedPlayerId || ''}
-                                    onchange={(e: any) => onAssignPlayer(event.id, e.target.value || null)}
-                                    style={{ width: '100%' }}
-                                    onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent row click when changing player
-                                >
-                                    <md-select-option value=""><span>Unassigned</span></md-select-option>
-                                    {allPlayers.map(playerHistory => (
-                                        <md-select-option key={playerHistory.playerId} value={playerHistory.playerId}>
-                                            <span>{playerHistory.player.name} {playerHistory.jerseyNumber ? `(#${playerHistory.jerseyNumber})` : ''}</span>
-                                        </md-select-option>
-                                    ))}
-                                </md-filled-select>
-                            </td>
-                            <td>{JSON.stringify(event.eventDetails)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-};
-
-const BoxScoreTable = ({ game }: { game: Game }) => {
-    const teamAStats = game.teamStats.find(s => s.teamId === game.homeTeamId);
-    const teamBStats = game.teamStats.find(s => s.teamId === game.awayTeamId);
-
-    const statsHeaders = ['Team', 'PTS', 'REB', 'AST'];
-    const teamStats = [
-        { name: game.homeTeam?.name || 'Home Team', stats: teamAStats },
-        { name: game.awayTeam?.name || 'Away Team', stats: teamBStats },
-    ];
-
-    return (
-        <div style={{ padding: 'var(--spacing-md)' }}>
-            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Box Score (Team Totals)</h2>
-            <table className="md-table md-box-score-table">
-                <thead>
-                    <tr>
-                        {statsHeaders.map(header => <th key={header}>{header}</th>)}
-                    </tr>
-                </thead>
-                <tbody>
-                    {teamStats.map((team, index) => (
-                        <tr key={index}>
-                            <td style={{ fontWeight: 'bold' }}>{team.name}</td>
-                            <td>{team.stats?.points ?? 0}</td>
-                            <td>{team.stats?.rebounds ?? 0}</td>
-                            <td>{team.stats?.assists ?? 0}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-};
+import '@material/web/progress/linear-progress.js';
 
 function AnalysisPage() {
     const params = useParams();
     const gameId = params.gameId as string;
-    const { getAccessTokenSilently, isAuthenticated, isLoading } = useAuth0();
+    const { isAuthenticated, isLoading: isAuthLoading } = useAuth0();
     const router = useRouter();
-    const [game, setGame] = useState<Game | null>(null);
     const playerRef = useRef(null);
-    const [isDataLoading, setIsDataLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    // Data Fetching
+    const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
+        refreshInterval: (data) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
+    });
+    const { data: allTeamsData } = useSWR<Team[]>('/teams');
+    const { data: allPlayersData } = useSWR<PlayerTeamHistory[]>('/players');
+
+    // UI State
     const [isMobile, setIsMobile] = useState(false);
     const [activeTab, setActiveTab] = useState<'boxscore' | 'pbp' | 'playerstats' | 'identified_player'>('boxscore');
     const [isRetrying, setIsRetrying] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+    const [visibleStats, setVisibleStats] = useState<string[]>([]);
 
-    const [allPlayers, setAllPlayers] = useState<PlayerTeamHistory[]>([]);
+    // Timeline & Editor State
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [selectedEvent, setSelectedEvent] = useState<GameEvent | null>(null);
 
+    // Handlers
     const handleSeek = (time: number) => {
         if (playerRef.current && typeof (playerRef.current as any).seekTo === 'function') {
             (playerRef.current as any).seekTo(time, 'seconds');
+            setCurrentTime(time);
         }
     };
 
-    const fetchGameDetails = useCallback(async () => {
-        if (!gameId) {
-            setError("Game ID is missing.");
-            setIsDataLoading(false);
-            return;
-        }
-        setIsDataLoading(true);
-        setError(null);
-        try {
-            const token = await getAccessTokenSilently();
-            const gameResponse = await axios.get(`http://localhost:3000/games/${gameId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const fetchedGame = gameResponse.data;
-            setGame(fetchedGame);
+    const handleProgress = (state: { playedSeconds: number }) => {
+        setCurrentTime(state.playedSeconds);
+    };
 
-            // Populate allPlayers from fetchedGame.playerStats
-            // Ensure each playerStat entry has a 'player' object
-            const playersFromStats = fetchedGame.playerStats
-                .filter((ps: any) => ps.player) // Filter out entries without a player object
-                .map((ps: any) => ({
-                    playerId: ps.playerId,
-                    jerseyNumber: ps.jerseyNumber,
-                    description: ps.description,
-                    player: ps.player, // The full player object
-                    teamId: ps.teamId, // The team this player stat belongs to
-                }));
-            setAllPlayers(playersFromStats);
+    const handleDuration = (dur: number) => {
+        setDuration(dur);
+    };
+
+    const handleEventClick = (event: GameEvent) => {
+        handleSeek(event.absoluteTimestamp);
+        setSelectedEvent(event);
+    };
+
+    const handleSaveEvent = async (updatedEvent: Partial<GameEvent>) => {
+        try {
+            await apiClient.put(`/game-events/${updatedEvent.id}`, updatedEvent);
+            mutate(); // Refresh data
+            setSelectedEvent(null);
         } catch (err: any) {
-            console.error("An error occurred in fetchGameDetails:", err);
-            setError(err.message || "Failed to fetch game details.");
-        } finally {
-            setIsDataLoading(false);
+            console.error("Error saving event:", err);
+            alert("Failed to save changes.");
         }
-    }, [gameId, getAccessTokenSilently]);
+    };
 
     const handleAssignPlayer = useCallback(async (gameEventId: string, playerId: string | null) => {
         try {
-            const token = await getAccessTokenSilently();
-            await axios.put(`http://localhost:3000/game-events/${gameEventId}/assign-player`, { playerId }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            setGame(prevGame => {
-                if (!prevGame) return null;
-                const updatedEvents = prevGame.events.map(event =>
-                    event.id === gameEventId ? { ...event, assignedPlayerId: playerId, assignedPlayer: allPlayers.find(p => p.playerId === playerId)?.player || null } : event
-                );
-                return { ...prevGame, events: updatedEvents };
-            });
+            await apiClient.put(`/game-events/${gameEventId}/assign-player`, { playerId });
+            mutate();
         } catch (err: any) {
             console.error("Error assigning player:", err);
-            setError(err.message || "Failed to assign player.");
-            fetchGameDetails(); // Re-fetch to revert optimistic update
+            alert("Failed to assign player.");
         }
-    }, [getAccessTokenSilently, allPlayers, fetchGameDetails]);
+    }, [mutate]);
 
     const handleRetryAnalysis = async () => {
         setIsRetrying(true);
-        setError(null);
         try {
-            const token = await getAccessTokenSilently();
-            await axios.post(`http://localhost:3000/games/${gameId}/retry-analysis`, {}, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            // Re-fetch game data to get the updated status
-            await fetchGameDetails();
+            await apiClient.post(`/games/${gameId}/retry`);
+            mutate();
         } catch (err: any) {
             console.error("Failed to retry analysis:", err);
-            setError(err.message || "Could not retry analysis.");
         } finally {
             setIsRetrying(false);
         }
@@ -244,147 +111,169 @@ function AnalysisPage() {
 
     const handleDeleteGame = async () => {
         setIsDeleting(true);
-        setError(null);
         try {
-            const token = await getAccessTokenSilently();
-            await axios.delete(`http://localhost:3000/games/${gameId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            // On successful deletion, navigate away from the page
+            await apiClient.delete(`/games/${gameId}`);
             router.push('/games');
         } catch (err: any) {
             console.error("Failed to delete game:", err);
-            setError(err.message || "Could not delete the game.");
         } finally {
             setIsDeleting(false);
             setShowDeleteConfirm(false);
         }
     };
 
-    // Effect for fetching data
-    useEffect(() => {
-        if (isAuthenticated && gameId) {
-            fetchGameDetails();
-        }
-    }, [isAuthenticated, gameId, fetchGameDetails]);
-
-    // Effect for handling window resize for mobile view
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= 768);
-        handleResize(); // Initial check
+        handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const TabButton = ({ tabId, label }: { tabId: 'boxscore' | 'pbp' | 'playerstats' | 'identified_player', label: string }) => (
-        <md-filled-button
-            onClick={() => setActiveTab(tabId)}
-            style={{
-                flexGrow: 1,
-                flexShrink: 0, // Prevent shrinking
-                opacity: activeTab === tabId ? 1 : 0.6,
-                '--md-filled-button-container-color': activeTab === tabId ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-surface-container-high)',
-                '--md-filled-button-label-text-color': activeTab === tabId ? 'var(--md-sys-color-on-primary)' : 'var(--md-sys-color-on-surface)',
-            }}
-        >
-            {label}
-        </md-filled-button>
-    );
+    const allPlayers: PlayerTeamHistory[] = React.useMemo(() => {
+        if (!game || !game.playerStats) return [];
+        return game.playerStats
+            .filter((ps: any) => ps.player)
+            .map((ps: any) => ({
+                playerId: ps.playerId,
+                jerseyNumber: ps.jerseyNumber,
+                description: ps.description,
+                player: ps.player,
+                teamId: ps.teamId,
+            }));
+    }, [game]);
 
-    if (isLoading || (isDataLoading && !game)) {
-        return <Loader />;
-    }
+    if (isAuthLoading || (isDataLoading && !game)) return <Loader />;
 
-    if (!game) {
+    if (error || !game) {
         return (
             <main style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
                 <h1 style={{ color: 'var(--md-sys-color-on-surface)' }}>Error Loading Game</h1>
-                <p style={{ color: 'var(--md-sys-color-error)' }}>{error || "Game data could not be loaded or does not exist."}</p>
+                <p style={{ color: 'var(--md-sys-color-error)' }}>{error?.message || "Game data could not be loaded."}</p>
+                <md-filled-button onClick={() => router.push('/games')}>Back to Dashboard</md-filled-button>
             </main>
         );
     }
 
     return (
         <main style={{ padding: 'var(--spacing-md)' }}>
-            <h1 style={{ marginBottom: 'var(--spacing-md)' }}>{game.name || 'Untitled Game'}</h1>
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                <h1 style={{ margin: 0 }}>{game.name || 'Untitled Game'}</h1>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ padding: '4px 12px', borderRadius: '16px', fontSize: '14px', backgroundColor: 'var(--md-sys-color-surface-container-high)', color: 'var(--md-sys-color-primary)' }}>
+                        {game.status}
+                    </span>
+                    <md-filled-button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting} style={{ '--md-filled-button-container-color': 'var(--md-sys-color-error)' }}>
+                        <md-icon slot="icon">delete</md-icon>
+                        Delete
+                    </md-filled-button>
+                </div>
+            </div>
+
             <p style={{ marginBottom: 'var(--spacing-lg)', color: 'var(--md-sys-color-on-surface-variant)' }}>
-                {game.homeTeam?.name || 'Home Team'} vs {game.awayTeam?.name || 'Away Team'}
+                {game.homeTeam?.name || 'Home Team'} vs {game.awayTeam?.name || 'Away Team'} | {game.location || 'Unknown Location'} | {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'No Date'}
             </p>
 
-            {game.status === 'ANALYSIS_FAILED_RETRYABLE' && (
-                <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+            {/* Analysis Controls */}
+            {(game.status === 'ANALYSIS_FAILED_RETRYABLE' || game.status === 'FAILED') && (
+                <div style={{ marginBottom: 'var(--spacing-lg)', padding: '16px', backgroundColor: 'var(--md-sys-color-error-container)', color: 'var(--md-sys-color-on-error-container)', borderRadius: '12px' }}>
+                    <p style={{ marginBottom: '12px' }}><strong>Analysis Failed:</strong> {game.failureReason || 'An unknown error occurred.'}</p>
                     <md-filled-button onClick={handleRetryAnalysis} disabled={isRetrying}>
                         {isRetrying ? 'Retrying...' : 'Retry Analysis'}
                     </md-filled-button>
                 </div>
             )}
-            
-            {/* Display general errors here */}
-            {error && <p style={{ color: 'var(--md-sys-color-error)', marginBottom: 'var(--spacing-lg)' }}>Error: {error}</p>}
 
-            <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                <md-filled-button onClick={() => setShowDeleteConfirm(true)} disabled={isDeleting} style={{ '--md-filled-button-container-color': 'var(--md-sys-color-error)' }}>
-                    <md-icon slot="icon">delete</md-icon>
-                    Delete Game
-                </md-filled-button>
+            {game.status === 'ANALYZED' && (
+                <div style={{ marginBottom: 'var(--spacing-lg)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                    <md-filled-button onClick={() => setShowAssignmentModal(true)}>
+                        <md-icon slot="icon">assignment_ind</md-icon>
+                        Finalize Roster Assignments
+                    </md-filled-button>
+                </div>
+            )}
+
+            {game.status === 'PROCESSING' && (
+                <div style={{ marginBottom: 'var(--spacing-lg)', padding: '16px', backgroundColor: 'var(--md-sys-color-surface-container-high)', borderRadius: '12px', textAlign: 'center' }}>
+                    <p style={{ marginBottom: '12px' }}>Game is currently being analyzed by AI. This usually takes 5-10 minutes.</p>
+                    <md-linear-progress indeterminate></md-linear-progress>
+                </div>
+            )}
+
+            {/* Main Content Grid */}
+            <div className="analysis-grid" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Video and Timeline */}
+                    <div style={{ position: 'sticky', top: '16px', zIndex: 50, backgroundColor: 'var(--md-sys-color-surface)', padding: '8px', borderRadius: '16px' }}>
+                        <VideoPlayer 
+                            videoUrl={game.videoUrl} 
+                            playerRef={playerRef} 
+                            onProgress={handleProgress}
+                            onDuration={handleDuration}
+                        />
+                        {duration > 0 && (
+                            <TimelineReview 
+                                events={game.events || []}
+                                duration={duration}
+                                currentTime={currentTime}
+                                onEventClick={handleEventClick}
+                                onTimelineClick={handleSeek}
+                            />
+                        )}
+                    </div>
+
+                    {/* Stats and Tables */}
+                    {!isMobile && (
+                        <>
+                            <StatSelectionControl onPreferencesChanged={setVisibleStats} />
+                            <BoxScoreTable game={game} visibleStats={visibleStats} />
+                            <TeamAndPlayerTables game={game} visibleStats={visibleStats} />
+                            <IdentifiedEntitiesTable gameId={game.id} />
+                        </>
+                    )}
+                </div>
+
+                {/* Side Panel: Editor or PBP */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {selectedEvent ? (
+                        <EventEditor 
+                            event={selectedEvent}
+                            allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
+                            allPlayers={allPlayers}
+                            onSave={handleSaveEvent}
+                            onCancel={() => setSelectedEvent(null)}
+                        />
+                    ) : (
+                        <div style={{ maxHeight: '80vh', overflowY: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: '16px' }}>
+                            <PlayByPlayFeed 
+                                events={game.events || []} 
+                                onRowClick={handleSeek} 
+                                allPlayers={allPlayers} 
+                                onAssignPlayer={handleAssignPlayer} 
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Modals */}
+            <EntityAssignmentModal
+                gameId={game.id}
+                isOpen={showAssignmentModal}
+                onClose={() => setShowAssignmentModal(false)}
+                onAssignmentComplete={mutate}
+            />
 
             {showDeleteConfirm && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-3)', textAlign: 'center' }}>
+                    <div style={{ backgroundColor: 'var(--md-sys-color-surface-container-high)', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-3)', textAlign: 'center', maxWidth: '400px' }}>
                         <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Confirm Deletion</h3>
-                        <p style={{ marginBottom: 'var(--spacing-lg)' }}>Are you sure you want to delete this game? This action cannot be undone.</p>
+                        <p style={{ marginBottom: 'var(--spacing-lg)' }}>Are you sure you want to delete this game?</p>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-md)' }}>
-                            <md-filled-button onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>Cancel</md-filled-button>
+                            <md-outlined-button onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>Cancel</md-outlined-button>
                             <md-filled-button onClick={handleDeleteGame} disabled={isDeleting} style={{ '--md-filled-button-container-color': 'var(--md-sys-color-error)' }}>
-                                {isDeleting ? 'Deleting...' : 'Delete'}
+                                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
                             </md-filled-button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Desktop Layout */}
-            {!isMobile && (
-                <div className="analysis-grid">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-                        <div style={{ flexGrow: 1, minHeight: '300px' }}>
-                            <VideoPlayer videoUrl={game.videoUrl} playerRef={playerRef} />
-                        </div>
-                        <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                            <BoxScoreTable game={game} />
-                        </div>
-                        <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                            <TeamAndPlayerTables game={game} />
-                        </div>
-                        <div style={{ height: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                            <IdentifiedEntitiesTable gameId={game.id} />
-                        </div>
-                    </div>
-                    <div style={{ overflowY: 'auto', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                        <PlayByPlayFeed events={game.events || []} onRowClick={handleSeek} allPlayers={allPlayers} onAssignPlayer={handleAssignPlayer} />
-                    </div>
-                </div>
-            )}
-
-            {/* Mobile Layout */}
-            {isMobile && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                    <div style={{ minHeight: '200px' }}>
-                        <VideoPlayer videoUrl={game.videoUrl} playerRef={playerRef} />
-                    </div>
-                    <div style={{ backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)', padding: 'var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: '8px' }}>
-                            <TabButton tabId="boxscore" label="Box Score" />
-                            <TabButton tabId="pbp" label="Play-by-Play" />
-                            <TabButton tabId="playerstats" label="Player Stats" />
-                            <TabButton tabId="identified_player" label="Identified Player" />
-                        </div>
-                        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                            {activeTab === 'boxscore' && <BoxScoreTable game={game} />}
-                            {activeTab === 'pbp' && <PlayByPlayFeed events={game.events || []} onRowClick={handleSeek} allPlayers={allPlayers} onAssignPlayer={handleAssignPlayer} />}
-                            {activeTab === 'playerstats' && <TeamAndPlayerTables game={game} />}
-                            {activeTab === 'identified_player' && <IdentifiedEntitiesTable gameId={game.id} />}
                         </div>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
 import { VideoAnalysisJob } from "./VideoAnalysisJob";
+import { v4 as uuidv4 } from 'uuid';
 
 export enum ChunkStatus {
     PENDING = 'PENDING', // Placeholder record exists
@@ -13,8 +14,8 @@ export enum ChunkStatus {
 
 @Entity("worker_video_analysis_chunks")
 export class Chunk {
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+    @PrimaryColumn("uuid")
+    id: string = uuidv4();
 
     @Column({ name: "job_id", type: "uuid" })
     jobId: string;
@@ -40,6 +41,15 @@ export class Chunk {
 
     @Column({ name: "raw_gemini_response", type: "text", nullable: true })
     rawGeminiResponse: string | null;
+
+    @Column({ type: "jsonb", nullable: true })
+    processedEvents: any[] | null;
+
+    @Column({ type: "jsonb", nullable: true })
+    identifiedPlayers: any[] | null;
+
+    @Column({ type: "jsonb", nullable: true })
+    identifiedTeams: any[] | null;
 
     @CreateDateColumn({ name: "created_at" })
     createdAt: Date;

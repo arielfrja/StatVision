@@ -1,29 +1,25 @@
 import { ProgressManager } from './ProgressManager';
 import { DataSource } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "./VideoAnalysisJob";
+import { VideoAnalysisJob, VideoAnalysisJobStatus } from "../core/entities/VideoAnalysisJob";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { ChunkRepository } from "./ChunkRepository";
-import { ChunkStatus } from "./Chunk";
+import { ChunkStatus } from "../core/entities/Chunk";
 import { jobLogger } from '../config/loggers';
-import { PubSub } from "@google-cloud/pubsub";
 import { VideoChunkerService } from "./VideoChunkerService";
+import { IEventBus } from '../core/interfaces/IEventBus';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
-
-
 
 export class JobFinalizerService {
     private jobRepository: VideoAnalysisJobRepository;
     private chunkRepository: ChunkRepository;
     private videoChunkerService: VideoChunkerService;
-    private pubSubClient: PubSub;
     private logger = jobLogger;
 
-    constructor(dataSource: DataSource) {
+    constructor(private dataSource: DataSource, private eventBus: IEventBus) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
-        this.pubSubClient = new PubSub({ projectId: process.env.GCP_PROJECT_ID });
     }
 
     public async finalizeJob(jobId: string): Promise<void> {
@@ -69,20 +65,69 @@ export class JobFinalizerService {
         }
 
         if (finalStatus) {
-            await this.jobRepository.update(jobId, { status: finalStatus, failureReason });
+            await this.dataSource.transaction(async (transactionalEntityManager) => {
+                let allEvents: any[] = [];
+                let allPlayers: any[] = [];
+                let allTeams: any[] = [];
+
+                if (finalStatus === VideoAnalysisJobStatus.COMPLETED) {
+                    // Merge data from all chunks
+                    const playerMap = new Map<string, any>();
+                    const teamMap = new Map<string, any>();
+
+                    // Sort chunks by sequence to ensure consistent merging
+                    const sortedChunks = chunks.sort((a, b) => a.sequence - b.sequence);
+
+                    for (const chunk of sortedChunks) {
+                        // Merge Players
+                        if (chunk.identifiedPlayers) {
+                            for (const p of chunk.identifiedPlayers) {
+                                playerMap.set(p.id, p);
+                            }
+                        }
+                        // Merge Teams
+                        if (chunk.identifiedTeams) {
+                            for (const t of chunk.identifiedTeams) {
+                                teamMap.set(t.id, t);
+                            }
+                        }
+                        // Aggregate events from all chunks (Authoritative Window ensures no duplicates)
+                        if (chunk.processedEvents) {
+                            allEvents.push(...chunk.processedEvents);
+                        }
+                    }
+                    allPlayers = Array.from(playerMap.values());
+                    allTeams = Array.from(teamMap.values());
+                }
+
+                // Update the job with aggregated results
+                await transactionalEntityManager.update(VideoAnalysisJob, jobId, {
+                    status: finalStatus,
+                    failureReason,
+                    processedEvents: allEvents.length > 0 ? allEvents : null,
+                    identifiedPlayers: allPlayers.length > 0 ? allPlayers : null,
+                    identifiedTeams: allTeams.length > 0 ? allTeams : null,
+                });
+            });
+
             ProgressManager.getInstance().removeJob(jobId);
+
+            // Fetch the updated job for Pub/Sub (after transaction)
+            const updatedJob = await this.jobRepository.findOneById(jobId);
 
             // Publish the final result to the results topic
             try {
-                const resultsTopic = this.pubSubClient.topic(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME);
                 const message = {
-                    jobId: job.id,
-                    gameId: job.gameId,
+                    jobId: updatedJob?.id,
+                    gameId: updatedJob?.gameId,
+                    userId: updatedJob?.userId,
                     status: finalStatus,
                     failureReason: failureReason,
-                    processedEvents: finalStatus === VideoAnalysisJobStatus.COMPLETED ? job.processedEvents : null,
+                    processedEvents: updatedJob?.processedEvents,
+                    identifiedPlayers: updatedJob?.identifiedPlayers,
+                    identifiedTeams: updatedJob?.identifiedTeams,
                 };
-                await resultsTopic.publishMessage({ json: message });
+                await this.eventBus.publish(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME, message);
                 this.logger.info(`[JobFinalizerService] Published final status '${finalStatus}' for job ${jobId} to topic ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}.`, { phase: 'finalizing' });
             } catch (error: any) {
                 this.logger.error(`[JobFinalizerService] Failed to publish final status for job ${jobId} to topic ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}.`, {
@@ -93,8 +138,6 @@ export class JobFinalizerService {
                     },
                     phase: 'finalizing'
                 });
-                // The job status is already updated in the DB, so we just log this error.
-                // A retry mechanism for publishing could be added if it's critical.
             }
 
             // Clean up only the chunk files that were successfully processed
