@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
 
 env:
-  PROJECT_ID: statvision-mvp
+  PROJECT_ID: statsvision-477017
   REGION: us-central1
   API_SERVICE: statvision-api
   WORKER_SERVICE: statvision-worker

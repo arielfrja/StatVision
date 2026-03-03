@@ -10,8 +10,8 @@ export const swaggerOptions = {
         },
         servers: [
             {
-                url: 'http://localhost:3000',
-                description: 'Development server',
+                url: process.env.API_URL || 'http://localhost:3000',
+                description: 'API server',
             },
         ],
         components: {
@@ -22,61 +22,54 @@ export const swaggerOptions = {
                     bearerFormat: 'JWT',
                 },
             },
+            schemas: {
+                Game: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string', example: 'Finals 2026' },
+                        userId: { type: 'string', example: 'firebaseUid123' },
+                        status: { type: 'string', enum: ['UPLOADED', 'PROCESSING', 'ANALYZED', 'ASSIGNMENT_PENDING', 'COMPLETED', 'FAILED', 'ANALYSIS_FAILED_RETRYABLE'] },
+                        gameType: { type: 'string', enum: ['FULL_COURT', 'THREE_X_THREE', 'STREET_BALL', 'ONE_X_ONE'] },
+                        identityMode: { type: 'string', enum: ['JERSEY_COLORS', 'INTERACTION_BASED'] },
+                        videoUrl: { type: 'string', nullable: true },
+                        homeTeamId: { type: 'string', format: 'uuid', nullable: true },
+                        awayTeamId: { type: 'string', format: 'uuid', nullable: true },
+                        uploadedAt: { type: 'string', format: 'date-time' },
+                    },
+                },
+                GameEvent: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        gameId: { type: 'string', format: 'uuid' },
+                        assignedTeamId: { type: 'string', format: 'uuid', nullable: true },
+                        assignedPlayerId: { type: 'string', format: 'uuid', nullable: true },
+                        eventType: { type: 'string' },
+                        absoluteTimestamp: { type: 'number', format: 'float' },
+                    },
+                },
+                Team: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string' },
+                        userId: { type: 'string' },
+                    },
+                },
+                Player: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string' },
+                        position: { type: 'string', nullable: true },
+                    },
+                },
+            },
         },
         security: [{
             bearerAuth: [],
         }],
-        schemas: {
-            Game: {
-                type: 'object',
-                properties: {
-                    id: { type: 'string', format: 'uuid' },
-                    userId: { type: 'string', example: 'firebaseUid123' },
-                    status: { type: 'string', enum: ['UPLOADED', 'PROCESSING', 'ANALYZED', 'ASSIGNMENT_PENDING', 'COMPLETED', 'FAILED'] },
-                    videoUrl: { type: 'string', nullable: true, example: '/path/to/local/video.mp4' },
-                    assignedTeamAId: { type: 'string', format: 'uuid', nullable: true },
-                    assignedTeamBId: { type: 'string', format: 'uuid', nullable: true },
-                    uploadedAt: { type: 'string', format: 'date-time' },
-                },
-            },
-            GameEvent: {
-                type: 'object',
-                properties: {
-                    id: { type: 'string', format: 'uuid' },
-                    gameId: { type: 'string', format: 'uuid' },
-                    assignedTeamId: { type: 'string', format: 'uuid', nullable: true },
-                    assignedPlayerId: { type: 'string', format: 'uuid', nullable: true },
-                    identifiedTeamColor: { type: 'string', nullable: true },
-                    identifiedJerseyNumber: { type: 'number', nullable: true },
-                    eventType: { type: 'string' },
-                    eventDetails: { type: 'object', nullable: true, description: 'JSONB field for event-specific data' },
-                    absoluteTimestamp: { type: 'number', format: 'float' },
-                    videoClipStartTime: { type: 'number', format: 'float' },
-                    videoClipEndTime: { type: 'number', format: 'float' },
-                },
-            },
-            Team: {
-                type: 'object',
-                properties: {
-                    id: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
-                    name: { type: 'string', example: 'My Awesome Team' },
-                    userId: { type: 'string', example: 'firebaseUid123' },
-                    createdAt: { type: 'string', format: 'date-time' },
-                    updatedAt: { type: 'string', format: 'date-time' },
-                },
-            },
-            Player: {
-                type: 'object',
-                properties: {
-                    id: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
-                    name: { type: 'string', example: 'John Doe' },
-                    jerseyNumber: { type: 'number', example: 10 },
-                    teamId: { type: 'string', format: 'uuid', example: 'a1b2c3d4-e5f6-7890-1234-567890abcdef' },
-                    createdAt: { type: 'string', format: 'date-time' },
-                    updatedAt: { type: 'string', format: 'date-time' },
-                },
-            },
-        },
     },
-    apis: ['./src/*.ts', './src/routes/*.ts'], // Path to the API docs
+    apis: ['./src/routes/*.ts'], // Path to the API docs
 };

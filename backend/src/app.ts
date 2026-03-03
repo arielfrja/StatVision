@@ -49,25 +49,7 @@ app.use(loggingMiddleware);
 // Serve uploaded videos statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Swagger definition (kept here for simplicity, can be moved to config)
-const swaggerOptions = {
-    swaggerDefinition: {
-        openapi: '3.0.0',
-        info: {
-            title: 'StatVision API',
-            version: '1.0.0',
-            description: 'API documentation for the StatVision backend application',
-        },
-        servers: [{ url: 'http://localhost:3000', description: 'Development server' }],
-        components: {
-            securitySchemes: {
-                bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-            },
-        },
-        security: [{ bearerAuth: [] }],
-    },
-    apis: ['./src/*.ts', './src/routes/*.ts'],
-};
+import { swaggerOptions } from "./config/swagger";
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

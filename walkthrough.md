@@ -12,8 +12,10 @@ This document logs all actions taken by the CTO/CEO (Gemini CLI) to professional
 - **Action:** Configured Firebase Hosting in `firebase.json`.
 - **Action:** Created automated deployment workflow (`.github/workflows/deploy.yml`).
 - **Action:** Containerized the backend with a `Dockerfile` for Cloud Run readiness.
-- **Action:** Implemented automated backend deployment to Google Cloud Run via `.github/workflows/deploy-backend.yml`.
-- **Achievement:** Established a complete "Push-to-Deploy" pipeline for both frontend (Firebase) and backend (Cloud Run).
+- **Action:** Implemented automated backend deployment to Google Cloud Run via `.github/workflows/deploy.yml`.
+- **Action:** Switched production project to `statsvision-477017` and enabled essential GCP APIs.
+- **Achievement:** Established a complete "Push-to-Deploy" pipeline for both frontend and split backend (API + Worker).
+- **Achievement:** Project infrastructure is fully configured and ready for live traffic.
 - **Status:** COMPLETE.
 - **Strategy:**
     - Frontend: Firebase Hosting (SPA optimized).
