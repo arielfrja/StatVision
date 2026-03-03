@@ -1,0 +1,23 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install dependencies needed for build (and potentially runtime if native modules are used)
+# Installing curl for healthchecks
+RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+
+RUN npm ci
+
+COPY . .
+
+RUN npm run build
+
+# Prune dev dependencies to keep image small
+RUN npm prune --production
+
+EXPOSE 3000
+
+# Explicitly start the API
+CMD ["node", "build/app.js"]

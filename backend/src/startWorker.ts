@@ -18,9 +18,24 @@ import { VideoAnalysisJobStatus } from './core/entities/VideoAnalysisJob';
 import { JobFinalizerService } from './worker/JobFinalizerService';
 import { workerConfig } from './config/workerConfig';
 
+import express from 'express';
+
 async function main() {
     await AppDataSource.initialize();
     jobLogger.info("Data Source has been initialized for worker!");
+
+    // --- Cloud Run Health Check Server ---
+    const app = express();
+    const port = process.env.PORT || 8080;
+    
+    app.get('/health', (req, res) => {
+        res.status(200).send('OK');
+    });
+
+    app.listen(port, () => {
+        jobLogger.info(`Worker health check server listening on port ${port}`);
+    });
+    // -------------------------------------
 
     const container = AppContainer.getInstance(AppDataSource);
 

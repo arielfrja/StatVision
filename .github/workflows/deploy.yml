@@ -6,11 +6,12 @@ on:
 
 env:
   PROJECT_ID: statvision-mvp
-  SERVICE_NAME: statvision-backend
   REGION: us-central1
+  API_SERVICE: statvision-api
+  WORKER_SERVICE: statvision-worker
 
 jobs:
-  deploy-backend:
+  deploy-services:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,16 +27,34 @@ jobs:
       - name: Authorize Docker
         run: gcloud auth configure-docker --quiet
 
-      - name: Build and Push Container
+      # --- API Service ---
+      - name: Build API Container
         run: |
-          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} ./backend
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker build -f backend/Dockerfile.api -t gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }} ./backend
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }}
 
-      - name: Deploy to Cloud Run
+      - name: Deploy API to Cloud Run
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} 
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} 
-            --region ${{ env.REGION }} 
-            --platform managed 
-            --allow-unauthenticated 
+          gcloud run deploy ${{ env.API_SERVICE }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 3000 \
             --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
+
+      # --- Worker Service ---
+      - name: Build Worker Container
+        run: |
+          docker build -f backend/Dockerfile.worker -t gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} ./backend
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }}
+
+      - name: Deploy Worker to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.WORKER_SERVICE }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --no-allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},processingMode=PARALLEL"
