@@ -25,3 +25,5 @@ frontend/.env.local
 frontend/firebase-debug.log
 \n# Folder for uploaded files\n/uploads
 *.log
+supabase/
+.env*

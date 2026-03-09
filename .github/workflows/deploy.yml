@@ -9,30 +9,27 @@ env:
   REGION: us-central1
   API_SERVICE: statvision-api
   WORKER_SERVICE: statvision-worker
+  GEMINI_MODEL_NAME: gemini-2.5-flash
+  VIDEO_UPLOAD_TOPIC_NAME: video-upload-events
+  CHUNK_ANALYSIS_TOPIC_NAME: chunk-analysis
 
 jobs:
   deploy-services:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Google Auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-
       - name: Authorize Docker
         run: gcloud auth configure-docker --quiet
-
-      # --- API Service ---
       - name: Build API Container
         run: |
           docker build -f backend/Dockerfile.api -t gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }} ./backend
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }}
-
       - name: Deploy API to Cloud Run
         run: |
           gcloud run deploy ${{ env.API_SERVICE }} \
@@ -41,14 +38,11 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 3000 \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}"
-
-      # --- Worker Service ---
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}"
       - name: Build Worker Container
         run: |
           docker build -f backend/Dockerfile.worker -t gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} ./backend
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }}
-
       - name: Deploy Worker to Cloud Run
         run: |
           gcloud run deploy ${{ env.WORKER_SERVICE }} \
@@ -57,4 +51,4 @@ jobs:
             --platform managed \
             --no-allow-unauthenticated \
             --port 8080 \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},processingMode=PARALLEL"
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=PARALLEL,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub,CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub"
