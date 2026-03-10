@@ -7,6 +7,8 @@ on:
 env:
   PROJECT_ID: statsvision-477017
   REGION: us-central1
+  # Modern Registry Path
+  REGISTRY: us-central1-docker.pkg.dev/statsvision-477017/statvision-repo
   API_SERVICE: statvision-api
   WORKER_SERVICE: statvision-worker
   GEMINI_MODEL_NAME: gemini-2.5-flash
@@ -25,28 +27,32 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
       - name: Authorize Docker
-        run: gcloud auth configure-docker --quiet
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      # --- API Service ---
       - name: Build API Container
         run: |
-          docker build -f backend/Dockerfile.api -t gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }} ./backend
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }}
+          docker build -f backend/Dockerfile.api -t ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }} ./backend
+          docker push ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }}
       - name: Deploy API to Cloud Run
         run: |
           gcloud run deploy ${{ env.API_SERVICE }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.API_SERVICE }}:${{ github.sha }} \
+            --image ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --port 3000 \
             --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}"
+
+      # --- Worker Service ---
       - name: Build Worker Container
         run: |
-          docker build -f backend/Dockerfile.worker -t gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} ./backend
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }}
+          docker build -f backend/Dockerfile.worker -t ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} ./backend
+          docker push ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }}
       - name: Deploy Worker to Cloud Run
         run: |
           gcloud run deploy ${{ env.WORKER_SERVICE }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} \
+            --image ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --no-allow-unauthenticated \
