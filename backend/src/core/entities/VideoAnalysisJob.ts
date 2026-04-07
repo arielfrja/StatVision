@@ -1,7 +1,7 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
 import { Chunk } from "./Chunk"; // Import the new Chunk entity
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
@@ -14,7 +14,7 @@ export enum VideoAnalysisJobStatus {
 @Entity("worker_video_analysis_jobs")
 export class VideoAnalysisJob {
     @PrimaryColumn("uuid")
-    id: string = uuidv4();
+    id: string = randomUUID();
 
     @Column({ name: "game_id", type: "uuid" })
     gameId: string;

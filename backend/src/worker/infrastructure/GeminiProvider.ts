@@ -57,7 +57,7 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
             const formatInstructions = PromptLoader.getRulesetInstruction(gameType);
             const identityInstructions = PromptLoader.getRulesetInstruction(identityMode);
 
-            const systemInstruction = PromptLoader.loadPrompt('system_instruction', {
+            const systemInstructionText = PromptLoader.loadPrompt('system_instruction', {
                 visualContext: visualContext || 'No additional context provided.',
                 formatInstructions,
                 identityInstructions
@@ -84,18 +84,17 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
             const contents = [...chatHistory, currentTurn];
 
-            // 4. Generate Content (systemInstruction passed via prompt concatenation)
-            const combinedPrompt = `System Instructions:\n${systemInstruction}\n\nUser Request:\n${userPrompt}`;
-            currentTurn.parts[1].text = combinedPrompt;
-
+            // 4. Generate Content (Using native systemInstruction via config)
             const result = await this.genAI.models.generateContent({
                 model: modelName,
                 contents: contents,
                 config: {
+                    systemInstruction: systemInstructionText,
                     responseMimeType: "application/json",
                     responseSchema: EVENT_SCHEMA as any,
                 },
             });
+
 
             const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!responseText) {

@@ -1,6 +1,6 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from "typeorm";
 import { VideoAnalysisJob } from "./VideoAnalysisJob";
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 export enum ChunkStatus {
     PENDING = 'PENDING', // Placeholder record exists
@@ -15,7 +15,7 @@ export enum ChunkStatus {
 @Entity("worker_video_analysis_chunks")
 export class Chunk {
     @PrimaryColumn("uuid")
-    id: string = uuidv4();
+    id: string = randomUUID();
 
     @Column({ name: "job_id", type: "uuid" })
     jobId: string;

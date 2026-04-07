@@ -12,25 +12,28 @@ import { Player } from "../core/entities/Player";
 import { GameTeamStats } from "../core/entities/GameTeamStats";
 import { GamePlayerStats } from "../core/entities/GamePlayerStats";
 import { VideoAnalysisJobStatus } from "../core/entities/VideoAnalysisJob";
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { IEventBus } from "../core/interfaces/IEventBus";
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
+const CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'chunk-analysis-results-sub';
 
 interface VideoAnalysisJobResultMessage {
     jobId: string;
     gameId: string;
     userId: string;
-    status: VideoAnalysisJobStatus; // This will be the final status for the Game entity
-    processedEvents: any[]; // Raw events from the worker
+    chunkId?: string;
+    status: VideoAnalysisJobStatus;
+    processedEvents: any[];
     failedChunkInfo: any[] | null;
-    identifiedPlayers: any[] | null; // New field
-    identifiedTeams: any[] | null; // New field
-    // Add other relevant processed data like stats if they were calculated by the worker
+    identifiedPlayers: any[] | null;
+    identifiedTeams: any[] | null;
+    isFinalResult?: boolean;
 }
 
-import * as winston from 'winston'; // Import winston for typing the logger
+import * as winston from 'winston';
+import { GameEventStatus } from "../core/entities/GameEvent";
 
 export class VideoAnalysisResultService {
     private gameRepository: GameRepository;
@@ -57,184 +60,126 @@ export class VideoAnalysisResultService {
     }
 
     public async startConsumingResults(): Promise<void> {
-        this.logger.info("VideoAnalysisResultService: Starting to consume analysis results from Pub/Sub...", { phase: 'results_processing' });
+        this.logger.info("VideoAnalysisResultService: Initializing Pub/Sub consumers...", { phase: 'results_processing' });
         
+        // 1. Final Job Results
         await this.eventBus.subscribe(VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME, async (result: VideoAnalysisJobResultMessage, message: Message) => {
-            this.logger.info(`Received analysis result message ${message.id}:`, { phase: 'results_processing' });
-            
+            this.logger.info(`Received final job result message ${message.id} for job ${result.jobId}`, { phase: 'results_processing' });
             try {
-                await this.processAnalysisResult(result);
+                await this.processFinalResult(result);
                 message.ack();
             } catch (error) {
-                this.logger.error(`Error processing analysis result message ${message.id}:`, { error, phase: 'results_processing' });
+                this.logger.error(`Error processing final job result:`, { error, phase: 'results_processing' });
                 message.nack();
             }
         });
 
-        this.logger.info(`VideoAnalysisResultService: Listening for results on subscription: ${VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME}`, { phase: 'results_processing' });
+        // 2. Individual Chunk Results (Live Stream)
+        await this.eventBus.subscribe(CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME, async (result: VideoAnalysisJobResultMessage, message: Message) => {
+            this.logger.info(`Received live chunk result for chunk ${result.chunkId} of job ${result.jobId}`, { phase: 'results_processing' });
+            try {
+                await this.processChunkResult(result);
+                message.ack();
+            } catch (error) {
+                this.logger.error(`Error processing live chunk result:`, { error, phase: 'results_processing' });
+                message.nack();
+            }
+        });
+
+        this.logger.info(`VideoAnalysisResultService: Consumers started for results and live streams.`, { phase: 'results_processing' });
     }
 
-    private async processAnalysisResult(result: VideoAnalysisJobResultMessage): Promise<void> {
-        this.logger.info(`Processing analysis result for Game ID: ${result.gameId}, Job ID: ${result.jobId}`, { phase: 'results_processing' });
+    private async processChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
+        this.logger.info(`Streaming draft results for Game ID: ${result.gameId}, Chunk: ${result.chunkId}`, { phase: 'results_processing' });
+        
+        // 1. Persist Entities (Teams/Players) - they are always persisted as temp if new
+        await this.persistIdentifiedEntities(result);
 
-        try {
-            let gameStatusToUpdate: GameStatus;
-            if (result.status === VideoAnalysisJobStatus.COMPLETED) {
-                gameStatusToUpdate = GameStatus.ANALYZED;
-            } else if (result.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
-                gameStatusToUpdate = GameStatus.ANALYSIS_FAILED_RETRYABLE;
-            } else if (result.status === VideoAnalysisJobStatus.FAILED) {
-                gameStatusToUpdate = GameStatus.FAILED;
-            } else {
-                this.logger.warn(`Unknown job status received: ${result.status}. Defaulting to FAILED.`, { phase: 'results_processing' });
-                gameStatusToUpdate = GameStatus.FAILED;
-            }
+        // 2. Insert Events as DRAFT
+        if (result.processedEvents && result.processedEvents.length > 0) {
+            const gameEventsToInsert = result.processedEvents.map(eventData => {
+                const gameEvent = new GameEvent();
+                Object.assign(gameEvent, eventData);
+                gameEvent.gameId = result.gameId;
+                gameEvent.chunkId = result.chunkId || null;
+                gameEvent.status = GameEventStatus.DRAFT;
+                return gameEvent;
+            });
+            await this.gameEventRepository.batchInsert(gameEventsToInsert);
+            this.logger.info(`Successfully streamed ${gameEventsToInsert.length} draft events for game ${result.gameId}.`, { phase: 'results_processing' });
+        }
+    }
 
-            // 1. Update Game Status and failedChunkInfo
-            await this.gameRepository.updateStatus(result.gameId, gameStatusToUpdate, result.failedChunkInfo);
+    private async processFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {
+        this.logger.info(`Finalizing analysis for Game ID: ${result.gameId}`, { phase: 'results_processing' });
 
-            // Maps to store workerId -> backendId
-            const workerTeamIdToBackendIdMap = new Map<string, string>();
-            const workerPlayerIdToBackendIdMap = new Map<string, string>();
+        let gameStatusToUpdate: GameStatus;
+        if (result.status === VideoAnalysisJobStatus.COMPLETED) {
+            gameStatusToUpdate = GameStatus.ANALYZED;
+        } else if (result.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
+            gameStatusToUpdate = GameStatus.ANALYSIS_FAILED_RETRYABLE;
+        } else {
+            gameStatusToUpdate = GameStatus.FAILED;
+        }
 
-            // Collect all unique worker-generated team and player IDs from processedEvents
-            const uniqueWorkerTeamIds = new Set<string>();
-            const uniqueWorkerPlayerIds = new Set<string>();
+        // 1. Update Game Status
+        await this.gameRepository.updateStatus(result.gameId, gameStatusToUpdate, result.failedChunkInfo);
 
-            if (result.processedEvents) {
-                for (const eventData of result.processedEvents) {
-                    if (eventData.assignedTeamId) {
-                        uniqueWorkerTeamIds.add(eventData.assignedTeamId);
-                    }
-                    if (eventData.assignedPlayerId) {
-                        uniqueWorkerPlayerIds.add(eventData.assignedPlayerId);
-                    }
-                }
-            }
+        // 2. If completed, perform final stats recalculation
+        if (gameStatusToUpdate === GameStatus.ANALYZED) {
+            await this.persistIdentifiedEntities(result); // Catch any remaining entities
+            await this.gameStatsService.calculateAndStoreStats(result.gameId);
+            this.logger.info(`Successfully finalized game ${result.gameId} and calculated final stats.`, { phase: 'results_processing' });
+        }
+    }
 
-            // Create backend Team entities for unique worker team IDs
-            for (const workerTeamId of uniqueWorkerTeamIds) {
-                const newBackendTeamId = uuidv4();
-                const team = new Team();
-                team.id = newBackendTeamId;
-                team.name = `Worker Team ${workerTeamId.substring(0, 7)}`; // Placeholder name
-                team.isTemp = true;
-                team.userId = result.userId; // Associate with the user who initiated the job
-                await this.teamRepository.save(team);
-                workerTeamIdToBackendIdMap.set(workerTeamId, newBackendTeamId);
-                this.logger.debug(`Created temp backend team ${newBackendTeamId} for worker ID ${workerTeamId}`, { phase: 'results_processing' });
-            }
-
-            // Create backend Player entities for unique worker player IDs
-            for (const workerPlayerId of uniqueWorkerPlayerIds) {
-                const newBackendPlayerId = uuidv4();
-                const player = new Player();
-                player.id = newBackendPlayerId;
-                player.name = `Worker Player ${workerPlayerId.substring(0, 7)}`; // Placeholder name
-                player.isTemp = true;
-                // Player's team will be assigned via GameEvent, not directly on Player entity
-                await this.playerRepository.save(player);
-                workerPlayerIdToBackendIdMap.set(workerPlayerId, newBackendPlayerId);
-                this.logger.debug(`Created temp backend player ${newBackendPlayerId} for worker ID ${workerPlayerId}`, { phase: 'results_processing' });
-            }
-
-            // 2. Persist Identified Teams and Players (This section will be modified or removed as per new logic)
-            if (gameStatusToUpdate === GameStatus.ANALYZED) {
-                // The logic below for identifiedTeams and identifiedPlayers is based on the old assumption
-                // that worker IDs are persistent. We will adapt it or remove it if not needed.
-                // For now, we'll keep it but it will likely be empty based on worker.log.
-
-                // Persist Teams
-                if (result.identifiedTeams && result.identifiedTeams.length > 0) {
-                    for (const teamData of result.identifiedTeams) {
-                        // 1. Find or Create Generic Team
-                        let team = await this.teamRepository.findOneById(teamData.id);
-                        if (!team) {
-                            team = new Team();
-                            team.id = teamData.id;
-                            // Assuming teamData might contain a name for the generic team
-                            team.name = teamData.name || `Team ${teamData.id.substring(0, 4)}`;
-                            await this.teamRepository.save(team); // Use save to persist new generic team
-                            this.logger.debug(`Persisted new generic team: ${team.id}`, { phase: 'results_processing' });
-                        }
-
-                        // 2. Find or Create GameTeamStats and update game-specific details
-                        const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
-                        gameTeamStats.gameId = result.gameId;
-                        gameTeamStats.teamId = teamData.id;
-                        gameTeamStats.type = teamData.type;
-                        gameTeamStats.color = teamData.color;
-                        gameTeamStats.description = teamData.description;
-                        await this.gameStatsService.saveGameTeamStats(gameTeamStats);
-                        this.logger.debug(`Updated GameTeamStats for game ${result.gameId} and team ${teamData.id} with identified details.`, { phase: 'results_processing' });
-                    }
-                    this.logger.info(`Successfully processed ${result.identifiedTeams.length} identified teams for game ${result.gameId}.`, { phase: 'results_processing' });
+    private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
+        // Persist Teams
+        if (result.identifiedTeams && result.identifiedTeams.length > 0) {
+            for (const teamData of result.identifiedTeams) {
+                let team = await this.teamRepository.findOneById(teamData.id);
+                if (!team) {
+                    team = new Team();
+                    team.id = teamData.id;
+                    const teamLabel = teamData.type === 'HOME' ? 'Home Team' : teamData.type === 'AWAY' ? 'Away Team' : 'Team';
+                    const colorLabel = teamData.color ? ` (${teamData.color})` : '';
+                    team.name = `${teamLabel}${colorLabel}`;
+                    team.isTemp = true;
+                    team.userId = result.userId;
+                    await this.teamRepository.save(team);
                 }
 
-                // Persist Players
-                if (result.identifiedPlayers && result.identifiedPlayers.length > 0) {
-                    for (const playerData of result.identifiedPlayers) {
-                        // 1. Find or Create Generic Player
-                        let player = await this.playerRepository.findOneById(playerData.id);
-                        if (!player) {
-                            player = new Player();
-                            player.id = playerData.id;
-                            // Assuming playerData might contain a name for the generic player
-                            player.name = playerData.name || `Player ${playerData.id.substring(0, 4)}`;
-                            await this.playerRepository.save(player); // Use save to persist new generic player
-                            this.logger.debug(`Persisted new generic player: ${player.id}`, { phase: 'results_processing' });
-                        }
+                const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
+                gameTeamStats.gameId = result.gameId;
+                gameTeamStats.teamId = teamData.id;
+                gameTeamStats.type = teamData.type;
+                gameTeamStats.color = teamData.color;
+                gameTeamStats.description = teamData.description;
+                await this.gameStatsService.saveGameTeamStats(gameTeamStats);
+            }
+        }
 
-                        // 2. Find or Create GamePlayerStats and update game-specific details
-                        const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
-                        gamePlayerStats.gameId = result.gameId;
-                        gamePlayerStats.playerId = playerData.id;
-                        gamePlayerStats.teamId = playerData.teamId;
-                        gamePlayerStats.jerseyNumber = playerData.jerseyNumber;
-                        gamePlayerStats.description = playerData.description;
-                        await this.gameStatsService.saveGamePlayerStats(gamePlayerStats);
-                        this.logger.debug(`Updated GamePlayerStats for game ${result.gameId} and player ${playerData.id} with identified details.`, { phase: 'results_processing' });
-                    }
-                    this.logger.info(`Successfully processed ${result.identifiedPlayers.length} identified players for game ${result.gameId}.`, { phase: 'results_processing' });
+        // Persist Players
+        if (result.identifiedPlayers && result.identifiedPlayers.length > 0) {
+            for (const playerData of result.identifiedPlayers) {
+                let player = await this.playerRepository.findOneById(playerData.id);
+                if (!player) {
+                    player = new Player();
+                    player.id = playerData.id;
+                    const jerseyLabel = playerData.jerseyNumber ? ` #${playerData.jerseyNumber}` : '';
+                    player.name = `Player${jerseyLabel}`;
+                    player.isTemp = true;
+                    await this.playerRepository.save(player);
                 }
+
+                const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
+                gamePlayerStats.gameId = result.gameId;
+                gamePlayerStats.playerId = playerData.id;
+                gamePlayerStats.teamId = playerData.teamId;
+                gamePlayerStats.jerseyNumber = playerData.jerseyNumber;
+                gamePlayerStats.description = playerData.description;
+                await this.gameStatsService.saveGamePlayerStats(gamePlayerStats);
             }
-
-            // 3. Insert Game Events (if job was successful)
-            if (gameStatusToUpdate === GameStatus.ANALYZED && result.processedEvents && result.processedEvents.length > 0) {
-                const gameEventsToInsert = result.processedEvents.map(eventData => {
-                    const gameEvent = new GameEvent();
-                    Object.assign(gameEvent, eventData);
-                    gameEvent.gameId = result.gameId; // Ensure gameId is set;
-
-                    // Map worker-generated IDs to backend IDs
-                    if (eventData.assignedTeamId) {
-                        gameEvent.assignedTeamId = workerTeamIdToBackendIdMap.get(eventData.assignedTeamId) || null;
-                    }
-                    if (eventData.assignedPlayerId) {
-                        gameEvent.assignedPlayerId = workerPlayerIdToBackendIdMap.get(eventData.assignedPlayerId) || null;
-                    }
-
-                    return gameEvent;
-                });
-                await this.gameEventRepository.batchInsert(gameEventsToInsert);
-                this.logger.info(`Successfully inserted ${gameEventsToInsert.length} events for game ${result.gameId}.`, { phase: 'results_processing' });
-            } else if (gameStatusToUpdate === GameStatus.ANALYZED && (!result.processedEvents || result.processedEvents.length === 0)) {
-                this.logger.warn(`No events to insert for successfully analyzed game ${result.gameId}.`, { phase: 'results_processing' });
-            }
-
-            // 3. Calculate and Store Derived Stats (if job was successful)
-            if (gameStatusToUpdate === GameStatus.ANALYZED) {
-                await this.gameStatsService.calculateAndStoreStats(result.gameId);
-                this.logger.info(`Successfully calculated and stored stats for game ${result.gameId}.`, { phase: 'results_processing' });
-            }
-
-            this.logger.info(`Finished processing analysis result for Game ID: ${result.gameId}. Final Status: ${result.status}`, { phase: 'results_processing' });
-
-        } catch (error) {
-            this.logger.error(`Error in processAnalysisResult for Game ID: ${result.gameId}:`, { error, phase: 'results_processing' });
-            // If processing the result fails, we might want to update the game status to a specific error state
-            // or re-nack the message if this service has its own subscription.
-            // For now, just log the error.
         }
     }
 }

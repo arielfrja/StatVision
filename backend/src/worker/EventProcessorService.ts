@@ -1,5 +1,5 @@
 import { chunkLogger as logger } from "../config/loggers";
-import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
+import { randomUUID, createHash } from 'crypto';
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../core/interfaces/video-analysis.interfaces";
 import { VideoChunk } from "./VideoChunkerService";
 import { GameType, IdentityMode } from "../core/entities/Game";
@@ -11,14 +11,22 @@ const ALLOWED_EVENT_TYPES = [
 ];
 // Create a Set of uppercase event types for efficient, case-insensitive lookups.
 const UPPERCASE_ALLOWED_EVENT_TYPES = new Set(ALLOWED_EVENT_TYPES.map(t => t.toUpperCase()));
-const NAMESPACE_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'; // Define once
 
 export class EventProcessorService {
 
     constructor() { }
 
     private generateConsistentUuid(input: string): string {
-        return uuidv5(input, NAMESPACE_UUID);
+        const hash = createHash('sha256').update(input).digest('hex');
+        // Convert hash to a UUID-like string (8-4-4-4-12 format)
+        // This isn't a strict UUID but serves the same purpose of deterministic ID
+        return [
+            hash.substring(0, 8),
+            hash.substring(8, 12),
+            hash.substring(12, 16),
+            hash.substring(16, 20),
+            hash.substring(20, 32)
+        ].join('-');
     }
 
     // Implement Authoritative Window logic for robust deduplication across overlapping chunks.
@@ -54,16 +62,13 @@ export class EventProcessorService {
         
         logger.info(`[EventProcessorService] Authoritative Window for chunk ${chunk.sequence}: [${segmentStart}, ${segmentEnd})s within chunk.`, { phase: 'processing' });
 
-        // ... (passes for teams and players remain the same) ...
-
-
         // First pass: Process teams and create permanent IDs for new ones
         for (const rawEvent of rawEvents) {
-            if (rawEvent.assignedTeamId && typeof rawEvent.assignedTeamId === 'string' && rawEvent.assignedTeamId.startsWith(TEMP_TEAM_PREFIX)) {
-                const tempTeamId = rawEvent.assignedTeamId;
-                if (!tempIdToUuidMap.has(tempTeamId)) {
-                    const permanentTeamId = this.generateConsistentUuid(tempTeamId);
-                    tempIdToUuidMap.set(tempTeamId, permanentTeamId);
+            const teamId = rawEvent.assignedTeamId;
+            if (teamId && typeof teamId === 'string' && teamId.startsWith(TEMP_TEAM_PREFIX)) {
+                if (!tempIdToUuidMap.has(teamId)) {
+                    const permanentTeamId = this.generateConsistentUuid(teamId);
+                    tempIdToUuidMap.set(teamId, permanentTeamId);
                     
                     if (!currentIdentifiedTeams.some(team => team.id === permanentTeamId)) {
                         currentIdentifiedTeams.push({
@@ -72,7 +77,7 @@ export class EventProcessorService {
                             color: rawEvent.identifiedTeamColor || null,
                             description: rawEvent.identifiedTeamDescription || null,
                         });
-                        logger.info(`[EventProcessorService] New team identified and added: ${tempTeamId} -> ${permanentTeamId}`, { phase: 'processing' });
+                        logger.info(`[EventProcessorService] New team identified and added: ${teamId} -> ${permanentTeamId}`, { phase: 'processing' });
                     }
                 }
             }
@@ -80,25 +85,26 @@ export class EventProcessorService {
         
         // Second pass: Process players and create permanent IDs
         for (const rawEvent of rawEvents) {
-            // Ensure team IDs are permanent before processing players
-            if (rawEvent.assignedTeamId && tempIdToUuidMap.has(rawEvent.assignedTeamId)) {
-                rawEvent.assignedTeamId = tempIdToUuidMap.get(rawEvent.assignedTeamId);
+            let currentTeamId = rawEvent.assignedTeamId;
+            // Map to permanent ID if we have one
+            if (currentTeamId && tempIdToUuidMap.has(currentTeamId)) {
+                currentTeamId = tempIdToUuidMap.get(currentTeamId);
             }
             
-            if (rawEvent.assignedPlayerId && typeof rawEvent.assignedPlayerId === 'string' && rawEvent.assignedPlayerId.startsWith(TEMP_PLAYER_PREFIX)) {
-                const tempPlayerId = rawEvent.assignedPlayerId;
-                if (!tempIdToUuidMap.has(tempPlayerId)) {
-                    const permanentPlayerId = this.generateConsistentUuid(tempPlayerId);
-                    tempIdToUuidMap.set(tempPlayerId, permanentPlayerId);
+            const playerId = rawEvent.assignedPlayerId;
+            if (playerId && typeof playerId === 'string' && playerId.startsWith(TEMP_PLAYER_PREFIX)) {
+                if (!tempIdToUuidMap.has(playerId)) {
+                    const permanentPlayerId = this.generateConsistentUuid(playerId);
+                    tempIdToUuidMap.set(playerId, permanentPlayerId);
 
                     if (!currentIdentifiedPlayers.some(player => player.id === permanentPlayerId)) {
                         currentIdentifiedPlayers.push({
                             id: permanentPlayerId,
-                            teamId: rawEvent.assignedTeamId, // Should be permanent now
-                            jerseyNumber: rawEvent.identifiedJerseyNumber || null,
+                            teamId: currentTeamId || null, // Use permanent team ID if available
+                            jerseyNumber: rawEvent.identifiedJerseyNumber ? Number(rawEvent.identifiedJerseyNumber) : null,
                             description: rawEvent.identifiedPlayerDescription || null,
                         });
-                         logger.info(`[EventProcessorService] New player identified and added: ${tempPlayerId} -> ${permanentPlayerId}`, { phase: 'processing' });
+                         logger.info(`[EventProcessorService] New player identified and added: ${playerId} -> ${permanentPlayerId}`, { phase: 'processing' });
                     }
                 }
             }
@@ -135,7 +141,7 @@ export class EventProcessorService {
                 const finalAssignedPlayerId = rawEvent.assignedPlayerId && tempIdToUuidMap.get(rawEvent.assignedPlayerId) || rawEvent.assignedPlayerId;
 
                 const gameEventData: ProcessedGameEvent = {
-                    id: uuidv4(),
+                    id: randomUUID(),
                     gameId: gameId,
                     eventType: rawEvent.eventType,
                     eventSubType: rawEvent.eventSubType || null,

@@ -8,7 +8,7 @@ export interface IdentifiedTeam {
 export interface IdentifiedPlayer {
     id:string; // The v5 UUID
     teamId: string | null; // Foreign key to IdentifiedTeam
-    jerseyNumber: string | null;
+    jerseyNumber: number | null;
     description: string | null; // e.g., "tall player with red shoes"
     teamAssignmentConfidence?: number; // 0-1 score based on interaction frequency
 }
@@ -31,7 +31,7 @@ export interface ProcessedGameEvent {
     relatedEventId?: string | null; // e.g., link an assist to a made shot
     onCourtPlayerIds: string[] | null;
     identifiedTeamColor: string | null;
-    identifiedJerseyNumber: string | null;
+    identifiedJerseyNumber: number | null;
     videoClipStartTime: number;
     videoClipEndTime: number;
 }

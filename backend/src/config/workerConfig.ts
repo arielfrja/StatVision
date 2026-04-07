@@ -23,6 +23,7 @@ export const workerConfig = {
     // Pub/Sub settings
     ackDeadlineSeconds: parseInt(process.env.ACK_DEADLINE_SECONDS || '60', 10),
     heartbeatIntervalSeconds: parseInt(process.env.HEARTBEAT_INTERVAL_SECONDS || '45', 10),
+    chunkAnalysisResultsTopicName: process.env.CHUNK_ANALYSIS_RESULTS_TOPIC_NAME || 'chunk-analysis-results',
     
     // Orchestrator settings
     parallelJobLimit: parseInt(process.env.PARALLEL_JOB_LIMIT || '5', 10),

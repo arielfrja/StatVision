@@ -7,6 +7,7 @@ import { ChunkStatus } from "../core/entities/Chunk";
 import { jobLogger } from '../config/loggers';
 import { VideoChunkerService } from "./VideoChunkerService";
 import { IEventBus } from '../core/interfaces/IEventBus';
+import { GameEvent, GameEventStatus } from '../core/entities/GameEvent';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
@@ -94,14 +95,58 @@ export class JobFinalizerService {
                         }
                         // Aggregate events from all chunks (Authoritative Window ensures no duplicates)
                         if (chunk.processedEvents) {
-                            allEvents.push(...chunk.processedEvents);
+                            // Map processed events to include the chunkId for the database
+                            const chunkEvents = chunk.processedEvents.map(e => ({
+                                ...e,
+                                chunkId: chunk.id
+                            }));
+                            allEvents.push(...chunkEvents);
                         }
                     }
                     allPlayers = Array.from(playerMap.values());
                     allTeams = Array.from(teamMap.values());
+
+                    // --- NEW: Persist to GameEvent table ---
+                    if (allEvents.length > 0) {
+                        this.logger.info(`[JobFinalizerService] Persisting ${allEvents.length} events to GameEvent table for game ${job.gameId}`, { phase: 'finalizing' });
+                        
+                        // Clear any existing DRAFT events for this game to avoid duplicates on re-runs
+                        await transactionalEntityManager.delete(GameEvent, { 
+                            gameId: job.gameId,
+                            status: GameEventStatus.DRAFT 
+                        });
+
+                        const gameEvents = allEvents.map(eventData => {
+                            const event = new GameEvent();
+                            event.id = eventData.id;
+                            event.gameId = job.gameId;
+                            event.chunkId = eventData.chunkId;
+                            event.status = GameEventStatus.DRAFT;
+                            event.assignedTeamId = eventData.assignedTeamId;
+                            event.assignedPlayerId = eventData.assignedPlayerId;
+                            event.identifiedTeamColor = eventData.identifiedTeamColor;
+                            event.identifiedJerseyNumber = eventData.identifiedJerseyNumber;
+                            event.eventType = eventData.eventType;
+                            event.eventSubType = eventData.eventSubType;
+                            event.isSuccessful = eventData.isSuccessful;
+                            event.period = eventData.period;
+                            event.timeRemaining = eventData.timeRemaining;
+                            event.xCoord = eventData.xCoord;
+                            event.yCoord = eventData.yCoord;
+                            event.absoluteTimestamp = eventData.absoluteTimestamp;
+                            event.videoClipStartTime = eventData.videoClipStartTime;
+                            event.videoClipEndTime = eventData.videoClipEndTime;
+                            event.onCourtPlayerIds = eventData.onCourtPlayerIds;
+                            // relatedEventId and eventDetails can be added here if needed
+                            return event;
+                        });
+
+                        // Bulk insert for efficiency
+                        await transactionalEntityManager.save(GameEvent, gameEvents, { chunk: 100 });
+                    }
                 }
 
-                // Update the job with aggregated results
+                // Update the job with aggregated results (keep JSON as backup/legacy support for now)
                 await transactionalEntityManager.update(VideoAnalysisJob, jobId, {
                     status: currentStatus,
                     failureReason,

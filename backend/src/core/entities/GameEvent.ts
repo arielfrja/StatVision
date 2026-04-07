@@ -3,6 +3,12 @@ import { Game } from "./Game";
 import { Team } from "./Team";
 import { Player } from "./Player";
 
+export enum GameEventStatus {
+    DRAFT = 'DRAFT',       // AI detected, not yet reviewed
+    VERIFIED = 'VERIFIED', // Human confirmed
+    REJECTED = 'REJECTED'  // Human marked as incorrect
+}
+
 @Entity("game_events")
 export class GameEvent {
     @PrimaryGeneratedColumn("uuid")
@@ -14,6 +20,16 @@ export class GameEvent {
 
     @Column({ name: "game_id" })
     gameId: string;
+
+    @Column({ name: "chunk_id", type: "uuid", nullable: true })
+    chunkId: string | null;
+
+    @Column({
+        type: "enum",
+        enum: GameEventStatus,
+        default: GameEventStatus.DRAFT
+    })
+    status: GameEventStatus;
 
     @ManyToOne(() => Team, { onDelete: 'SET NULL' })
     @JoinColumn({ name: "assigned_team_id" })

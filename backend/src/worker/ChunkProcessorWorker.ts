@@ -4,15 +4,15 @@ import { DataSource } from 'typeorm';
 import { chunkLogger } from '../config/loggers';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { ChunkRepository } from './ChunkRepository';
-import { IVideoIntelligenceProvider } from '../core/interfaces/IVideoIntelligenceProvider';
-import { GeminiProvider } from './infrastructure/GeminiProvider';
+import { IVideoAnalysisProvider } from '../core/interfaces/IVideoAnalysisProvider';
+import { AnalysisProviderFactory } from './providers/AnalysisProviderFactory';
 import { IEventBus } from '../core/interfaces/IEventBus';
 import { EventProcessorService } from './EventProcessorService';
 import { JobFinalizerService } from './JobFinalizerService';
 import { workerConfig } from '../config/workerConfig';
 import { Chunk, ChunkStatus } from '../core/entities/Chunk';
 import { VideoAnalysisJobStatus } from '../core/entities/VideoAnalysisJob';
-import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from '../core/interfaces/video-analysis.interfaces';
+import { IdentifiedPlayer, IdentifiedTeam } from '../core/interfaces/video-analysis.interfaces';
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -24,7 +24,7 @@ interface ChunkMessage {
 export class ChunkProcessorWorker {
     private jobRepository: VideoAnalysisJobRepository;
     private chunkRepository: ChunkRepository;
-    private videoIntelligenceProvider: IVideoIntelligenceProvider;
+    private analysisProvider: IVideoAnalysisProvider;
     private eventProcessorService: EventProcessorService;
     private jobFinalizerService: JobFinalizerService;
     private logger = chunkLogger;
@@ -41,7 +41,7 @@ export class ChunkProcessorWorker {
         if (!GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY environment variable not set!");
         }
-        this.videoIntelligenceProvider = new GeminiProvider(GEMINI_API_KEY);
+        this.analysisProvider = AnalysisProviderFactory.createProvider(GEMINI_API_KEY);
     }
 
     public async startConsumingMessages(): Promise<void> {
@@ -183,8 +183,8 @@ export class ChunkProcessorWorker {
                     sequence: chunk.sequence
                 };
 
-                const result = await this.videoIntelligenceProvider.analyzeVideoChunk(
-                    videoChunkInfo, 
+                const result = await this.analysisProvider.analyzeChunk(
+                    videoChunkInfo as any, 
                     identifiedPlayers, 
                     identifiedTeams, 
                     visualContextString,
@@ -195,7 +195,7 @@ export class ChunkProcessorWorker {
 
                 ProgressManager.getInstance().stopChunkBar(chunk.id);
 
-                if (result.events) {
+                if (result.status === 'fulfilled') {
                     // Save the raw response before any filtering occurs.
                     chunk.rawGeminiResponse = result.rawResponse;
 
@@ -215,6 +215,25 @@ export class ChunkProcessorWorker {
                     chunk.identifiedPlayers = processedResult.updatedIdentifiedPlayers;
                     chunk.identifiedTeams = processedResult.updatedIdentifiedTeams;
                     chunk.processedEvents = processedResult.finalEvents;
+
+                    // Publish chunk results for live streaming
+                    try {
+                        const resultMessage = {
+                            jobId: job.id,
+                            gameId: job.gameId,
+                            userId: job.userId,
+                            chunkId: chunk.id,
+                            sequence: chunk.sequence,
+                            processedEvents: chunk.processedEvents,
+                            identifiedPlayers: chunk.identifiedPlayers,
+                            identifiedTeams: chunk.identifiedTeams,
+                            isFinalResult: false // This is a partial result
+                        };
+                        await this.eventBus.publish(workerConfig.chunkAnalysisResultsTopicName, resultMessage);
+                        this.logger.info(`[CHUNK_PROCESSOR] Published live results for chunk ${chunk.sequence} to topic ${workerConfig.chunkAnalysisResultsTopicName}`, { phase: 'analyzing' });
+                    } catch (publishError: any) {
+                        this.logger.error(`[CHUNK_PROCESSOR] Failed to publish live results for chunk ${chunk.sequence}: ${publishError.message}`, { phase: 'analyzing' });
+                    }
 
                     // Update job's chat history
                     if (result.updatedHistory) {
