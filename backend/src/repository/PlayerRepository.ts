@@ -48,6 +48,22 @@ export class PlayerRepository {
     }
 
     /**
+     * Finds a player by their jersey number and team ID, optionally considering a specific date.
+     */
+    async findPlayerByJerseyAndTeam(teamId: string, jerseyNumber: number, date?: Date): Promise<PlayerTeamHistory | null> {
+        const query = this.playerHistoryRepository.createQueryBuilder("history")
+            .where("history.teamId = :teamId", { teamId })
+            .andWhere("history.jerseyNumber = :jerseyNumber", { jerseyNumber });
+        
+        if (date) {
+            query.andWhere("(history.startDate IS NULL OR history.startDate <= :date)", { date })
+                 .andWhere("(history.endDate IS NULL OR history.endDate >= :date)", { date });
+        }
+        
+        return query.getOne();
+    }
+
+    /**
      * Finds all active players for a given team, including their history details.
      */
     async findActivePlayersByTeam(teamId: string): Promise<PlayerTeamHistory[]> {

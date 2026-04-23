@@ -5,7 +5,7 @@ import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
-import { Team, GameType, IdentityMode } from '@/types/game';
+import { Team, GameType, IdentityMode, SportType } from '@/types/game';
 
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
@@ -38,6 +38,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     const [awayTeamColor, setAwayTeamColor] = useState('Black');
     
     // New States
+    const [sportType, setSportType] = useState<SportType>(SportType.BASKETBALL);
     const [gameType, setGameType] = useState<GameType>(GameType.FULL_COURT);
     const [identityMode, setIdentityMode] = useState<IdentityMode>(IdentityMode.JERSEY_COLORS);
     const [pointValue, setPointValue] = useState<'1_AND_2' | '2_AND_3'>( '2_AND_3');
@@ -84,6 +85,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                 location: location || undefined,
                 homeTeamId: homeTeamId || undefined,
                 awayTeamId: awayTeamId || undefined,
+                sportType,
                 gameType,
                 identityMode,
                 ruleset: {
@@ -143,6 +145,18 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 
             <div style={{ display: 'flex', gap: '16px' }}>
                 <md-filled-select
+                    label="Sport"
+                    value={sportType}
+                    onchange={(e: any) => setSportType(e.target.value as SportType)}
+                    style={{ flex: 1 }}
+                >
+                    <md-select-option value={SportType.BASKETBALL}><span>Basketball</span></md-select-option>
+                    <md-select-option value={SportType.SOCCER}><span>Soccer</span></md-select-option>
+                    <md-select-option value={SportType.VOLLEYBALL}><span>Volleyball</span></md-select-option>
+                    <md-select-option value={SportType.TENNIS}><span>Tennis</span></md-select-option>
+                </md-filled-select>
+
+                <md-filled-select
                     label="Game Format"
                     value={gameType}
                     onchange={(e: any) => {
@@ -161,17 +175,17 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                     <md-select-option value={GameType.STREET_BALL}><span>Streetball / Park</span></md-select-option>
                     <md-select-option value={GameType.ONE_X_ONE}><span>1-on-1</span></md-select-option>
                 </md-filled-select>
-
-                <md-filled-select
-                    label="Team Detection Mode"
-                    value={identityMode}
-                    onchange={(e: any) => setIdentityMode(e.target.value as IdentityMode)}
-                    style={{ flex: 1 }}
-                >
-                    <md-select-option value={IdentityMode.JERSEY_COLORS}><span>Jersey Colors</span></md-select-option>
-                    <md-select-option value={IdentityMode.INTERACTION_BASED}><span>Interaction-based (Streetball)</span></md-select-option>
-                </md-filled-select>
             </div>
+
+            <md-filled-select
+                label="Team Detection Mode"
+                value={identityMode}
+                onchange={(e: any) => setIdentityMode(e.target.value as IdentityMode)}
+                style={{ width: '100%' }}
+            >
+                <md-select-option value={IdentityMode.JERSEY_COLORS}><span>Jersey Colors</span></md-select-option>
+                <md-select-option value={IdentityMode.INTERACTION_BASED}><span>Interaction-based (Streetball)</span></md-select-option>
+            </md-filled-select>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '0 16px' }}>
                 <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>Scoring:</span>

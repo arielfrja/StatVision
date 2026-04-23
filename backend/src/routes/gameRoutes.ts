@@ -136,7 +136,7 @@ export const gameRoutes = (
             return res.status(401).send("Unauthorized");
         }
 
-        const { name, gameDate, location, season, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
+        const { name, gameDate, location, season, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset, sportType } = req.body;
 
         if (!name) {
             return res.status(400).json({ message: "Missing game name in body." });
@@ -153,7 +153,8 @@ export const gameRoutes = (
                 visualContext,
                 gameType,
                 identityMode,
-                ruleset
+                ruleset,
+                sportType
             });
             res.status(201).json(newGame);
         } catch (error) {

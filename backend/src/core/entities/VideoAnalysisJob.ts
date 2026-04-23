@@ -2,6 +2,7 @@ import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, OneT
 import { IdentifiedPlayer, IdentifiedTeam, ProcessedGameEvent } from "../interfaces/video-analysis.interfaces";
 import { Chunk } from "./Chunk"; // Import the new Chunk entity
 import { randomUUID } from 'crypto';
+import { SportType } from "./SportType";
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
@@ -27,6 +28,9 @@ export class VideoAnalysisJob {
 
     @Column({ type: "enum", enum: VideoAnalysisJobStatus, default: VideoAnalysisJobStatus.PENDING })
     status: VideoAnalysisJobStatus;
+
+    @Column({ name: "sport_type", type: "enum", enum: SportType, default: SportType.BASKETBALL })
+    sportType: SportType;
 
     // The failedChunkInfo column is removed as chunk status will be managed in the new Chunk entity
     // @Column({ type: "jsonb", nullable: true })

@@ -2,6 +2,7 @@ import { GameRepository } from "../../repository/GameRepository";
 import { User } from "../../core/entities/User";
 import { Game, GameType, IdentityMode } from "../../core/entities/Game";
 import { GameStatus } from "../../core/entities/Game";
+import { SportType } from "../../core/entities/SportType";
 import logger from "../../config/logger";
 import { DataSource, Repository } from "typeorm";
 import * as fs from 'fs';
@@ -19,6 +20,7 @@ interface GameCreationData {
     gameType?: GameType;
     identityMode?: IdentityMode;
     ruleset?: any | null;
+    sportType?: SportType;
 }
 
 export class GameService {
@@ -62,6 +64,7 @@ export class GameService {
         newGame.visualContext = data.visualContext || null;
         newGame.gameType = data.gameType || GameType.FULL_COURT;
         newGame.identityMode = data.identityMode || IdentityMode.JERSEY_COLORS;
+        newGame.sportType = data.sportType || SportType.BASKETBALL;
         newGame.ruleset = data.ruleset || null;
 
         return this.gameRepository.create(newGame);

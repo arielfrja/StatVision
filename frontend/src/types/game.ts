@@ -24,10 +24,18 @@ export enum IdentityMode {
     INTERACTION_BASED = 'INTERACTION_BASED'
 }
 
+export enum SportType {
+    BASKETBALL = 'BASKETBALL',
+    SOCCER = 'SOCCER',
+    VOLLEYBALL = 'VOLLEYBALL',
+    TENNIS = 'TENNIS',
+}
+
 export interface Game {
     id: string;
     userId: string;
     status: GameStatus;
+    sportType: SportType;
     gameType: GameType;
     identityMode: IdentityMode;
     ruleset: {

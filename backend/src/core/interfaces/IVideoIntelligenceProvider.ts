@@ -1,5 +1,6 @@
 import { IdentifiedPlayer, IdentifiedTeam } from "./video-analysis.interfaces";
 import { GameType, IdentityMode } from "../entities/Game";
+import { SportType } from "../entities/SportType";
 
 export interface VideoChunkInfo {
     chunkPath: string;
@@ -25,6 +26,7 @@ export interface IVideoIntelligenceProvider {
         visualContext?: string,
         gameType?: GameType,
         identityMode?: IdentityMode,
-        chatHistory?: any[]
+        chatHistory?: any[],
+        sportType?: SportType
     ): Promise<AnalysisResult>;
 }

@@ -95,9 +95,12 @@ export class VideoAnalysisResultService {
         // 1. Persist Entities (Teams/Players) - they are always persisted as temp if new
         await this.persistIdentifiedEntities(result);
 
-        // 2. Insert Events as DRAFT
-        if (result.processedEvents && result.processedEvents.length > 0) {
-            const gameEventsToInsert = result.processedEvents.map(eventData => {
+        // 2. Resolve Player IDs via heuristics (jersey mapping)
+        const resolvedEvents = await this.resolvePlayerIds(result.gameId, result.processedEvents);
+
+        // 3. Insert Events as DRAFT
+        if (resolvedEvents && resolvedEvents.length > 0) {
+            const gameEventsToInsert = resolvedEvents.map(eventData => {
                 const gameEvent = new GameEvent();
                 Object.assign(gameEvent, eventData);
                 gameEvent.gameId = result.gameId;
@@ -106,8 +109,55 @@ export class VideoAnalysisResultService {
                 return gameEvent;
             });
             await this.gameEventRepository.batchInsert(gameEventsToInsert);
-            this.logger.info(`Successfully streamed ${gameEventsToInsert.length} draft events for game ${result.gameId}.`, { phase: 'results_processing' });
+            this.logger.info(`Successfully streamed ${gameEventsToInsert.length} draft events (with heuristic resolution) for game ${result.gameId}.`, { phase: 'results_processing' });
         }
+    }
+
+    /**
+     * Attempts to resolve temporary player IDs to real player IDs based on jersey numbers
+     * and the game's date/teams.
+     */
+    private async resolvePlayerIds(gameId: string, events: any[]): Promise<any[]> {
+        if (!events || events.length === 0) return events;
+
+        const game = await this.gameRepository.findOneById(gameId);
+        if (!game) return events;
+
+        const gameDate = game.gameDate || new Date();
+        const resolvedEvents = [];
+
+        // Simple cache to avoid redundant lookups within the same chunk
+        const resolutionCache = new Map<string, string>();
+
+        for (const event of events) {
+            const teamId = event.assignedTeamId;
+            const jerseyNumber = event.identifiedJerseyNumber;
+
+            // Only attempt resolution if we have both team and jersey number
+            if (teamId && jerseyNumber) {
+                const cacheKey = `${teamId}-${jerseyNumber}`;
+                if (resolutionCache.has(cacheKey)) {
+                    event.assignedPlayerId = resolutionCache.get(cacheKey);
+                } else {
+                    try {
+                        const history = await this.playerRepository.findPlayerByJerseyAndTeam(
+                            teamId, 
+                            Number(jerseyNumber), 
+                            gameDate
+                        );
+                        if (history) {
+                            event.assignedPlayerId = history.playerId;
+                            resolutionCache.set(cacheKey, history.playerId);
+                            this.logger.debug(`[HeuristicResolution] Resolved ${cacheKey} -> ${history.playerId}`, { phase: 'results_processing' });
+                        }
+                    } catch (err) {
+                        this.logger.warn(`[HeuristicResolution] Error resolving player for ${cacheKey}`, { error: err, phase: 'results_processing' });
+                    }
+                }
+            }
+            resolvedEvents.push(event);
+        }
+        return resolvedEvents;
     }
 
     private async processFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {

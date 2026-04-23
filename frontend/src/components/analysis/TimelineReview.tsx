@@ -16,10 +16,18 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
     const [hoverTime, setHoverTime] = useState<number | null>(null);
 
     // Calculate pixels per second based on container width or a fixed scale
-    // Let's use a scale that makes the timeline readable, maybe 10px per second?
-    // Or just 100% width if duration is small.
     const pixelsPerSecond = 5; 
     const timelineWidth = Math.max(800, duration * pixelsPerSecond);
+
+    const getEventColor = (event: GameEvent) => {
+        const type = event.eventType.toUpperCase();
+        if (type.includes('SHOT MADE') || (type.includes('SHOT') && event.isSuccessful)) return '#00E676'; // Success Green
+        if (type.includes('SHOT MISSED') || (type.includes('SHOT') && event.isSuccessful === false)) return '#FF5252'; // Failure Red
+        if (type.includes('FOUL')) return '#FFD740'; // Warning Yellow
+        if (type.includes('TURNOVER')) return '#FFAB40'; // Caution Orange
+        if (type.includes('SUBSTITUTION') || type.includes('TIMEOUT')) return 'var(--text-dim)';
+        return 'var(--electric)'; // Brand Blue
+    };
 
     const handleMouseMove = (e: React.MouseEvent) => {
         if (!timelineRef.current) return;
@@ -47,10 +55,10 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
         <div style={{ 
             width: '100%', 
             overflowX: 'auto', 
-            backgroundColor: 'var(--md-sys-color-surface-container)', 
-            padding: '16px 0',
-            borderRadius: '12px',
-            boxShadow: 'var(--shadow-elevation-1)',
+            backgroundColor: 'var(--bg-container-low)', 
+            padding: '24px 0',
+            borderRadius: '16px',
+            border: '1px solid var(--border-ghost)',
             marginBottom: '24px'
         }}>
             <div 
@@ -61,35 +69,37 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
                 style={{ 
                     position: 'relative', 
                     width: `${timelineWidth}px`, 
-                    height: '60px', 
+                    height: '80px', 
                     cursor: 'pointer',
-                    margin: '0 20px'
+                    margin: '0 40px'
                 }}
             >
                 {/* Background Track */}
                 <div style={{ 
                     position: 'absolute', 
-                    top: '28px', 
+                    top: '38px', 
                     width: '100%', 
                     height: '4px', 
-                    backgroundColor: 'var(--md-sys-color-outline-variant)',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
                     borderRadius: '2px'
                 }}></div>
 
                 {/* Progress Fill */}
                 <div style={{ 
                     position: 'absolute', 
-                    top: '28px', 
+                    top: '38px', 
                     width: `${(currentTime / duration) * 100}%`, 
                     height: '4px', 
-                    backgroundColor: 'var(--md-sys-color-primary)',
-                    borderRadius: '2px'
+                    backgroundColor: 'var(--electric)',
+                    borderRadius: '2px',
+                    boxShadow: '0 0 10px var(--primary-glow)'
                 }}></div>
 
-                {/* Event Markers */}
+                {/* Event Markers (Heatmap) */}
                 {events.map((event) => {
                     const left = event.absoluteTimestamp * pixelsPerSecond;
                     const isActive = Math.abs(currentTime - event.absoluteTimestamp) < 1;
+                    const eventColor = getEventColor(event);
                     
                     return (
                         <div
@@ -102,21 +112,20 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
                             style={{
                                 position: 'absolute',
                                 left: `${left}px`,
-                                top: '20px',
-                                width: isActive ? '20px' : '12px',
-                                height: isActive ? '20px' : '12px',
+                                top: isActive ? '30px' : '34px',
+                                width: isActive ? '16px' : '10px',
+                                height: isActive ? '16px' : '10px',
                                 borderRadius: '50%',
-                                backgroundColor: isActive ? 'var(--md-sys-color-secondary)' : 'var(--md-sys-color-primary-container)',
-                                border: `2px solid ${isActive ? 'white' : 'var(--md-sys-color-primary)'}`,
+                                backgroundColor: eventColor,
+                                border: isActive ? '2px solid white' : 'none',
                                 transform: 'translateX(-50%)',
                                 zIndex: isActive ? 10 : 5,
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
+                                transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: isActive ? `0 0 15px ${eventColor}` : 'none',
+                                opacity: isActive ? 1 : 0.7
                             }}
                         >
-                            {isActive && <md-icon style={{ fontSize: '14px', color: 'white' }}>priority_high</md-icon>}
+                            {isActive && <div style={{ width: '4px', height: '4px', backgroundColor: 'white', borderRadius: '50%' }} />}
                         </div>
                     );
                 })}
@@ -127,22 +136,24 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
                     left: `${currentTime * pixelsPerSecond}px`,
                     top: '10px',
                     width: '2px',
-                    height: '40px',
-                    backgroundColor: 'var(--md-sys-color-secondary)',
+                    height: '60px',
+                    backgroundColor: 'var(--electric)',
                     transform: 'translateX(-50%)',
                     zIndex: 15,
-                    pointerEvents: 'none'
+                    pointerEvents: 'none',
+                    boxShadow: '0 0 15px var(--primary-glow)'
                 }}>
                     <div style={{
                         position: 'absolute',
-                        top: '-10px',
+                        top: '-15px',
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: 'var(--md-sys-color-secondary)',
-                        color: 'white',
-                        padding: '2px 6px',
+                        backgroundColor: 'var(--electric)',
+                        color: 'black',
+                        padding: '2px 8px',
                         borderRadius: '4px',
-                        fontSize: '10px',
+                        fontSize: '11px',
+                        fontWeight: '900',
                         whiteSpace: 'nowrap'
                     }}>
                         {formatTime(currentTime)}
@@ -156,23 +167,23 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
                         left: `${hoverTime * pixelsPerSecond}px`,
                         top: '10px',
                         width: '1px',
-                        height: '40px',
-                        backgroundColor: 'var(--md-sys-color-outline)',
-                        opacity: 0.5,
+                        height: '60px',
+                        backgroundColor: 'rgba(255,255,255,0.3)',
                         transform: 'translateX(-50%)',
                         zIndex: 14,
                         pointerEvents: 'none'
                     }}>
                         <div style={{
                             position: 'absolute',
-                            bottom: '-20px',
+                            bottom: '-25px',
                             left: '50%',
                             transform: 'translateX(-50%)',
-                            backgroundColor: 'var(--md-sys-color-surface-container-highest)',
-                            color: 'var(--md-sys-color-on-surface)',
+                            backgroundColor: 'white',
+                            color: 'black',
                             padding: '2px 6px',
                             borderRadius: '4px',
                             fontSize: '10px',
+                            fontWeight: 'bold',
                             whiteSpace: 'nowrap'
                         }}>
                             {formatTime(hoverTime)}
@@ -180,17 +191,19 @@ const TimelineReview: React.FC<TimelineReviewProps> = ({ events, duration, curre
                     </div>
                 )}
 
-                {/* Time Scale Labels (Every 30s) */}
-                {Array.from({ length: Math.floor(duration / 30) + 1 }).map((_, i) => (
+                {/* Time Scale Labels (Every 60s) */}
+                {Array.from({ length: Math.floor(duration / 60) + 1 }).map((_, i) => (
                     <div key={i} style={{
                         position: 'absolute',
-                        left: `${i * 30 * pixelsPerSecond}px`,
-                        top: '45px',
-                        fontSize: '10px',
-                        color: 'var(--md-sys-color-on-surface-variant)',
-                        transform: 'translateX(-50%)'
+                        left: `${i * 60 * pixelsPerSecond}px`,
+                        top: '60px',
+                        fontSize: '9px',
+                        fontWeight: '900',
+                        color: 'rgba(255,255,255,0.2)',
+                        transform: 'translateX(-50%)',
+                        letterSpacing: '0.1em'
                     }}>
-                        {formatTime(i * 30)}
+                        {formatTime(i * 60)}
                     </div>
                 ))}
             </div>

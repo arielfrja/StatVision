@@ -5,8 +5,9 @@ import { AnalysisProviderResponse, IVideoAnalysisProvider } from "../../core/int
 import { workerConfig } from "../../config/workerConfig";
 import { chunkLogger as logger } from "../../config/loggers";
 import { PromptLoader } from "../../shared/utils/PromptLoader";
-import { EVENT_SCHEMA } from "../../constants/gemini";
+import { SPORT_SCHEMAS, BASKETBALL_SCHEMA } from "../../constants/gemini";
 import { GameType, IdentityMode } from "../../core/entities/Game";
+import { SportType } from "../../core/entities/SportType";
 
 /**
  * Implementation of the Gemini Interactions API (v1beta/interactions).
@@ -27,7 +28,8 @@ export class GeminiInteractionsProvider implements IVideoAnalysisProvider {
         visualContext?: string,
         gameType: GameType = GameType.FULL_COURT,
         identityMode: IdentityMode = IdentityMode.JERSEY_COLORS,
-        chatHistory: any[] = []
+        chatHistory: any[] = [],
+        sportType: SportType = SportType.BASKETBALL
     ): Promise<AnalysisProviderResponse> {
         const { chunkPath } = chunkInfo;
         logger.info(`[${this.name}] Starting Interactions API call for ${chunkPath}`, { 
@@ -41,6 +43,9 @@ export class GeminiInteractionsProvider implements IVideoAnalysisProvider {
 
         try {
             const modelName = workerConfig.geminiModelName;
+            
+            // Select schema based on sport type
+            const responseSchema = SPORT_SCHEMAS[sportType] || BASKETBALL_SCHEMA;
             
             // 1. Upload to Gemini File API
             const uploadResponse = await this.genAI.files.upload({
@@ -60,7 +65,8 @@ export class GeminiInteractionsProvider implements IVideoAnalysisProvider {
             const systemInstructionText = PromptLoader.loadPrompt('system_instruction', {
                 visualContext: visualContext || 'No additional context provided.',
                 formatInstructions,
-                identityInstructions
+                identityInstructions,
+                sportType: sportType.toLowerCase()
             });
 
             const isFirstChunk = chatHistory.length === 0;
@@ -93,7 +99,7 @@ export class GeminiInteractionsProvider implements IVideoAnalysisProvider {
                     }
                 ],
                 responseMimeType: "application/json",
-                responseSchema: EVENT_SCHEMA as any,
+                responseSchema: responseSchema as any,
                 thinkingLevel: "high", 
             } as any); // Use any here temporarily to bypass strict SDK type inconsistencies
 

@@ -4,6 +4,7 @@ import { Team } from "./Team";
 import { GameEvent } from "./GameEvent";
 import { GameTeamStats } from "./GameTeamStats";
 import { GamePlayerStats } from "./GamePlayerStats";
+import { SportType } from "./SportType";
 import * as path from 'path';
 
 export enum GameStatus {
@@ -47,6 +48,9 @@ export class Game {
 
     @Column({ type: "enum", enum: GameStatus, default: GameStatus.UPLOADED })
     status: GameStatus;
+
+    @Column({ name: "sport_type", type: "enum", enum: SportType, default: SportType.BASKETBALL })
+    sportType: SportType;
 
     @Column({ name: "game_type", type: "enum", enum: GameType, default: GameType.FULL_COURT })
     gameType: GameType;

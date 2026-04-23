@@ -1,6 +1,8 @@
 import { Message, SubscriptionOptions } from '@google-cloud/pubsub';
 import { workerConfig } from '../config/workerConfig';
 import { VideoAnalysisJob, VideoAnalysisJobStatus } from '../core/entities/VideoAnalysisJob';
+import { Game } from '../core/entities/Game';
+import { SportType } from '../core/entities/SportType';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
 import { ProgressManager } from './ProgressManager';
@@ -77,11 +79,16 @@ export class VideoOrchestratorService {
                     this.jobLogger.info(`Found existing job ${job.id} with status ${job.status}. Resuming orchestration...`, { phase: 'orchestration' });
                 } else {
                     this.jobLogger.info(`No existing job found for game ${parsedMessage.gameId}. Creating new job.`, { phase: 'orchestration' });
+                    
+                    // Fetch the game to get the sportType
+                    const game = await this.dataSource.getRepository(Game).findOneBy({ id: parsedMessage.gameId });
+                    
                     job = new VideoAnalysisJob();
                     job.gameId = parsedMessage.gameId;
                     job.userId = parsedMessage.userId;
                     job.filePath = parsedMessage.filePath;
                     job.status = VideoAnalysisJobStatus.PENDING;
+                    job.sportType = game?.sportType || SportType.BASKETBALL;
                     job.chunks = [];
                     try {
                         job = await this.jobRepository.create(job);

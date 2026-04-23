@@ -30,7 +30,7 @@ export const workerConfig = {
     
     // Chunker settings
     chunkDurationSeconds: parseInt(process.env.CHUNK_DURATION_SECONDS || '120', 10), // 2 minutes
-    chunkOverlapSeconds: parseInt(process.env.CHUNK_OVERLAP_SECONDS || '0', 10), // No overlap needed for Chat Mode
+    chunkOverlapSeconds: parseInt(process.env.CHUNK_OVERLAP_SECONDS || '10', 10), // 10s overlap for continuity
 
     // FFmpeg settings for chunk enhancement
     ffmpegVideoFilter: process.env.FFMPEG_VF || 'eq=contrast=1.2:gamma=1.1, unsharp=3:3:0.5:3:3:0.0',

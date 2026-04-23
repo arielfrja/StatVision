@@ -190,7 +190,8 @@ export class ChunkProcessorWorker {
                     visualContextString,
                     gameType,
                     identityMode,
-                    chatHistory
+                    chatHistory,
+                    job.sportType // NEW PARAMETER
                 );
 
                 ProgressManager.getInstance().stopChunkBar(chunk.id);

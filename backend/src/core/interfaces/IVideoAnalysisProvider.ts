@@ -1,6 +1,7 @@
 import { VideoChunk } from "../../worker/VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "./video-analysis.interfaces";
 import { GameType, IdentityMode } from "../entities/Game";
+import { SportType } from "../entities/SportType";
 
 /**
  * Result of an analysis attempt.
@@ -35,6 +36,7 @@ export interface IVideoAnalysisProvider {
         visualContext?: string,
         gameType?: GameType,
         identityMode?: IdentityMode,
-        chatHistory?: any[]
+        chatHistory?: any[],
+        sportType?: SportType
     ): Promise<AnalysisProviderResponse>;
 }

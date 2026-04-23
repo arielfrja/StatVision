@@ -90,4 +90,7 @@ export class GameEvent {
 
     @Column({ name: "video_clip_end_time", type: "float", nullable: true })
     videoClipEndTime: number | null;
+
+    @Column({ type: "float", array: true, nullable: true })
+    embedding: number[] | null;
 }

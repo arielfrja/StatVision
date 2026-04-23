@@ -6,12 +6,13 @@ import { chunkLogger as logger } from "../config/loggers";
 import { VideoChunk } from "./VideoChunkerService";
 import { IdentifiedPlayer, IdentifiedTeam } from "../core/interfaces/video-analysis.interfaces";
 import { ALLOWED_EVENT_TYPES } from "../constants/eventTypes";
-import { EVENT_SCHEMA } from "../constants/gemini";
+import { SPORT_SCHEMAS, BASKETBALL_SCHEMA } from "../constants/gemini";
 import { PromptLoader } from "../shared/utils/PromptLoader";
+import { SportType } from "../core/entities/SportType";
 
 
 
-export type GeminiApiResponse = { status: 'fulfilled'; events: any[]; rawResponse: string; } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
+export type GeminiApiResponse = { status: 'fulfilled'; events: any[]; rawResponse: string; updatedHistory?: any[] } | { status: 'rejected'; chunkInfo: VideoChunk; error: any };
 
 export class GeminiAnalysisService {
     private genAI: GoogleGenAI;
@@ -20,14 +21,27 @@ export class GeminiAnalysisService {
         this.genAI = genAI;
     }
 
-    public async callGeminiApi(chunkInfo: VideoChunk, identifiedPlayers: IdentifiedPlayer[], identifiedTeams: IdentifiedTeam[]): Promise<GeminiApiResponse> {
+    public async analyzeChunk(
+        chunkInfo: VideoChunk, 
+        identifiedPlayers: IdentifiedPlayer[], 
+        identifiedTeams: IdentifiedTeam[],
+        visualContext?: string,
+        gameType?: any,
+        identityMode?: any,
+        chatHistory: any[] = [],
+        sportType: SportType = SportType.BASKETBALL
+    ): Promise<GeminiApiResponse> {
         const { chunkPath } = chunkInfo;
-        logger.info(`[GeminiAnalysisService] Starting API call for ${chunkPath}`, { phase: 'analyzing' });
+        logger.info(`[GeminiAnalysisService] Starting API call for ${chunkPath}`, { phase: 'analyzing', sportType });
 
         let uploadedFileName: string | null = null;
 
         try {
             const modelName = workerConfig.geminiModelName;
+            
+            // Select schema based on sport type
+            const responseSchema = SPORT_SCHEMAS[sportType] || BASKETBALL_SCHEMA;
+
             logger.info(`[GeminiAnalysisService] Using Gemini model: ${modelName}`, { phase: 'analyzing' });
 
             logger.info(`[GeminiAnalysisService] Uploading file to Gemini File API: ${chunkPath}`, { phase: 'analyzing' });
@@ -89,9 +103,16 @@ export class GeminiAnalysisService {
             
             logger.info(`[GeminiAnalysisService] File is now ACTIVE. URI: ${file.uri}, Name: ${file.name}`, { phase: 'analyzing' });
 
-            let prompt = PromptLoader.loadPrompt('system_instruction');
+            const systemInstructionText = PromptLoader.loadPrompt('system_instruction', {
+                visualContext: visualContext || 'No additional context provided.',
+                formatInstructions: '', 
+                identityInstructions: '',
+                sportType: sportType.toLowerCase()
+            });
 
-            const isFirstChunk = identifiedTeams.length === 0 && identifiedPlayers.length === 0;
+            let prompt = systemInstructionText;
+
+            const isFirstChunk = chatHistory.length === 0;
 
             if (isFirstChunk) {
                 prompt += PromptLoader.loadPrompt('first_chunk');
@@ -125,9 +146,9 @@ export class GeminiAnalysisService {
                     result = await this.genAI.models.generateContent({
                         model: modelName,
                         contents: [{ role: "user", parts }],
-                        config: { // Correct way to pass structured output config
+                        config: { 
                             responseMimeType: "application/json",
-                            responseSchema: EVENT_SCHEMA,
+                            responseSchema: responseSchema as any,
                         },
                     });
                     break; // Success
@@ -165,8 +186,15 @@ export class GeminiAnalysisService {
             const parsedResponse = JSON.parse(cleanedText);
             const parsedEvents = parsedResponse.events;
             logger.info(`[GeminiAnalysisService] Successfully parsed ${parsedEvents.length} events from structured API response for ${chunkPath}.`, { phase: 'analyzing' });
-            const eventsWithMetadata = parsedEvents.map((event: any) => ({ ...event, chunkMetadata: chunkInfo }));
-            return { status: 'fulfilled', events: eventsWithMetadata, rawResponse: cleanedText };
+            
+            const updatedHistory = [...chatHistory, { role: "user", parts }, { role: "model", parts: [{ text: responseText }] }];
+            
+            return { 
+                status: 'fulfilled', 
+                events: parsedEvents.map((event: any) => ({ ...event, chunkMetadata: chunkInfo })), 
+                rawResponse: cleanedText,
+                updatedHistory 
+            };
 
         } catch (error: any) {
             const errorMessage = error.message || 'An unknown error occurred during Gemini API call.';
