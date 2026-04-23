@@ -1,9 +1,41 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Auth0Provider, AppState } from '@auth0/auth0-react';
+import React, { useEffect, createContext, useContext } from 'react';
+import { Auth0Provider, AppState, useAuth0 as useAuth0Real } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
 import SWRProvider from './swr-provider';
+
+// Define a common interface for the auth state
+interface AuthState {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user?: any;
+  error?: Error;
+  logout: (options?: any) => void;
+  loginWithRedirect: (options?: any) => Promise<void>;
+  getAccessTokenSilently: (options?: any) => Promise<string>;
+}
+
+const MockAuthContext = createContext<AuthState | null>(null);
+
+export const useAuth0 = () => {
+  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+    const context = useContext(MockAuthContext);
+    if (!context) {
+        // Fallback mock if context is not yet available
+        return {
+            isAuthenticated: true,
+            isLoading: false,
+            user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
+            logout: () => console.log("Mock Logout"),
+            loginWithRedirect: () => Promise.resolve(),
+            getAccessTokenSilently: () => Promise.resolve("mock-token"),
+        } as AuthState;
+    }
+    return context;
+  }
+  return useAuth0Real();
+};
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,19 +44,39 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
+  const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
 
-  useEffect(() => {
-    // This empty useEffect ensures these imports are client-side only.
-  }, []);
+  if (isMock) {
+    const mockValue: AuthState = {
+        isAuthenticated: true,
+        isLoading: false,
+        user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
+        logout: (options?: any) => {
+            console.log("Mock Logout", options);
+            router.push('/');
+        },
+        loginWithRedirect: (options?: any) => {
+            console.log("Mock Login Redirect", options);
+            return Promise.resolve();
+        },
+        getAccessTokenSilently: (options?: any) => Promise.resolve("mock-token"),
+    };
 
+    return (
+      <MockAuthContext.Provider value={mockValue}>
+        <SWRProvider>
+          {children}
+        </SWRProvider>
+      </MockAuthContext.Provider>
+    );
+  }
 
   if (!domain || !clientId || !baseUrl) {
     console.error('Auth0 environment variables are not set.');
-    return <>{children}</>;
+    return <SWRProvider>{children}</SWRProvider>;
   }
 
   const onRedirectCallback = (appState?: AppState) => {
-    // After login, redirect to the dashboard by default, unless a specific returnTo was requested.
     router.push(appState?.returnTo || '/dashboard');
   };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth0 } from '@/app/user-provider';
 import '@material/web/button/outlined-button.js';
 import Link from 'next/link';
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth0 } from '@/app/user-provider';
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/icon/icon.js';

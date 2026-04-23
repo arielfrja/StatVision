@@ -33,7 +33,6 @@ The entire development cycle is a complete, extremely rapid Sprint.
 | **Sprint Retro** | Internal process reflection. |
 
 ---
-
 ## 📂 Process Artifacts & Logging
 
 ### 1. The Job Log
@@ -43,8 +42,15 @@ Every critical internal event must be logged in a running document: **`jobLog.md
 *   Bugs found by QA and subsequent fixes.
 *   Any important step completed.
 
-### 2. External Resource Check
+### 2. Testing without Authentication (Mock Auth)
+For local development and testing, you can bypass the Auth0 login flow using **Mock Auth**:
+*   **Backend**: Set `USE_MOCK_AUTH=true` in `backend/.env`. This enables `MockAuthProvider` which accepts any token or no token as a default test user.
+*   **Frontend**: Set `NEXT_PUBLIC_USE_MOCK_AUTH=true` in `frontend/.env.local`. This uses a mock Auth context that provides a persistent test user and skips redirects.
+*   **When to use**: Always use Mock Auth for UI/UX work and API development unless real Auth0 integration needs verification.
+
+### 3. External Resource Check
 Before using any external Library, Framework, or third-party service, the **Development Team** must follow this check:
+...
 1.  Check the internal configuration and documentation using the **`context7` **.
 2.  If documentation is not found in `context7`, search the external web.
 3.  If still not found, proceed with maximum caution and note the risk in **`jobLog.md`**.

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { SWRConfig } from 'swr';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
 
 export default function SWRProvider({ children }: { children: React.ReactNode }) {

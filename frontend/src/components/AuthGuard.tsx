@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth0 } from '../app/user-provider';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Loader from './Loader';

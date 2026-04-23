@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Removed 'output: export' to support dynamic authenticated routes and SSR
   trailingSlash: true,
   images: {
     unoptimized: true,

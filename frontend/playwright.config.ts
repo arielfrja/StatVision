@@ -10,6 +10,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
+    launchOptions: {
+      executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
   },
   projects: [
     {
@@ -18,7 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run start',
+    command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },
