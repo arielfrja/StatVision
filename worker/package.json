@@ -1,0 +1,29 @@
+{
+  "name": "@statvision/worker",
+  "version": "1.0.0",
+  "private": true,
+  "main": "build/startWorker.js",
+  "scripts": {
+    "dev": "npx ts-node src/startWorker.ts",
+    "build": "tsc",
+    "start": "node build/startWorker.js"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^5.2.0",
+    "@google/genai": "^1.33.0",
+    "@statvision/common": "*",
+    "cli-progress": "^3.12.0",
+    "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
+    "reflect-metadata": "^0.2.2",
+    "winston": "^3.18.3",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "@types/express": "^5.0.3",
+    "@types/node": "^16.18.126",
+    "ts-node": "^10.9.2",
+    "typescript": "^4.9.5"
+  }
+}

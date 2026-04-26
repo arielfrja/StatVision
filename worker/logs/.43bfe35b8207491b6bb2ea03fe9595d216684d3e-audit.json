@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/.43bfe35b8207491b6bb2ea03fe9595d216684d3e-audit.json",
+    "files": [
+        {
+            "date": 1777042798991,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/combined-2026-04-24.log",
+            "hash": "91869d6b790922b8915a85c836901dbdc4525a3d04d9f2fdf7959667f0b149f9"
+        },
+        {
+            "date": 1777181241873,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/combined-2026-04-26.log",
+            "hash": "8b18c3999883ba969c318cbf93d88cd247a6309962622469459df44f75be3f78"
+        }
+    ],
+    "hashType": "sha256"
+}

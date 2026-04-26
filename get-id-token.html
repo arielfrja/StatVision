@@ -43,20 +43,20 @@
             tokenDisplay.textContent = '';
             errorDisplay.textContent = ''; // Clear previous errors
 
-            const email = 'test@test.com'; // Hardcoded email
-            const password = 'testTest'; // Hardcoded password
+            const email = ''; // IMPORTANT: Enter your test email here
+            const password = ''; // IMPORTANT: Enter your test password here
 
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
-                statusDisplay.textContent = `Logged in as: ${user.email}`;
+                statusDisplay.textContent = `Logged in as: \${user.email}`;
 
                 // Get the ID token
                 idToken = await user.getIdToken();
-                tokenDisplay.textContent = `ID Token: ${idToken}`;
+                tokenDisplay.textContent = `ID Token: \${idToken}`;
                 console.log('Firebase ID Token:', idToken);
 
-            } catch (error: any) {
+            } catch (error) {
                 statusDisplay.textContent = `Login failed.`;
                 errorDisplay.textContent = `Error: ${error.message}`;
                 console.error('Login error:', error);

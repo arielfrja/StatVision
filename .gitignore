@@ -1,29 +1,43 @@
-firebase-debug.log
+# Environment Files
+.env
+.env.*
+!.env.example
+
+# Service Keys & Tokens
 serviceAccountKey.json
-firebase-config.js
+gcp-key-*.json
 last_token.txt
+
+# Logs
+*.log
+firebase-debug.log
+
+# Databases & Backups
+*.sql
 db_info.md
+supabase/
+
+# Dependencies
+node_modules/
+api/node_modules/
+worker/node_modules/
+common/node_modules/
+frontend/node_modules/
+
+# Build Outputs
+api/build/
+worker/build/
+common/build/
+frontend/.next/
+frontend/out/
+
+# Local Uploads & Temp
+uploads/
+tmp/
+api/src/tmp/
+worker/src/tmp/
+
+# Tests & Other
 frontend-test/
 team_creation_response*.json
-team_creation_error.log
-uploads/
-statvision_db_backup.sql
 
-# Backend
-backend/node_modules/
-backend/build/
-backend/tmp/
-backend/src/tmp/
-backend/.env
-backend/*.log
-gcp-key-PubSub.json
-
-# Frontend
-frontend/node_modules/
-frontend/.next/
-frontend/.env.local
-frontend/firebase-debug.log
-\n# Folder for uploaded files\n/uploads
-*.log
-supabase/
-.env*

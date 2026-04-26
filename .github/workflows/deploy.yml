@@ -2,7 +2,7 @@ name: StatVision Deploy
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, test ]
 
 env:
   PROJECT_ID: statsvision-477017
@@ -21,44 +21,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Set Environment Variables
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/test" ]]; then
+            echo "ENV_SUFFIX=-test" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=1" >> $GITHUB_ENV
+            echo "DB_URL=${{ secrets.TEST_DATABASE_URL }}" >> $GITHUB_ENV
+          else
+            echo "ENV_SUFFIX=" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=10" >> $GITHUB_ENV
+            echo "DB_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+          fi
+
       - name: Google Auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+      
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+      
       - name: Authorize Docker
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       # --- API Service ---
       - name: Build and Push API Container
         run: |
-          docker build -f backend/Dockerfile.api -t ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }} ./backend
-          docker push ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }}
+          docker build -f api/Dockerfile -t ${{ env.REGISTRY }}/${{ env.API_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }} .
+          docker push ${{ env.REGISTRY }}/${{ env.API_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }}
+      
       - name: Deploy API to Cloud Run
         run: |
-          gcloud run deploy ${{ env.API_SERVICE }} \
-            --image ${{ env.REGISTRY }}/${{ env.API_SERVICE }}:${{ github.sha }} \
+          gcloud run deploy ${{ env.API_SERVICE }}${{ env.ENV_SUFFIX }} \
+            --image ${{ env.REGISTRY }}/${{ env.API_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
             --port 3000 \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}"
+            --max-instances ${{ env.MAX_INSTANCES }} \
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }}"
 
       # --- Worker Service ---
       - name: Build and Push Worker Container
         run: |
-          docker build -f backend/Dockerfile.worker -t ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} ./backend
-          docker push ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }}
+          docker build -f worker/Dockerfile -t ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }} .
+          docker push ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }}
+      
       - name: Deploy Worker to Cloud Run
         run: |
-          gcloud run deploy ${{ env.WORKER_SERVICE }} \
-            --image ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}:${{ github.sha }} \
+          gcloud run deploy ${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }} \
+            --image ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --no-allow-unauthenticated \
             --port 8080 \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=PARALLEL,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub,CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub"
+            --max-instances ${{ env.MAX_INSTANCES }} \
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=PARALLEL,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub${{ env.ENV_SUFFIX }}"
 
   deploy-frontend:
     name: Deploy Frontend
@@ -83,5 +102,5 @@ jobs:
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
-          channelId: live
+          channelId: ${{ github.ref == 'refs/heads/test' && 'test' || 'live' }}
           projectId: ${{ env.PROJECT_ID }}

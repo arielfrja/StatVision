@@ -1,0 +1,17 @@
+{
+  "name": "statvision-root",
+  "private": true,
+  "workspaces": [
+    "api",
+    "worker",
+    "common",
+    "frontend"
+  ],
+  "scripts": {
+    "api:dev": "npm run dev -w api",
+    "worker:dev": "npm run dev -w worker",
+    "frontend:dev": "npm run dev -w frontend",
+    "build": "npm run build -w common && npm run build -w api && npm run build -w worker",
+    "test": "npm test --workspaces"
+  }
+}
