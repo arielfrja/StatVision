@@ -40,4 +40,10 @@ worker/src/tmp/
 # Tests & Other
 frontend-test/
 team_creation_response*.json
+team_creation_error.log
+get-id-token.html
+curl_response
+skills-lock.json
+*.json.old
+*.audit.json
 
