@@ -137,15 +137,15 @@ function AnalysisPage() {
 
     if (error || !game) {
         return (
-            <main className="p-12 text-center">
+            <div className="p-12 text-center">
                 <h1 className="text-2xl font-black italic uppercase mb-4">Error Loading Intelligence</h1>
                 <button onClick={() => router.push('/games')} className="px-6 py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric transition-all">Back to Gallery</button>
-            </main>
+            </div>
         );
     }
 
     return (
-        <main className="p-4 md:p-8 max-w-[1600px] mx-auto pb-24 md:pb-8">
+        <div className="max-w-[1600px] mx-auto pb-16">
             {/* Header Section */}
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
@@ -156,13 +156,13 @@ function AnalysisPage() {
                     <div className="flex items-center gap-4">
                         <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase">{game.name}</h1>
                         <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${
-                            game.status === 'COMPLETED' ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-[var(--bg-container-low)] border-[var(--border-ghost)] text-[var(--text-dim)]'
+                            game.status === 'COMPLETED' ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-container-low border-bd-ghost text-tx-dim'
                         }`}>
                             {game.status}
                         </span>
                     </div>
-                    <p className="text-xs font-bold text-[var(--text-dim)] uppercase tracking-widest mt-2">
-                        {game.homeTeam?.name || 'Home'} VS {game.awayTeam?.name || 'Away'} • {game.location || 'Stadium'} • {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'Mar 2026'}
+                    <p className="text-xs font-bold text-tx-dim uppercase tracking-widest mt-2">
+                        {game.homeTeam?.name || 'Home'} VS {game.awayTeam?.name || 'Away'} • {game.location || 'Stadium'} • {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'Analysis Pending'}
                     </p>
                 </div>
                 
@@ -173,7 +173,7 @@ function AnalysisPage() {
                             Finalize Roster
                         </button>
                     )}
-                    <button onClick={() => setShowDeleteConfirm(true)} className="w-12 h-12 rounded-xl bg-[var(--bg-container-low)] border border-[var(--border-ghost)] flex items-center justify-center text-[var(--text-dim)] hover:text-red-400 transition-all">
+                    <button onClick={() => setShowDeleteConfirm(true)} className="w-12 h-12 rounded-xl bg-container-low border border-bd-ghost flex items-center justify-center text-tx-dim hover:text-red-400 transition-all">
                         <span className="material-symbols-outlined">delete</span>
                     </button>
                 </div>
@@ -184,7 +184,7 @@ function AnalysisPage() {
                 
                 {/* Left: Video & Global Stats */}
                 <div className="lg:col-span-7 xl:col-span-8 space-y-8 lg:sticky lg:top-8">
-                    <section className="stadium-card p-2 bg-black border border-[var(--border-ghost)] overflow-hidden">
+                    <section className="stadium-card p-2 bg-black border border-bd-ghost overflow-hidden">
                         <div className="rounded-lg overflow-hidden aspect-video">
                             <VideoPlayer 
                                 videoUrl={game.videoUrl} 
@@ -213,9 +213,9 @@ function AnalysisPage() {
                                     <span className="material-symbols-outlined animate-spin text-sm">sync</span>
                                     AI Brain Analysis in Progress
                                 </h3>
-                                <span className="text-[10px] font-black text-electric/60">Estimated: 4m remaining</span>
+                                <span className="text-[10px] font-black text-electric/60">Live Event Extraction Active</span>
                             </div>
-                            <div className="h-1 w-full bg-[var(--bg-container-low)] rounded-full overflow-hidden">
+                            <div className="h-1 w-full bg-container-low rounded-full overflow-hidden">
                                 <div className="h-full w-2/3 bg-electric animate-pulse shadow-[0_0_10px_var(--primary-glow)]" />
                             </div>
                         </div>
@@ -223,8 +223,8 @@ function AnalysisPage() {
 
                     {!isMobile && (
                         <div className="space-y-8">
-                            <div className="flex items-center justify-between border-b border-[var(--border-ghost)] pb-4">
-                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">Strategic Pulse</h2>
+                            <div className="flex items-center justify-between border-b border-bd-ghost pb-4">
+                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">Strategic Pulse</h2>
                                 <StatSelectionControl onPreferencesChanged={setVisibleStats} />
                             </div>
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -251,7 +251,7 @@ function AnalysisPage() {
                     ) : (
                         <div className="flex flex-col h-full lg:max-h-[calc(100vh-160px)]">
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--text-dim)]">Play-by-Play</h2>
+                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">Play-by-Play</h2>
                                 <span className="text-[10px] font-bold text-electric uppercase px-3 py-1 bg-electric/10 rounded-full">Live Feed</span>
                             </div>
                             <div className="flex-1 overflow-y-auto pr-2 no-scrollbar">
@@ -279,11 +279,11 @@ function AnalysisPage() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="stadium-card max-w-sm w-full text-center border border-red-500/20 shadow-2xl">
                         <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-4 text-white">Purge Tape?</h3>
-                        <p className="text-xs text-[var(--text-secondary)] font-medium mb-10 leading-relaxed uppercase tracking-widest">
+                        <p className="text-xs text-tx-secondary font-medium mb-10 leading-relaxed uppercase tracking-widest">
                             This action will permanently delete this analysis and all associated video data.
                         </p>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-4 bg-[var(--bg-container-low)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--bg-container-highest)] transition-all">Cancel</button>
+                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-4 bg-container-low rounded-xl text-xs font-black uppercase tracking-widest hover:bg-container-highest transition-all">Cancel</button>
                             <button onClick={handleDeleteGame} disabled={isDeleting} className="flex-1 py-4 bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:bg-red-600 transition-all">
                                 {isDeleting ? 'Purging...' : 'Delete'}
                             </button>
@@ -291,7 +291,7 @@ function AnalysisPage() {
                     </div>
                 </div>
             )}
-        </main>
+        </div>
     );
 }
 

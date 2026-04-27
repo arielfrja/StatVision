@@ -14,6 +14,11 @@
             "date": 1777181240010,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/error-2026-04-26.log",
             "hash": "2710242fa54cdc48a72837b90207825d02fb0072f2de891c8c46036cab5f4b63"
+        },
+        {
+            "date": 1777265224051,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/error-2026-04-27.log",
+            "hash": "4c1e105884f8135ebfe04b86a0a81365ba6a02925303875cc370d6bca6255a0a"
         }
     ],
     "hashType": "sha256"

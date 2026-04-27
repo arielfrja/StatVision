@@ -1,103 +1,172 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Manrope:wght@200..800&family=JetBrains+Mono:wght@100..800&display=swap');
+@import "tailwindcss";
+@source "../components";
+@source "../app";
+
+@import "./analysis-table.css";
+
+@theme {
+  --color-electric: #00F3FF;
+  --color-action: #FF8C00;
+  --color-gold: #FFD700;
+  --color-stadium: #0c0e10;
+  --color-container: #161a1e;
+  --color-container-high: #1b2025;
+  --color-container-highest: #20262c;
+  --color-container-low: #111416;
+  --color-container-lowest: #0c0e10;
+  
+  --color-tx-primary: #e0e6ed;
+  --color-tx-secondary: #a6acb2;
+  --color-tx-dim: #70767c;
+  
+  --color-bd-ghost: rgba(66, 73, 78, 0.15);
+  --color-bd-active: rgba(0, 243, 255, 0.3);
+  
+  /* Simplified Typography to Inter */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-inter), ui-monospace, SFMono-Regular, monospace;
+
+  /* Explicit Spacing Scale */
+  --sp-xs: 0.25rem;
+  --sp-sm: 0.5rem;
+  --sp-md: 1rem;
+  --sp-lg: 1.5rem;
+  --sp-xl: 2rem;
+  --sp-2xl: 3rem;
+  --sp-3xl: 4rem;
+}
 
 :root {
-  /* Night Stadium Color Palette */
   --bg-stadium: #0c0e10;
   --bg-container: #161a1e;
   --bg-container-high: #1b2025;
-  --bg-container-highest: #20262c;
-  --bg-container-low: #111416;
-  
-  --primary-electric: #00D1FF;
-  --primary-glow: rgba(0, 209, 255, 0.15);
-  --secondary-action: #fe6b00;
-  --accent-gold: #D4AF37;
-  
+  --primary-electric: #00F3FF;
+  --primary-glow: rgba(0, 243, 255, 0.15);
   --text-primary: #e0e6ed;
   --text-secondary: #a6acb2;
-  --text-dim: #70767c;
   
-  --border-ghost: rgba(66, 73, 78, 0.15);
-  --border-active: rgba(0, 209, 255, 0.3);
-  
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  
-  --font-header: 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Manrope', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-
-  /* Overriding Material Web tokens where possible */
-  --md-sys-color-background: var(--bg-stadium);
-  --md-sys-color-on-background: var(--text-primary);
-  --md-sys-color-surface: var(--bg-stadium);
-  --md-sys-color-surface-container: var(--bg-container);
-  --md-sys-color-primary: var(--primary-electric);
-  --md-sys-color-on-primary: #00373a;
+  --font-header: var(--font-sans);
+  --font-body: var(--font-sans);
 }
 
+/* CSS Reset */
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
 }
 
-body {
+html, body {
+  height: 100%;
   background-color: var(--bg-stadium);
   color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* Main Layout Engine */
+.main-content-wrapper {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+  position: relative;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-header);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+@media (min-width: 768px) {
+  .main-content-wrapper {
+    padding-left: 256px;
+  }
 }
 
-/* Custom Scrollbar for the 'Night Stadium' look */
+.main-content-container {
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  flex: 1;
+}
+
+@media (max-width: 767px) {
+  .main-content-container {
+    padding: 1.25rem;
+    padding-bottom: 6rem;
+  }
+}
+
+/* Stadium UI Components */
+.stadium-card {
+  background: var(--bg-container);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(66, 73, 78, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Unified Button System */
+button, 
+md-filled-button, 
+md-outlined-button {
+  cursor: pointer;
+  font-family: var(--font-header) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  /* Add consistent internal spacing */
+  padding: 0.75rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  transition: all 0.2s ease;
+}
+
+/* Material Web Component Token Overrides */
+:root {
+  --md-filled-button-container-shape: 12px;
+  --md-filled-button-label-text-size: 14px;
+  --md-filled-button-label-text-weight: 700;
+  --md-filled-button-container-height: 48px;
+  --md-filled-button-leading-space: 24px;
+  --md-filled-button-trailing-space: 24px;
+  
+  --md-outlined-button-container-shape: 12px;
+  --md-outlined-button-label-text-size: 14px;
+  --md-outlined-button-label-text-weight: 700;
+  --md-outlined-button-container-height: 48px;
+  --md-outlined-button-outline-width: 2px;
+  --md-outlined-button-leading-space: 24px;
+  --md-outlined-button-trailing-space: 24px;
+  
+  --md-sys-color-primary: var(--primary-electric);
+}
+
+/* Typography Utilities */
+.mono-stat {
+  font-family: var(--font-mono);
+}
+
+/* Glassmorphism */
+.frosted-glass {
+  background: rgba(22, 26, 30, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
-  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: var(--bg-stadium);
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--bg-container-highest);
   border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-electric);
-}
-
-/* Glassmorphism Classes */
-.frosted-glass {
-  background: rgba(32, 38, 44, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-ghost);
-}
-
-.stadium-card {
-  background: var(--bg-container);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.stadium-card:hover {
-  background: var(--bg-container-high);
-  transform: translateY(-2px);
-}
-
-.text-electric {
-  color: var(--primary-electric);
-}
-
-.mono-stat {
-  font-family: var(--font-mono);
 }

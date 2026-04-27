@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@material/web'],
   // Removed 'output: export' to support dynamic authenticated routes and SSR
-  trailingSlash: true,
+  trailingSlash: false,
   images: {
     unoptimized: true,
   },

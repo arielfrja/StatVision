@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
+import { Team, GameType, IdentityMode } from '@/types/game';
 
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
@@ -26,6 +27,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     const { getAccessTokenSilently } = useAuth0();
     const { data: teams } = useSWR<Team[]>('/teams');
 
+    const [mounted, setMounted] = useState(false);
     const [step, setStep] = useState<Step>('METADATA');
     const [file, setFile] = useState<File | null>(null);
     const [gameName, setGameName] = useState('');
@@ -36,7 +38,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     const [homeTeamColor, setHomeTeamColor] = useState('White');
     const [awayTeamColor, setAwayTeamColor] = useState('Black');
     
-    // New States
     const [gameType, setGameType] = useState<GameType>(GameType.FULL_COURT);
     const [identityMode, setIdentityMode] = useState<IdentityMode>(IdentityMode.JERSEY_COLORS);
     const [pointValue, setPointValue] = useState<'1_AND_2' | '2_AND_3'>( '2_AND_3');
@@ -46,7 +47,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     const [progress, setProgress] = useState(0);
     const [gameId, setGameId] = useState<string | null>(null);
 
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const colors = ['White', 'Black', 'Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Navy', 'Grey'];
+
+    if (!mounted) return <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading form...</div>;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -83,7 +90,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                 location: location || undefined,
                 homeTeamId: homeTeamId || undefined,
                 awayTeamId: awayTeamId || undefined,
-                sportType,
                 gameType,
                 identityMode,
                 ruleset: {
@@ -353,31 +359,3 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 };
 
 export default UploadForm;
-k={onUploadComplete}>Return to Dashboard</md-filled-button>
-        </div>
-    );
-
-    return (
-        <div style={{ 
-            maxWidth: '800px', 
-            margin: '0 auto', 
-            padding: '32px', 
-            backgroundColor: 'var(--md-sys-color-surface-container)', 
-            borderRadius: '24px',
-            boxShadow: 'var(--shadow-elevation-2)'
-        }}>
-            {step === 'METADATA' && renderMetadataStep()}
-            {step === 'UPLOAD' && renderUploadStep()}
-            {step === 'STATUS' && renderStatusStep()}
-        </div>
-    );
-};
-
-export default UploadForm;
-
-        </div>
-    );
-};
-
-export default UploadForm;
-ult UploadForm;

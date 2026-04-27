@@ -13,12 +13,12 @@ export default function AuthenticatedLayout({
 }) {
   return (
     <AuthGuard>
-      <Header />
       <SideNav />
       <div className="main-content-wrapper">
-        <div className="main-content-container">
+        <Header />
+        <main className="main-content-container">
           {children}
-        </div>
+        </main>
       </div>
       <BottomNav />
     </AuthGuard>

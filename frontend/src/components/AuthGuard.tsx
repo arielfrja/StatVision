@@ -4,8 +4,6 @@ import { useAuth0 } from '../app/user-provider';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Loader from './Loader';
-import SideNav from './SideNav';
-import BottomNav from './BottomNav';
 
 const publicPaths = ['/', '/login']; // Only the new landing page and login are public
 
@@ -28,7 +26,11 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
     // 1. Show Loader while loading Auth0 state
     if (isLoading) {
-        return <Loader />;
+        return (
+            <div className="flex items-center justify-center h-screen bg-stadium">
+                <Loader />
+            </div>
+        );
     }
 
     // 2. If an authentication error exists and we are not on a public path, or if not authenticated and on a protected path,
@@ -37,21 +39,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
         return null;
     }
 
-    // 3. If authenticated, render the full layout with navigation.
-    // If unauthenticated but on the public path, render only the children (the unauthenticated home page).
-    if (isAuthenticated) {
-        return (
-            <>
-                <SideNav />
-                <div className="main-content-wrapper">
-                    {children}
-                </div>
-                <BottomNav />
-            </>
-        );
-    }
-
-    // 4. If unauthenticated AND on the public path ('/'), render only the children (the unauthenticated home page)
+    // 3. Just return children. The layout should be handled by the layout.tsx files.
     return <>{children}</>;
 };
 

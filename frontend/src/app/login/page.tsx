@@ -21,7 +21,7 @@ export default function LoginPage() {
   }, [isLoading, isAuthenticated, loginWithRedirect, router]);
 
   return (
-    <main className="min-h-screen bg-[var(--bg-stadium)] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <main className="min-h-screen bg-stadium flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Background Atmosphere */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-electric/10 blur-[120px] rounded-full" />
@@ -40,10 +40,10 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-6">
           <Loader />
           <div className="space-y-1">
-            <p className="text-[var(--text-secondary)] font-bold text-[10px] uppercase tracking-widest">
+            <p className="text-tx-secondary font-bold text-[10px] uppercase tracking-widest">
               {isAuthenticated ? 'Finalizing Sync' : 'Accessing Stadium Gates'}
             </p>
-            <p className="text-[var(--text-dim)] font-medium text-[9px] uppercase tracking-widest animate-pulse italic">
+            <p className="text-tx-dim font-medium text-[9px] uppercase tracking-widest animate-pulse italic">
               Preparing Player Vaults • AI Warmup
             </p>
           </div>

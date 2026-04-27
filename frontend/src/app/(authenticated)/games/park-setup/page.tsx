@@ -7,11 +7,11 @@ const ParkSetupPage = () => {
   const router = useRouter();
   const [homeColor, setHomeColor] = useState('Blue');
   const [awayColor, setAwayColor] = useState('Red');
-  const [homePlayers, setHomePlayers] = useState(['#23', '#45', '#02']);
-  const [awayPlayers, setAwayPlayers] = useState(['#11', '#00', '#32']);
+  const [homePlayers, setHomePlayers] = useState(['#--']);
+  const [awayPlayers, setAwayPlayers] = useState(['#--']);
 
   const colors = [
-    { name: 'Blue', hex: '#0052FF' },
+    { name: 'Blue', hex: '#00F3FF' },
     { name: 'Red', hex: '#FF004D' },
     { name: 'White', hex: '#FFFFFF' },
     { name: 'Black', hex: '#1A1C1E' },
@@ -19,10 +19,10 @@ const ParkSetupPage = () => {
   ];
 
   return (
-    <main className="p-4 md:p-8 max-w-4xl mx-auto pb-24 min-h-screen">
+    <div className="max-w-4xl mx-auto pb-16 min-h-screen">
       <header className="mb-10 text-center">
         <h1 className="text-4xl font-black italic tracking-tighter mb-2">QUICK START</h1>
-        <p className="text-[var(--text-dim)] font-bold uppercase text-xs tracking-widest">Park Mode • Temporary Teams</p>
+        <p className="text-tx-dim font-bold uppercase text-xs tracking-widest">Park Mode • Temporary Teams</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -30,10 +30,10 @@ const ParkSetupPage = () => {
         <section className="stadium-card border-t-4" style={{ borderColor: colors.find(c => c.name === homeColor)?.hex }}>
           <h2 className="text-xl font-bold mb-6 flex items-center justify-between uppercase">
             Team Alpha
-            <span className="text-[10px] text-[var(--text-dim)]">Home</span>
+            <span className="text-[10px] text-tx-dim">Home</span>
           </h2>
           
-          <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase mb-3">Identify Color</p>
+          <p className="text-[10px] font-bold text-tx-dim uppercase mb-3">Identify Color</p>
           <div className="flex flex-wrap gap-3 mb-8">
             {colors.map((c) => (
               <button
@@ -47,14 +47,14 @@ const ParkSetupPage = () => {
             ))}
           </div>
 
-          <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase mb-3">Roster (Jersey #)</p>
+          <p className="text-[10px] font-bold text-tx-dim uppercase mb-3">Roster (Jersey #)</p>
           <div className="grid grid-cols-4 gap-2">
             {homePlayers.map((p, i) => (
-              <div key={i} className="bg-[var(--bg-container-low)] rounded-lg py-3 text-center mono-stat font-bold text-sm border border-[var(--border-ghost)]">
+              <div key={i} className="bg-container-low rounded-lg py-3 text-center mono-stat font-bold text-sm border border-bd-ghost">
                 {p}
               </div>
             ))}
-            <button className="bg-[var(--bg-container-highest)] rounded-lg py-3 text-center border border-dashed border-[var(--border-ghost)] text-[var(--text-dim)] hover:text-white transition-colors">
+            <button className="bg-container-highest rounded-lg py-3 text-center border border-dashed border-bd-ghost text-tx-dim hover:text-white transition-colors">
               +
             </button>
           </div>
@@ -64,10 +64,10 @@ const ParkSetupPage = () => {
         <section className="stadium-card border-t-4" style={{ borderColor: colors.find(c => c.name === awayColor)?.hex }}>
           <h2 className="text-xl font-bold mb-6 flex items-center justify-between uppercase">
             Team Bravo
-            <span className="text-[10px] text-[var(--text-dim)]">Away</span>
+            <span className="text-[10px] text-tx-dim">Away</span>
           </h2>
 
-          <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase mb-3">Identify Color</p>
+          <p className="text-[10px] font-bold text-tx-dim uppercase mb-3">Identify Color</p>
           <div className="flex flex-wrap gap-3 mb-8">
             {colors.map((c) => (
               <button
@@ -81,25 +81,25 @@ const ParkSetupPage = () => {
             ))}
           </div>
 
-          <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase mb-3">Roster (Jersey #)</p>
+          <p className="text-[10px] font-bold text-tx-dim uppercase mb-3">Roster (Jersey #)</p>
           <div className="grid grid-cols-4 gap-2">
             {awayPlayers.map((p, i) => (
-              <div key={i} className="bg-[var(--bg-container-low)] rounded-lg py-3 text-center mono-stat font-bold text-sm border border-[var(--border-ghost)]">
+              <div key={i} className="bg-container-low rounded-lg py-3 text-center mono-stat font-bold text-sm border border-bd-ghost">
                 {p}
               </div>
             ))}
-            <button className="bg-[var(--bg-container-highest)] rounded-lg py-3 text-center border border-dashed border-[var(--border-ghost)] text-[var(--text-dim)] hover:text-white transition-colors">
+            <button className="bg-container-highest rounded-lg py-3 text-center border border-dashed border-bd-ghost text-tx-dim hover:text-white transition-colors">
               +
             </button>
           </div>
         </section>
       </div>
 
-      <div className="stadium-card frosted-glass mb-12 p-8 border-dashed border-2 border-[var(--border-ghost)] flex flex-col items-center justify-center gap-4 group cursor-pointer hover:border-electric transition-colors">
-        <span className="material-symbols-outlined text-5xl text-[var(--text-dim)] group-hover:text-electric transition-colors">cloud_upload</span>
+      <div className="stadium-card frosted-glass mb-12 p-8 border-dashed border-2 border-bd-ghost flex flex-col items-center justify-center gap-4 group cursor-pointer hover:border-electric transition-colors">
+        <span className="material-symbols-outlined text-5xl text-tx-dim group-hover:text-electric transition-colors">cloud_upload</span>
         <div className="text-center">
           <h3 className="font-bold uppercase tracking-tight">Drop Game Tape</h3>
-          <p className="text-xs text-[var(--text-dim)] font-semibold uppercase tracking-widest mt-1">MP4 • 4K/60FPS Recommended</p>
+          <p className="text-xs text-tx-dim font-semibold uppercase tracking-widest mt-1">MP4 • 4K/60FPS Recommended</p>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ const ParkSetupPage = () => {
       >
         Start Analysis Run
       </button>
-    </main>
+    </div>
   );
 };
 
