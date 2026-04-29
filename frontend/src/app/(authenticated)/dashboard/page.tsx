@@ -38,7 +38,8 @@ const CommandCenterPage = () => {
       {/* Header Section */}
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <p className="text-electric font-bold text-xs uppercase tracking-widest mb-1">
+          <p className="text-electric font-bold text-xs uppercase tracking-widest mb-1 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${activeGame?.status === GameStatus.PROCESSING ? 'bg-electric animate-pulse shadow-[0_0_10px_#00F3FF]' : 'bg-gold shadow-[0_0_10px_#FFD700]'}`} />
             Status: {activeGame?.status === GameStatus.PROCESSING ? 'Active Analysis' : 'Intelligence Ready'}
           </p>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">COMMAND CENTER</h1>
