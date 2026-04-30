@@ -36,6 +36,8 @@ uploads/
 tmp/
 api/src/tmp/
 worker/src/tmp/
+.vercel/
+**/ .vercel/
 
 # Tests & Other
 frontend-test/
