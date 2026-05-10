@@ -35,5 +35,5 @@ export const AppDataSource = new DataSource({
     ],
     subscribers: ["src/subscriber/**/*.ts"],
     migrationsTableName: "migrations",
-    ssl: isProduction ? { rejectUnauthorized: false } : false
+    ssl: (isProduction && process.env.DB_HOST !== 'localhost') ? { rejectUnauthorized: false } : false
 });

@@ -6,8 +6,7 @@ import { ChunkRepository } from "./ChunkRepository";
 import { ChunkStatus } from "@statvision/common";
 import { jobLogger } from '../config/loggers';
 import { VideoChunkerService } from "./VideoChunkerService";
-import { IEventBus } from '../core/interfaces/IEventBus';
-import { GameEvent, GameEventStatus } from '@statvision/common';
+import { GameEvent, GameEventStatus, IEventBus } from '@statvision/common';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 

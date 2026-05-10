@@ -1,28 +1,14 @@
 import { DataSource } from "typeorm";
-import { TeamService } from "../service/TeamService";
-import { PlayerService } from "../service/PlayerService";
-import { GameService } from "../modules/games/GameService";
-import { GameStatsService } from "../service/GameStatsService";
-import { GameAssignmentService } from "../modules/games/GameAssignmentService";
-import { GameAnalysisService } from "../modules/games/GameAnalysisService";
+import { 
+    TeamService, PlayerService, GameStatsService, 
+    TeamRepository, PlayerRepository, GameRepository, 
+    GameEventRepository, GameTeamStatsRepository, 
+    GamePlayerStatsRepository, UserRepository,
+    User, Team, ILogger, IEventBus
+} from "@statvision/common";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
-import { TeamRepository } from "../repository/TeamRepository";
-import { PlayerRepository } from "../repository/PlayerRepository";
-import { GameRepository } from "../repository/GameRepository";
-import { GameEventRepository } from "../repository/GameEventRepository";
-import { GameTeamStatsRepository } from "../repository/GameTeamStatsRepository";
-import { GamePlayerStatsRepository } from "../repository/GamePlayerStatsRepository";
-import { AppError } from "@statvision/common";
-import logger from "../config/logger";
-import { User } from "@statvision/common";
-import { Team } from "@statvision/common";
-import { UserRepository } from "../repository/UserRepository";
 import { PubSubEventBus } from "../worker/infrastructure/PubSubEventBus";
-import { IEventBus } from "../core/interfaces/IEventBus";
-import { VideoOrchestratorService } from "../worker/videoProcessorWorker";
-import { ChunkProcessorWorker } from "../worker/ChunkProcessorWorker";
-import { JobFinalizerService } from "../worker/JobFinalizerService";
-import { VideoAnalysisJobRepository } from "../worker/VideoAnalysisJobRepository";
+import { jobLogger } from "../config/loggers";
 
 export class AppContainer {
     private static instance: AppContainer;
@@ -42,57 +28,39 @@ export class AppContainer {
     }
 
     private registerServices(): void {
-        console.log("Registering Infrastructure...");
+        const commonLogger = jobLogger as unknown as ILogger;
+        
         // Infrastructure
         const eventBus = new PubSubEventBus();
         this.services.set("IEventBus", eventBus);
 
-        console.log("Registering Repositories...");
         // Repositories
-        const userRepository = new UserRepository(this.dataSource);
-        const teamRepository = new TeamRepository(this.dataSource.getRepository(Team));
-        const playerRepository = new PlayerRepository(this.dataSource);
-        const gameRepository = new GameRepository(this.dataSource);
-        const gameEventRepository = new GameEventRepository(this.dataSource);
-        const teamStatsRepository = new GameTeamStatsRepository(this.dataSource);
-        const playerStatsRepository = new GamePlayerStatsRepository(this.dataSource);
-        const videoAnalysisJobRepository = new VideoAnalysisJobRepository(this.dataSource);
+        const userRepository = new UserRepository(this.dataSource, commonLogger);
+        const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);
+        const playerRepository = new PlayerRepository(this.dataSource, commonLogger);
+        const gameRepository = new GameRepository(this.dataSource, commonLogger);
+        const gameEventRepository = new GameEventRepository(this.dataSource, commonLogger);
+        const teamStatsRepository = new GameTeamStatsRepository(this.dataSource, commonLogger);
+        const playerStatsRepository = new GamePlayerStatsRepository(this.dataSource, commonLogger);
 
-        console.log("Registering Services...");
         // Services
-        const teamService = new TeamService(this.dataSource);
-        const gameService = new GameService(this.dataSource);
+        const teamService = new TeamService(this.dataSource, commonLogger);
         
         const gameStatsService = new GameStatsService(
             gameRepository,
             teamStatsRepository,
-            playerStatsRepository
+            playerStatsRepository,
+            commonLogger
         );
         
-        const playerService = new PlayerService(this.dataSource, gameStatsService);
-        const gameAssignmentService = new GameAssignmentService(this.dataSource, gameStatsService);
-        const gameAnalysisService = new GameAnalysisService(this.dataSource);
-        
-        // VideoAnalysisResultService requires logger and gameStatsService
-        const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, logger, gameStatsService, eventBus);
+        const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
+        const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
 
-        console.log("Registering Worker Services...");
-        // Worker Services
-        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus);
-        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus);
-        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus);
-
-        console.log("Setting services map...");
+        // Registering services
         this.services.set(TeamService.name, teamService);
         this.services.set(PlayerService.name, playerService);
-        this.services.set(GameService.name, gameService);
         this.services.set(GameStatsService.name, gameStatsService);
-        this.services.set(GameAssignmentService.name, gameAssignmentService);
-        this.services.set(GameAnalysisService.name, gameAnalysisService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
-        this.services.set(JobFinalizerService.name, jobFinalizerService);
-        this.services.set(VideoOrchestratorService.name, videoOrchestratorService);
-        this.services.set(ChunkProcessorWorker.name, chunkProcessorWorker);
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);
@@ -102,14 +70,13 @@ export class AppContainer {
         this.services.set(GameEventRepository.name, gameEventRepository);
         this.services.set(GameTeamStatsRepository.name, teamStatsRepository);
         this.services.set(GamePlayerStatsRepository.name, playerStatsRepository);
-        this.services.set("VideoAnalysisJobRepository", videoAnalysisJobRepository);
     }
 
     public get<T>(serviceIdentifier: string | Function): T {
         const key = typeof serviceIdentifier === 'string' ? serviceIdentifier : serviceIdentifier.name;
         const service = this.services.get(key);
         if (!service) {
-            throw new AppError(`Service ${key} not found. Make sure it's registered in AppContainer.`, 500);
+            throw new Error(`Service ${key} not found.`);
         }
         return service as T;
     }

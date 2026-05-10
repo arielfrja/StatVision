@@ -1,21 +1,16 @@
 import { DataSource } from "typeorm";
-import { TeamService } from "../service/TeamService";
-import { PlayerService } from "../service/PlayerService";
+import { 
+    TeamService, PlayerService, GameStatsService, 
+    TeamRepository, PlayerRepository, GameRepository, 
+    GameEventRepository, GameTeamStatsRepository, 
+    GamePlayerStatsRepository, UserRepository,
+    AppError, User, Team, ILogger
+} from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
-import { GameStatsService } from "../service/GameStatsService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
 import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
-import { TeamRepository } from "../repository/TeamRepository";
-import { PlayerRepository } from "../repository/PlayerRepository";
-import { GameRepository } from "../repository/GameRepository";
-import { GameEventRepository } from "../repository/GameEventRepository";
-import { GameTeamStatsRepository } from "../repository/GameTeamStatsRepository";
-import { GamePlayerStatsRepository } from "../repository/GamePlayerStatsRepository";
-import { AppError } from "@statvision/common";
 import logger from "../config/logger";
-import { User, Team } from "@statvision/common";
-import { UserRepository } from "../repository/UserRepository";
 import { IEventBus } from "../core/interfaces/IEventBus";
 
 // Simple mock for API to compile
@@ -49,31 +44,32 @@ export class AppContainer {
         // Infrastructure
         const eventBus = new MockEventBus();
         this.services.set("IEventBus", eventBus);
+        const commonLogger = logger as unknown as ILogger;
 
         // Repositories
-        const userRepository = new UserRepository(this.dataSource);
-        const teamRepository = new TeamRepository(this.dataSource.getRepository(Team));
-        const playerRepository = new PlayerRepository(this.dataSource);
-        const gameRepository = new GameRepository(this.dataSource);
-        const gameEventRepository = new GameEventRepository(this.dataSource);
-        const teamStatsRepository = new GameTeamStatsRepository(this.dataSource);
-        const playerStatsRepository = new GamePlayerStatsRepository(this.dataSource);
+        const userRepository = new UserRepository(this.dataSource, commonLogger);
+        const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);
+        const playerRepository = new PlayerRepository(this.dataSource, commonLogger);
+        const gameRepository = new GameRepository(this.dataSource, commonLogger);
+        const gameEventRepository = new GameEventRepository(this.dataSource, commonLogger);
+        const teamStatsRepository = new GameTeamStatsRepository(this.dataSource, commonLogger);
+        const playerStatsRepository = new GamePlayerStatsRepository(this.dataSource, commonLogger);
 
         // Services
-        const teamService = new TeamService(this.dataSource);
+        const teamService = new TeamService(this.dataSource, commonLogger);
         const gameService = new GameService(this.dataSource);
         
         const gameStatsService = new GameStatsService(
             gameRepository,
             teamStatsRepository,
-            playerStatsRepository
+            playerStatsRepository,
+            commonLogger
         );
         
-        const playerService = new PlayerService(this.dataSource, gameStatsService);
+        const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const gameAssignmentService = new GameAssignmentService(this.dataSource, gameStatsService);
         const gameAnalysisService = new GameAnalysisService(this.dataSource);
         
-        // VideoAnalysisResultService requires logger and gameStatsService
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, logger, gameStatsService, eventBus);
 
         // Registering services

@@ -1,139 +1,65 @@
 # StatVision 🏀✨
 
-StatVision is an AI-powered basketball analytics platform designed to transform raw game footage into actionable statistics. By leveraging modern web technologies and the power of Google's Gemini 3 AI, it provides teams and players with deep insights into their performance.
+**AI-Powered Basketball Analytics Platform**
 
-This monorepo contains the full-stack application, including the Next.js frontend, the Express backend API, and the decoupled video processing worker.
-
-## Core Features
-
--   **Secure Authentication**: User registration and login handled by Auth0 for robust security.
--   **Team & Roster Management**: Create teams and manage player rosters with details like jersey numbers and positions.
--   **AI-Powered Video Analysis**: Gemini 3 powered worker service with **Chat-Based Sequential Analysis** for high-accuracy event detection (shots, rebounds, assists, fouls, etc.).
--   **Asynchronous Processing**: A decoupled worker architecture using Google Cloud Pub/Sub ensures the UI remains responsive while intensive video analysis happens in the background.
--   **Interactive Dashboard**: View detailed game analysis, including a play-by-play feed that syncs with video playback.
--   **Automated Box Scores**: After analysis, the system generates detailed, sortable box scores and advanced statistics for teams and players.
--   **Data-Rich Entities**: A comprehensive data model captures everything from granular game events to materialized team and player stats.
+StatVision transforms raw game footage into professional-grade box scores and play-by-play insights using computer vision and the power of Google's Gemini AI.
 
 ---
 
-## Architecture Overview
-
-StatVision employs a decoupled, service-oriented architecture to handle long-running analysis tasks without blocking the user interface.
-
--   **Frontend**: A modern web application built with **Next.js 15** and **React**. It uses Material Web Components and Auth0 for authentication.
--   **Backend API**: An **Express.js** server providing RESTful endpoints. It orchestrates analysis by publishing jobs to Pub/Sub.
--   **Video Processing Worker**: A Node.js process using **Gemini 3 Chat Mode**. It maintains state across 2-minute video chunks to ensure sequential accuracy and context awareness.
--   **Database**: **PostgreSQL** (hosted on Supabase) managed by **TypeORM**.
--   **Message Queue**: **Google Cloud Pub/Sub** for reliable service decoupling.
--   **AI Service**: **Google Gemini 3 (gemini-3-flash-preview)** utilizing externalized markdown prompts and sequential chat history.
-
-```mermaid
-graph TD
-    A[Frontend UI<br>(Next.js)] -->|1. Upload Video & Metadata| B(Backend API<br>(Express.js));
-    B -->|2. Save File & Publish Job| C(Google Cloud Pub/Sub<br>video-upload-events);
-    B -->|Responds Immediately| A;
-    C -->|3. Consume Job| D(Video Processing Worker);
-    D -->|4. Chunk Video & Sequential Analysis| E(Google Gemini 3 API);
-    E -->|5. Chat-Based Results| D;
-    D -->|6. Publish Final Result| H(Pub/Sub<br>video-analysis-results);
-    H -->|7. Consume Result & Store| B;
-    B -->|8. Write to DB| F(PostgreSQL Database);
-    A -->|9. Fetch Game Data| B;
-    B -->|10. Read from DB| F;
-```
+## 🚀 Key Links
+- **Product Strategy:** [docs/product/STRATEGY.md](docs/product/STRATEGY.md)
+- **Master Roadmap:** [docs/product/MASTER_ROADMAP.md](docs/product/MASTER_ROADMAP.md)
+- **Technical Architecture:** [docs/technical/SAD.md](docs/technical/SAD.md)
+- **Project History:** [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md)
+- **API Documentation:** `http://localhost:3000/api-docs` (when running locally)
 
 ---
 
-## Technology Stack
-
-- **Frontend:** Next.js 15, TypeScript, Auth0, Tailwind CSS, Material Web, Playwright.
-- **Backend:** Node.js, Express, TypeScript, PostgreSQL (Supabase), TypeORM.
-- **AI & Infra:** Google Gemini 3, Google Cloud Pub/Sub, FFmpeg, Cloud Run.
+## 🌟 Core Features
+- **AI-Powered Event Detection:** Automated tracking of shots, rebounds, assists, fouls, and more.
+- **Human-in-the-Loop Verification:** Seamlessly map AI-detected jersey numbers to your official roster.
+- **Interactive Dashboard:** Chronological play-by-play feed synced with video playback.
+- **Advanced Analytics:** Auto-calculated efficiency metrics like eFG% and TS%.
+- **Secure Monorepo:** Next.js frontend, Express API, and a decoupled video worker.
 
 ---
 
-## Getting Started
+## 🛠 Technology Stack
+- **Frontend:** Next.js 15, TypeScript, Tailwind CSS, Material Web.
+- **Backend:** Node.js, Express, TypeORM, PostgreSQL (Supabase).
+- **Worker:** Node.js, FFmpeg, Google Cloud Pub/Sub.
+- **AI:** Google Gemini 3 (gemini-3.1-flash).
+
+---
+
+## 📖 Documentation Structure
+We maintain a clean documentation hierarchy in the `docs/` directory:
+- **`docs/product/`**: Strategy, roadmaps, and requirements.
+- **`docs/technical/`**: Architecture, database schema, and infrastructure.
+- **`docs/archive/`**: Historical notes and briefs.
+
+---
+
+## 💻 Getting Started
 
 ### Prerequisites
+- Node.js (v18+)
+- FFmpeg installed in PATH.
+- Google Cloud Project with Gemini & Pub/Sub enabled.
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [FFmpeg](https://ffmpeg.org/) installed in PATH.
-- [PostgreSQL](https://www.postgresql.org/) (or a Supabase project).
-- Google Cloud Project with Pub/Sub and Gemini APIs enabled.
+### Quick Start
+We provide master scripts in the `scripts/` directory for unified control:
 
-### 1. Environment Setup
+- **Build everything (Production):** `npm run master:build`
+- **Run all services (Development/Debug):** `npm run master:run`
+- **Start all services (Production - Requires Build):** `npm run master:start`
+- **Clean restart everything:** `npm run master:restart`
 
-#### Backend (`/backend/.env`)
-```env
-PORT=3000
-USE_MOCK_AUTH=true # Set to false for production Auth0
-
-# Database
-DB_HOST=your_db_host
-DB_PORT=5432
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-DB_DATABASE=statsvision_db
-# OR
-DATABASE_URL=postgresql://user:pass@host:port/db
-
-# Auth0 (Only if USE_MOCK_AUTH=false)
-AUTH0_JWKS_URI=https://your-tenant.auth0.com/.well-known/jwks.json
-AUTH0_AUDIENCE=your_api_identifier
-AUTH0_ISSUER=https://your-tenant.auth0.com/
-
-# Google Cloud
-GCP_PROJECT_ID=your-project-id
-GEMINI_API_KEY=your-api-key
-```
-
-#### Frontend (`/frontend/.env.local`)
-```env
-NEXT_PUBLIC_USE_MOCK_AUTH=true
-NEXT_PUBLIC_AUTH0_DOMAIN=your-tenant.auth0.com
-NEXT_PUBLIC_AUTH0_CLIENT_ID=your-client-id
-NEXT_PUBLIC_AUTH0_AUDIENCE=your-api-identifier
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
-```
-
-### 2. Installation & Run
-
-```bash
-# Install root dependencies (if any) or project-specific
-cd backend && npm install
-cd ../frontend && npm install
-
-# Initialize Database
-cd ../backend
-npm run typeorm migration:run
-
-# Start Services
-# Terminal 1: API
-npm run start:dev
-
-# Terminal 2: Worker
-npm run start:worker
-
-# Terminal 3: Frontend
-cd ../frontend
-npm run dev
-```
+*Note: `master:run` uses `ts-node` for live development, while `master:start` runs the compiled JavaScript from the `build` folders.*
 
 ---
 
-## Deployment
-
-StatVision is configured for automated deployment via GitHub Actions:
-
-- **Frontend:** Deployed to **Firebase Hosting**.
-- **Backend (API & Worker):** Containerized and deployed to **Google Cloud Run**.
-- **Database:** Hosted on **Supabase**.
-
-Pushing to `main` triggers the `.github/workflows/deploy.yml` pipeline.
-
----
-
-## API Documentation
-
-Once the backend is running, access the interactive Swagger docs at:
-**`http://localhost:3000/api-docs`**
+## ☁️ Deployment
+Automated via GitHub Actions to:
+- **Firebase Hosting** (Frontend)
+- **Google Cloud Run** (Backend API & Worker)

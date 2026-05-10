@@ -1,68 +1,34 @@
 import { DataSource } from "typeorm";
-import { GameEventRepository } from "../../repository/GameEventRepository";
-import { GameStatsService } from "../../service/GameStatsService";
-import { GameRepository } from "../../repository/GameRepository";
-import { GameStatus } from "@statvision/common";
-import logger from "../../config/logger";
-
-interface AssignmentData {
-    teamMappings: { tempTeamId: string; officialTeamId: string }[];
-    playerMappings: { tempPlayerId: string; officialPlayerId: string }[];
-}
+import { GameEventRepository, GameStatsService, GameRepository, GameEvent } from "@statvision/common";
+import { jobLogger as logger } from "../../config/loggers";
 
 export class GameAssignmentService {
     private gameEventRepository: GameEventRepository;
     private gameRepository: GameRepository;
-    private gameStatsService: GameStatsService;
 
-    constructor(private dataSource: DataSource, gameStatsService: GameStatsService) {
+    constructor(
+        private dataSource: DataSource,
+        private gameStatsService: GameStatsService
+    ) {
         this.gameEventRepository = new GameEventRepository(dataSource);
         this.gameRepository = new GameRepository(dataSource);
-        this.gameStatsService = gameStatsService;
     }
 
-    async assignEntities(gameId: string, data: AssignmentData): Promise<void> {
-        logger.info(`GameAssignmentService: Starting assignment for game ${gameId}.`);
+    async assignEntity(gameId: string, tempId: string, realId: string, type: 'team' | 'player', userId: string): Promise<void> {
+        logger.info(`GameAssignmentService: Assigning temp ${type} ${tempId} to real ID ${realId} for game ${gameId}`);
 
-        // Transactional assignment
+        const game = await this.gameRepository.findOneByIdAndUserId(gameId, userId);
+        if (!game) throw new Error("Game not found or unauthorized.");
+
         await this.dataSource.transaction(async (transactionalEntityManager) => {
-             // 1. Update GameEvents in batch
-            // Note: GameEventRepository methods might need to be transaction-aware or we use the transactionalEntityManager directly
-            // For now, assuming the repository handles the simple updates, but ideally we pass the manager.
-            // A better pattern:
-            
-            for (const teamMap of data.teamMappings) {
-                await transactionalEntityManager.createQueryBuilder()
-                    .update("GameEvent")
-                    .set({ assignedTeamId: teamMap.officialTeamId })
-                    .where("gameId = :gameId", { gameId })
-                    .andWhere("assignedTeamId = :tempTeamId", { tempTeamId: teamMap.tempTeamId })
-                    .execute();
-            }
-
-            for (const playerMap of data.playerMappings) {
-                 await transactionalEntityManager.createQueryBuilder()
-                    .update("GameEvent")
-                    .set({ assignedPlayerId: playerMap.officialPlayerId })
-                    .where("gameId = :gameId", { gameId })
-                    .andWhere("assignedPlayerId = :tempPlayerId", { tempPlayerId: playerMap.tempPlayerId })
-                    .execute();
+            if (type === 'team') {
+                await transactionalEntityManager.update(GameEvent, { gameId, assignedTeamId: tempId }, { assignedTeamId: realId });
+            } else {
+                await transactionalEntityManager.update(GameEvent, { gameId, assignedPlayerId: tempId }, { assignedPlayerId: realId });
             }
         });
 
-        // 2. Clear existing stats
-        await this.gameStatsService.clearStatsForGame(gameId);
-
-        // 3. Recalculate stats
         await this.gameStatsService.calculateAndStoreStats(gameId);
-
-        // 4. Update Game status to COMPLETED if it was ANALYZED
-        // We need to fetch the current status first
-        const game = await this.gameRepository.findOneWithDetailsInternal(gameId);
-        if (game && game.status === GameStatus.ANALYZED) {
-            await this.gameRepository.updateStatus(gameId, GameStatus.COMPLETED);
-        }
-
-        logger.info(`GameAssignmentService: Assignment and stats recalculation complete for game ${gameId}.`);
+        logger.info(`GameAssignmentService: Assignment and stat recalculation complete.`);
     }
 }

@@ -21,10 +21,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="stylesheet" href="/material-symbols.css" />
-      </head>
       <body className={`${inter.variable} antialiased`}>
+        <link rel="stylesheet" href="/material-symbols.css" />
         <UserProviderWrapper>
           <ErudaInit />
           {children}

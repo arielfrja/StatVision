@@ -11,14 +11,26 @@ export interface AnalysisResult {
     events: any[];
     rawResponse: string;
     updatedHistory?: any[];
-    error?: {
-        message: string;
-        stack?: string;
-    };
+    status?: 'fulfilled' | 'rejected';
+    error?: any;
 }
+
+export interface AnalysisProviderResponse extends AnalysisResult {}
 
 export interface IVideoIntelligenceProvider {
     analyzeVideoChunk(
+        chunk: VideoChunkInfo,
+        knownPlayers: IdentifiedPlayer[],
+        knownTeams: IdentifiedTeam[],
+        visualContext?: string,
+        gameType?: GameType,
+        identityMode?: IdentityMode,
+        chatHistory?: any[]
+    ): Promise<AnalysisResult>;
+}
+
+export interface IVideoAnalysisProvider extends IVideoIntelligenceProvider {
+    analyzeChunk(
         chunk: VideoChunkInfo,
         knownPlayers: IdentifiedPlayer[],
         knownTeams: IdentifiedTeam[],

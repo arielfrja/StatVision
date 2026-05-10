@@ -8,10 +8,18 @@
     "frontend"
   ],
   "scripts": {
+    "master:build": "./scripts/build-all.sh",
+    "master:run": "./scripts/run-all.sh",
+    "master:start": "./scripts/start-all.sh",
+    "master:restart": "./scripts/restart-all.sh",
     "api:dev": "npm run dev -w api",
     "worker:dev": "npm run dev -w worker",
     "frontend:dev": "npm run dev -w frontend",
     "build": "npm run build -w common && npm run build -w api && npm run build -w worker",
     "test": "npm test --workspaces"
+  },
+  "overrides": {
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
   }
 }

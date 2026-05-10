@@ -40,6 +40,10 @@ export class ChunkRepository {
         return this.repository.save(chunk);
     }
 
+    async find(options: import("typeorm").FindManyOptions<Chunk>): Promise<Chunk[]> {
+        return this.repository.find(options);
+    }
+
     async updateStatus(chunkId: string, status: ChunkStatus): Promise<void> {
         await this.repository.update(chunkId, { status });
     }

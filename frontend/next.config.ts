@@ -1,8 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   transpilePackages: ['@material/web'],
-  // Removed 'output: export' to support dynamic authenticated routes and SSR
   trailingSlash: false,
   images: {
     unoptimized: true,

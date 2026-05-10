@@ -4,15 +4,15 @@ import { DataSource } from 'typeorm';
 import { chunkLogger } from '../config/loggers';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { ChunkRepository } from './ChunkRepository';
-import { IVideoAnalysisProvider } from '../core/interfaces/IVideoAnalysisProvider';
 import { AnalysisProviderFactory } from './providers/AnalysisProviderFactory';
-import { IEventBus } from '../core/interfaces/IEventBus';
 import { EventProcessorService } from './EventProcessorService';
 import { JobFinalizerService } from './JobFinalizerService';
 import { workerConfig } from '../config/workerConfig';
-import { Chunk, ChunkStatus } from '@statvision/common';
-import { VideoAnalysisJobStatus } from '@statvision/common';
-import { IdentifiedPlayer, IdentifiedTeam } from '../core/interfaces/video-analysis.interfaces';
+import { 
+    Chunk, ChunkStatus, VideoAnalysisJobStatus, 
+    IdentifiedPlayer, IdentifiedTeam, 
+    IEventBus, IVideoAnalysisProvider 
+} from '@statvision/common';
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -48,264 +48,159 @@ export class ChunkProcessorWorker {
         this.logger.info('ChunkProcessorWorker: Starting to consume messages from Pub/Sub...', { phase: 'analyzing' });
         
         await this.eventBus.subscribe(CHUNK_ANALYSIS_SUBSCRIPTION_NAME, async (parsedMessage: ChunkMessage, message: Message) => {
-            this.logger.info(`Received chunk message ${message.id}:`, { phase: 'analyzing' });
+            this.logger.info(`Received analysis request for chunk ${parsedMessage.chunkId} of job ${parsedMessage.jobId}`, { phase: 'analyzing' });
             
             let heartbeat: NodeJS.Timeout | null = null;
-            const extendAckDeadline = () => {
+            const extendAckDeadline = async () => {
+                this.logger.debug(`Extending ack deadline for message ${message.id}`, { phase: 'analyzing' });
                 message.modAck(workerConfig.ackDeadlineSeconds);
-                this.logger.debug(`Extended ack deadline for chunk message ${message.id}`, { phase: 'analyzing' });
             };
 
-            heartbeat = setInterval(extendAckDeadline, workerConfig.heartbeatIntervalSeconds * 1000);
-
-            let chunk: Chunk | null = null;
-            let jobId: string | null = null;
-
             try {
-                jobId = parsedMessage.jobId;
-                const { chunkId } = parsedMessage;
+                heartbeat = setInterval(extendAckDeadline, workerConfig.heartbeatIntervalSeconds * 1000);
 
-                // Retry logic for fetching chunk
-                let retryCount = 0;
-                const maxRetries = 3;
-                while (retryCount < maxRetries) {
-                    chunk = await this.chunkRepository.findOneById(chunkId);
-                    if (chunk) break;
-
-                    this.logger.warn(`Chunk ${chunkId} not found for job ${jobId}. Retrying (${retryCount + 1}/${maxRetries})...`, { phase: 'analyzing' });
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    retryCount++;
-                }
-
-                if (!chunk) {
-                    // Check if the job itself is valid and active before Nacking
-                    const job = await this.jobRepository.findOneById(jobId);
-
-                    if (!job) {
-                        this.logger.warn(`Job ${jobId} not found for chunk message ${chunkId}. Message is orphaned. Acknowledging.`, { phase: 'analyzing' });
-                        message.ack();
-                        return;
-                    }
-
-                    if (job.status === VideoAnalysisJobStatus.COMPLETED || job.status === VideoAnalysisJobStatus.FAILED) {
-                        this.logger.info(`Job ${jobId} is already in terminal state (${job.status}). Ignoring missing chunk ${chunkId}. Acknowledging.`, { phase: 'analyzing' });
-                        message.ack();
-                        return;
-                    }
-
-                    this.logger.error(`Chunk ${chunkId} not found for active job ${jobId} after ${maxRetries} retries. Nacking message.`, { phase: 'analyzing' });
-                    message.nack();
-                    return;
-                }
-
-                if (chunk.status === ChunkStatus.COMPLETED || chunk.status === ChunkStatus.FAILED) {
-                    this.logger.info(`Chunk ${chunkId} for job ${jobId} is already in a terminal state: ${chunk.status}. Skipping analysis.`, { phase: 'analyzing' });
-                    message.ack();
-                    return;
-                }
-
-                // --- Queue Indexing Logic for Sequential Mode ---
-                if (this.processingMode === 'SEQUENTIAL' && chunk.sequence > 0) {
-                    const previousChunk = await this.chunkRepository.findByJobIdAndSequence(jobId, chunk.sequence - 1);
-                    if (!previousChunk) {
-                        this.logger.error(`[SEQUENTIAL] Previous chunk (sequence ${chunk.sequence - 1}) for job ${jobId} not found for chunk ${chunk.sequence}. This indicates a data inconsistency. Nacking.`, { phase: 'analyzing' });
-                        message.nack(); // Nack to retry later, hoping consistency is restored
-                        if (heartbeat) clearInterval(heartbeat);
-                        return;
-                    }
-
-                    if (previousChunk.status !== ChunkStatus.COMPLETED) {
-                        this.logger.info(`[SEQUENTIAL] Previous chunk (sequence ${previousChunk.sequence}) for job ${jobId} is not yet COMPLETED (status: ${previousChunk.status}). Nacking message for chunk ${chunk.sequence}.`, { phase: 'analyzing' });
-                        message.nack(); // Nack to retry later
-                        if (heartbeat) clearInterval(heartbeat);
-                        return;
-                    }
-                    this.logger.info(`[SEQUENTIAL] Previous chunk (sequence ${previousChunk.sequence}) for job ${jobId} is COMPLETED. Proceeding with chunk ${chunk.sequence}.`, { phase: 'analyzing' });
+                await this.processChunk(parsedMessage);
                 
-                } else if (this.processingMode === 'PARALLEL') {
-                    // --- WIP-Limit per Stage Logic for Parallel Mode ---
-                    const stageLimit = workerConfig.parallelStageLimit;
-                    const analyzingInStage = await this.chunkRepository.countAnalyzingChunksForSequence(chunk.sequence);
-
-                    if (analyzingInStage >= stageLimit) {
-                        this.logger.info(`[PARALLEL_WIP] Stage ${chunk.sequence} is at capacity (${analyzingInStage}/${stageLimit}). Nacking message for chunk ${chunk.sequence} of job ${jobId}.`, { phase: 'analyzing' });
-                        message.nack();
-                        if (heartbeat) clearInterval(heartbeat);
-                        return;
-                    }
-                    this.logger.info(`[PARALLEL_WIP] Stage ${chunk.sequence} has capacity (${analyzingInStage}/${stageLimit}). Proceeding with chunk ${chunk.sequence} of job ${jobId}.`, { phase: 'analyzing' });
-                }
-                // --- End Concurrency Logic ---
-
-                this.logger.info(`[CHUNK_PROCESSOR] Processing chunk ${chunk.sequence} (ID: ${chunk.id}) for job ${jobId}`, { phase: 'analyzing' });
-
-                ProgressManager.getInstance().startIndeterminateBar(chunk.id, 'Analyzing', `Chunk ${chunk.sequence}`); // MODIFIED LINE
-
-                chunk.status = ChunkStatus.ANALYZING;
-                await this.chunkRepository.update(chunk);
-
-                const job = await this.jobRepository.findOneById(jobId);
-                if (!job) {
-                    this.logger.error(`Job ${jobId} not found for chunk ${chunkId}. Marking chunk as FAILED.`, { phase: 'analyzing' });
-                    chunk.status = ChunkStatus.FAILED;
-                    await this.chunkRepository.update(chunk);
-                    message.ack();
-                    ProgressManager.getInstance().stopChunkBar(chunk.id);
-                    return;
-                }
-
-                // Initialize missing variables for identifying players and teams
-                let identifiedPlayers: IdentifiedPlayer[] = [];
-                let identifiedTeams: IdentifiedTeam[] = [];
-                let processedEventKeys: Set<string> = new Set();
-
-                // If not the first chunk, we should inherit context from previous chunks
-                if (chunk.sequence > 0) {
-                    const previousChunk = await this.chunkRepository.findByJobIdAndSequence(jobId, chunk.sequence - 1);
-                    if (previousChunk) {
-                        identifiedPlayers = previousChunk.identifiedPlayers || [];
-                        identifiedTeams = previousChunk.identifiedTeams || [];
-                        // We might also need to populate processedEventKeys if that's shared across chunks.
-                        // Assuming processedEventKeys tracks unique events across chunks to avoid duplicates.
-                    }
-                }
-
-                // Fetch visualContext and chatHistory from the Game and Job entities
-                const game = await this.dataSource.getRepository("Game").findOne({ where: { id: job.gameId } }) as any;
-                const visualContextString = game?.visualContext ? JSON.stringify(game.visualContext, null, 2) : 'No specific visual context provided.';
-                const gameType = game?.gameType;
-                const identityMode = game?.identityMode;
-                const chatHistory = job.chatHistory || [];
-
-                const videoChunkInfo = {
-                    chunkPath: chunk.chunkPath,
-                    startTime: chunk.startTime,
-                    sequence: chunk.sequence
-                };
-
-                const result = await this.analysisProvider.analyzeChunk(
-                    videoChunkInfo as any, 
-                    identifiedPlayers, 
-                    identifiedTeams, 
-                    visualContextString,
-                    gameType,
-                    identityMode,
-                    chatHistory
-                );
-
-                ProgressManager.getInstance().stopChunkBar(chunk.id);
-
-                if (result.status === 'fulfilled') {
-                    // Save the raw response before any filtering occurs.
-                    chunk.rawGeminiResponse = result.rawResponse;
-
-                    const processedResult = this.eventProcessorService.processEvents(
-                        result.events,
-                        job.gameId,
-                        videoChunkInfo,
-                        workerConfig.chunkDurationSeconds,
-                        workerConfig.chunkOverlapSeconds,
-                        processedEventKeys,
-                        identifiedPlayers,
-                        identifiedTeams,
-                        gameType,
-                        identityMode
-                    );
-                    
-                    chunk.identifiedPlayers = processedResult.updatedIdentifiedPlayers;
-                    chunk.identifiedTeams = processedResult.updatedIdentifiedTeams;
-                    chunk.processedEvents = processedResult.finalEvents;
-
-                    // Publish chunk results for live streaming
-                    try {
-                        const resultMessage = {
-                            jobId: job.id,
-                            gameId: job.gameId,
-                            userId: job.userId,
-                            chunkId: chunk.id,
-                            sequence: chunk.sequence,
-                            processedEvents: chunk.processedEvents,
-                            identifiedPlayers: chunk.identifiedPlayers,
-                            identifiedTeams: chunk.identifiedTeams,
-                            isFinalResult: false // This is a partial result
-                        };
-                        await this.eventBus.publish(workerConfig.chunkAnalysisResultsTopicName, resultMessage);
-                        this.logger.info(`[CHUNK_PROCESSOR] Published live results for chunk ${chunk.sequence} to topic ${workerConfig.chunkAnalysisResultsTopicName}`, { phase: 'analyzing' });
-                    } catch (publishError: any) {
-                        this.logger.error(`[CHUNK_PROCESSOR] Failed to publish live results for chunk ${chunk.sequence}: ${publishError.message}`, { phase: 'analyzing' });
-                    }
-
-                    // Update job's chat history
-                    if (result.updatedHistory) {
-                        job.chatHistory = result.updatedHistory;
-                        await this.jobRepository.update(job.id, { chatHistory: result.updatedHistory });
-                    }
-
-                    chunk.status = ChunkStatus.COMPLETED;
-                    this.logger.info(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) completed successfully.`, { phase: 'analyzing' });
-                    ProgressManager.getInstance().updateJob(jobId, 1, `Chunk ${chunk.sequence} analyzed`);
-                } else {
-                    const errorMessage = result.error?.message || 'Unknown Gemini analysis error';
-                    const errorStack = result.error?.stack || 'No stack trace available.';
-                    chunk.status = ChunkStatus.FAILED;
-                    this.logger.error(`[CHUNK_PROCESSOR] Chunk ${chunk.sequence} (ID: ${chunk.id}) failed Gemini analysis with error: ${errorMessage}`, {
-                        error: {
-                            message: errorMessage,
-                            stack: errorStack,
-                            jobId: job.id,
-                            chunkId: chunk.id,
-                            sequence: chunk.sequence,
-                        },
-                        phase: 'analyzing'
-                    });
-                    chunk.failureReason = errorMessage;
-                }
-                
-                await this.chunkRepository.update(chunk);
-                message.ack();
-
-            } catch (error: any) {
-                const errorMessage = error.message || 'An unknown error occurred during chunk processing.';
-                const errorStack = error.stack || 'No stack trace available.';
-                this.logger.error(`Error processing chunk message ${message.id} for chunk ${chunk?.id}.`, {
-                    error: {
-                        message: errorMessage,
-                        stack: errorStack,
-                        jobId: jobId,
-                        chunkId: chunk?.id,
-                        messageId: message.id,
-                    },
-                    phase: 'analyzing'
-                });
-                ProgressManager.getInstance().stopChunkBar(chunk?.id);
-                if (chunk) {
-                    chunk.status = ChunkStatus.FAILED;
-                    this.logger.error(`Error processing chunk message ${message.id} for chunk ${chunk?.id} with error: ${errorMessage}`, {
-                        error: {
-                            message: errorMessage,
-                            stack: errorStack,
-                            jobId: jobId,
-                            chunkId: chunk?.id,
-                            messageId: message.id,
-                        },
-                        phase: 'analyzing'
-                    });
-                    chunk.failureReason = errorMessage;
-                    await this.chunkRepository.update(chunk);
-                }
-                message.ack(); // Ack the message, failure is recorded, finalizer will handle job status.
-            } finally {
                 if (heartbeat) clearInterval(heartbeat);
-                if (jobId) {
-                    // Always attempt to finalize the job after processing a chunk
-                    await this.jobFinalizerService.finalizeJob(jobId);
-                }
+                message.ack();
+            } catch (error: any) {
+                if (heartbeat) clearInterval(heartbeat);
+                this.logger.error(`Error processing chunk:`, { error, phase: 'analyzing' });
+                message.nack();
             }
         }, {
             flowControl: {
-                maxMessages: 1, // Only process one message at a time
+                maxMessages: 1, 
             },
         });
     }
-}
 
+    private async processChunk(message: ChunkMessage): Promise<void> {
+        const { jobId, chunkId } = message;
+
+        const job = await this.jobRepository.findOneById(jobId);
+        if (!job) {
+            this.logger.error(`Job ${jobId} not found for chunk ${chunkId}`, { phase: 'analyzing' });
+            return;
+        }
+
+        const chunk = await this.chunkRepository.findOneById(chunkId);
+        if (!chunk) {
+            this.logger.error(`Chunk ${chunkId} not found.`, { phase: 'analyzing' });
+            return;
+        }
+
+        if (chunk.status === ChunkStatus.COMPLETED) {
+            this.logger.info(`Chunk ${chunkId} is already COMPLETED. Skipping.`, { phase: 'analyzing' });
+            return;
+        }
+
+        this.logger.info(`[CHUNK_PROCESSOR] Analyzing chunk ${chunk.sequence} for Job ${jobId}`, { phase: 'analyzing' });
+        chunk.status = ChunkStatus.ANALYZING;
+        await this.chunkRepository.update(chunk);
+
+        try {
+            const gameRepository = this.dataSource.getRepository('games') as any;
+            const game = await gameRepository.findOne({ where: { id: job.gameId } });
+            
+            if (!game) throw new Error("Game not found for job.");
+
+            // Prepare visual context and entities
+            const visualContextString = game.visualContext ? JSON.stringify(game.visualContext) : '';
+            const identifiedPlayers: IdentifiedPlayer[] = job.identifiedPlayers || [];
+            const identifiedTeams: IdentifiedTeam[] = job.identifiedTeams || [];
+
+            // Get chat history from previous chunks if in sequential mode
+            let chatHistory: any[] = [];
+            if (this.processingMode === 'sequential' && chunk.sequence > 0) {
+                const previousChunks = await this.chunkRepository.find({
+                    where: { jobId, status: ChunkStatus.COMPLETED },
+                    order: { sequence: 'ASC' }
+                });
+                
+                // Reconstruct history from successful chunks
+                for (const prev of previousChunks) {
+                    if (prev.rawGeminiResponse) {
+                        chatHistory.push({
+                            role: "user",
+                            parts: [{ text: `Process chunk ${prev.sequence}` }]
+                        });
+                        chatHistory.push({
+                            role: "model",
+                            parts: [{ text: prev.rawGeminiResponse }]
+                        });
+                    }
+                }
+            }
+
+            const analysisResult = await this.analysisProvider.analyzeVideoChunk(
+                {
+                    chunkPath: chunk.chunkPath,
+                    startTime: chunk.startTime,
+                    sequence: chunk.sequence
+                },
+                identifiedPlayers,
+                identifiedTeams,
+                visualContextString,
+                game.gameType,
+                game.identityMode,
+                chatHistory
+            );
+
+            const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(
+                analysisResult.events,
+                job.gameId,
+                { startTime: chunk.startTime, sequence: chunk.sequence },
+                workerConfig.chunkDurationSeconds,
+                workerConfig.chunkOverlapSeconds,
+                new Set(), 
+                identifiedPlayers,
+                identifiedTeams,
+                game.gameType,
+                game.identityMode
+            );
+
+            chunk.status = ChunkStatus.COMPLETED;
+            chunk.processedEvents = finalEvents;
+            chunk.identifiedPlayers = updatedIdentifiedPlayers;
+            chunk.identifiedTeams = updatedIdentifiedTeams;
+            chunk.rawGeminiResponse = analysisResult.rawResponse;
+            await this.chunkRepository.update(chunk);
+
+            // Update Job with potentially new identified entities
+            await this.jobRepository.update(jobId, {
+                identifiedPlayers: updatedIdentifiedPlayers,
+                identifiedTeams: updatedIdentifiedTeams
+            });
+
+            const progressManager = ProgressManager.getInstance();
+            progressManager.updateJob(jobId, 1, `Chunk ${chunk.sequence + 1} analyzed.`);
+
+            // Publish live result
+            const resultMessage = {
+                jobId,
+                gameId: job.gameId,
+                userId: job.userId,
+                chunkId,
+                status: VideoAnalysisJobStatus.PROCESSING,
+                processedEvents: finalEvents,
+                identifiedPlayers: updatedIdentifiedPlayers,
+                identifiedTeams: updatedIdentifiedTeams,
+                isFinalResult: false
+            };
+            await this.eventBus.publish(workerConfig.chunkAnalysisResultsTopicName, resultMessage);
+
+            // Trigger finalizer check
+            await this.jobFinalizerService.finalizeJob(jobId);
+
+        } catch (error: any) {
+            this.logger.error(`Failed to process chunk ${chunk.sequence}: ${error.message}`, { error, phase: 'analyzing' });
+            chunk.status = ChunkStatus.FAILED;
+            chunk.failureReason = error.message;
+            await this.chunkRepository.update(chunk);
+            
+            await this.jobFinalizerService.finalizeJob(jobId);
+            throw error;
+        }
+    }
+}

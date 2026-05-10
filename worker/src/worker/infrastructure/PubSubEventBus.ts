@@ -1,6 +1,6 @@
 import { PubSub, Message, SubscriptionOptions } from '@google-cloud/pubsub';
-import { IEventBus } from '../../core/interfaces/IEventBus';
-import logger from '../../config/logger';
+import { IEventBus } from '@statvision/common';
+import { jobLogger as logger } from '../../config/loggers';
 
 export class PubSubEventBus implements IEventBus {
     private pubSubClient: PubSub;

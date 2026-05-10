@@ -49,3 +49,4 @@ skills-lock.json
 *.json.old
 *.audit.json
 
+docs/assets/*.webm

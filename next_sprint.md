@@ -1,10 +1,10 @@
-### Next Sprint Plan: Decoupled Video Processing Worker
+# Next Sprint: Code Consolidation & Strategic Foundation
 
-**Reference:** For detailed architecture, see `backend/docs/video_processing_architecture.md`.
-
-**Goal:** Implement a decoupled video processing worker service, designed as a microservice, and integrate it with the main backend API via a messaging queue.
+**Sprint Goal:** Eliminate duplication by moving shared services to `common` and standardizing the AI analysis provider.
 
 ## Tasks
-
-*   **[BE-303]** Implement the **Video Processing Worker Service** (Decoupled Microservice Design) with a clear interface, responsible for consuming video upload events, video processing, chunking (2:30 duration, 30s overlap), calling the Gemini API, parsing the response, and generating chunk metadata (sequence number, timestamp in video, absolute original time). The processor should detect overlapping events and count them only once, and each video segment should detect only events *started* in the first 2 minutes of the segment.
-*   **[BE-306]** Implement the main backend API logic to publish video upload events to the Pub/Sub topic after a successful video upload.
+- [x] **[DEV-101]** Move `TeamService`, `PlayerService`, and `GameStatsService` to `common/src/core/services`.
+- [x] **[DEV-102]** Consolidate `GeminiAnalysisService`, `GeminiProvider`, and `GeminiInteractionsProvider` into a single shared `GeminiProvider` in `common/src/infrastructure`.
+- [x] **[DEV-103]** Update `api` and `worker` to import from `@statvision/common` for shared services.
+- [x] **[DEV-104]** Verify builds and ensure no regressions in team/player management.
+- [ ] **[PO-101]** Refine User Stories for "Temporal Roster Management" based on the new shared service structure.
