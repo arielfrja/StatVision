@@ -152,33 +152,36 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                             </div>
 
                             <div className="flex flex-col gap-6 pl-8 border-l border-bd-ghost ml-2">
-                                {tempTeam.players.map(tempPlayer => (
-                                    <div key={tempPlayer.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-container-high border border-transparent hover:border-bd-ghost transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-container-highest flex items-center justify-center text-[10px] font-black text-electric border border-bd-ghost">
-                                                {tempPlayer.jerseyNumber || '?'}
+                                {tempTeam.players.map(tempPlayer => {
+                                    const currentTeamId = teamMappings[tempTeam.id];
+                                    return (
+                                        <div key={tempPlayer.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-container-high border border-transparent hover:border-bd-ghost transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-container-highest flex items-center justify-center text-[10px] font-black text-electric border border-bd-ghost">
+                                                    {tempPlayer.jerseyNumber || '?'}
+                                                </div>
+                                                <span className="text-sm font-bold text-tx-secondary uppercase tracking-tight group-hover:text-white transition-colors">
+                                                    {tempPlayer.name || 'Unknown'}
+                                                </span>
                                             </div>
-                                            <span className="text-sm font-bold text-tx-secondary uppercase tracking-tight group-hover:text-white transition-colors">
-                                                {tempPlayer.name}
-                                            </span>
+                                            <md-filled-select
+                                                label="Assign to Official Player"
+                                                value={playerMappings[tempPlayer.id] || ''}
+                                                onchange={(e: any) => handlePlayerMappingChange(tempPlayer.id, e.target.value)}
+                                                className="min-w-[240px]"
+                                            >
+                                                <md-select-option value=""><span>Select Player...</span></md-select-option>
+                                                {officialPlayers
+                                                    .filter(ph => !currentTeamId || ph.teamId === currentTeamId)
+                                                    .map(ph => (
+                                                    <md-select-option key={ph.player.id} value={ph.player.id}>
+                                                        <span>{ph.player.name} (#{ph.jerseyNumber || '??'})</span>
+                                                    </md-select-option>
+                                                ))}
+                                            </md-filled-select>
                                         </div>
-                                        <md-filled-select
-                                            label="Assign to Official Player"
-                                            value={playerMappings[tempPlayer.id] || ''}
-                                            onchange={(e: any) => handlePlayerMappingChange(tempPlayer.id, e.target.value)}
-                                            className="min-w-[240px]"
-                                        >
-                                            <md-select-option value=""><span>Select Player...</span></md-select-option>
-                                            {officialPlayers
-                                                .filter(ph => !teamMappings[tempTeam.id] || ph.teamId === teamMappings[tempTeam.id])
-                                                .map(ph => (
-                                                <md-select-option key={ph.player.id} value={ph.player.id}>
-                                                    <span>{ph.player.name} (#{ph.jerseyNumber})</span>
-                                                </md-select-option>
-                                            ))}
-                                        </md-filled-select>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ))

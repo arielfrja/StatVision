@@ -47,7 +47,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
                                 crossOrigin: 'anonymous'
                             }
                         }
-                    }}
+                    } as any}
                 />
             )}
         </div>
