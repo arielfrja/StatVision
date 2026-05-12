@@ -9,6 +9,7 @@ import Link from 'next/link';
 
 const CommandCenterPage = () => {
   const { data: games, isLoading } = useSWR<Game[]>('/games');
+  const [activeTab, setActiveTab] = useState('live');
 
   const activeGame = useMemo(() => {
     if (!games || games.length === 0) return null;

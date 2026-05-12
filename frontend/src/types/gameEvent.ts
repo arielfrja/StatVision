@@ -23,4 +23,9 @@ export interface GameEvent {
     absoluteTimestamp: number;
     videoClipStartTime: number | null;
     videoClipEndTime: number | null;
+    
+    // UI Compatibility Aliases (to match component expectations)
+    player?: Player | null;
+    type: string;
+    timestamp: number;
 }
