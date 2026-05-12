@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-var-requires */
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');

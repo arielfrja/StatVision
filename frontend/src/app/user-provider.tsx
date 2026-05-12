@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, createContext, useContext } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { Auth0Provider, AppState, useAuth0 as useAuth0Real } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
 import SWRProvider from './swr-provider';
@@ -16,69 +16,88 @@ interface AuthState {
   getAccessTokenSilently: (options?: any) => Promise<string>;
 }
 
-const MockAuthContext = createContext<AuthState | null>(null);
+const AuthContext = createContext<AuthState | null>(null);
+
+/**
+ * Internal hook that returns the mock auth state.
+ */
+const useMockAuth = (router: any): AuthState => {
+  return useMemo(() => ({
+    isAuthenticated: true,
+    isLoading: false,
+    user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
+    logout: (options?: any) => {
+        console.log("Mock Logout", options);
+        router.push('/');
+    },
+    loginWithRedirect: (options?: any) => {
+        console.log("Mock Login Redirect", options);
+        return Promise.resolve();
+    },
+    getAccessTokenSilently: () => Promise.resolve("mock-token"),
+  }), [router]);
+};
+
+/**
+ * Component that bridges real Auth0 state to our unified AuthContext.
+ */
+const Auth0Bridge = ({ children }: { children: React.ReactNode }) => {
+    const realAuth0 = useAuth0Real();
+    return (
+        <AuthContext.Provider value={realAuth0}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
+
+/**
+ * Component that bridges Mock state to our unified AuthContext.
+ */
+const MockBridge = ({ children }: { children: React.ReactNode }) => {
+    const router = useRouter();
+    const mockAuth = useMockAuth(router);
+    return (
+        <AuthContext.Provider value={mockAuth}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
 
 export const useAuth0 = () => {
-  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-    const context = useContext(MockAuthContext);
-    if (!context) {
-        // Fallback mock if context is not yet available
-        return {
-            isAuthenticated: true,
-            isLoading: false,
-            user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
-            logout: () => console.log("Mock Logout"),
-            loginWithRedirect: () => Promise.resolve(),
-            getAccessTokenSilently: () => Promise.resolve("mock-token"),
-        } as AuthState;
-    }
-    return context;
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth0 must be used within a UserProviderWrapper');
   }
-  return useAuth0Real();
+  return context;
 };
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN;
   const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID;
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const router = useRouter();
 
   const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
-
-  if (isMock) {
-    const mockValue: AuthState = {
-        isAuthenticated: true,
-        isLoading: false,
-        user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
-        logout: (options?: any) => {
-            console.log("Mock Logout", options);
-            router.push('/');
-        },
-        loginWithRedirect: (options?: any) => {
-            console.log("Mock Login Redirect", options);
-            return Promise.resolve();
-        },
-        getAccessTokenSilently: (options?: any) => Promise.resolve("mock-token"),
-    };
-
-    return (
-      <MockAuthContext.Provider value={mockValue}>
-        <SWRProvider>
-          {children}
-        </SWRProvider>
-      </MockAuthContext.Provider>
-    );
-  }
-
-  if (!domain || !clientId || !baseUrl) {
-    console.error('Auth0 environment variables are not set.');
-    return <SWRProvider>{children}</SWRProvider>;
-  }
 
   const onRedirectCallback = (appState?: AppState) => {
     router.push(appState?.returnTo || '/dashboard');
   };
+
+  if (isMock) {
+    return (
+      <MockBridge>
+        <SWRProvider>
+          {children}
+        </SWRProvider>
+      </MockBridge>
+    );
+  }
+
+  if (!domain || !clientId || !baseUrl) {
+    // Fail gracefully in production if config is missing, but still provide SWR
+    return <SWRProvider>{children}</SWRProvider>;
+  }
 
   return (
     <Auth0Provider
@@ -93,9 +112,11 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
       useRefreshTokens={true}
       cacheLocation="localstorage"
     >
-      <SWRProvider>
-        {children}
-      </SWRProvider>
+      <Auth0Bridge>
+        <SWRProvider>
+          {children}
+        </SWRProvider>
+      </Auth0Bridge>
     </Auth0Provider>
   );
 }

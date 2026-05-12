@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth0 } from '@/app/user-provider';
 import { useRouter, useParams } from 'next/navigation';
-import { Game, GameStatus } from '@/types/game';
+import { Game } from '@/types/game';
 import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
 import { GameEvent } from '@/types/gameEvent';

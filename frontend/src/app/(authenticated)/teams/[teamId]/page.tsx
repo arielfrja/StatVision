@@ -21,7 +21,7 @@ function TeamPlayersPage() {
   const params = useParams();
   const router = useRouter();
   const teamId = params.teamId as string;
-  const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
 
   const [team, setTeam] = useState<Team | null>(null);
   const [players, setPlayers] = useState<RosterPlayer[]>([]);

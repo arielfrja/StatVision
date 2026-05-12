@@ -10,7 +10,7 @@ import UploadForm from '@/components/UploadForm';
 
 const GamesPage = () => {
   const router = useRouter();
-  const { data: games, error, isLoading, mutate } = useSWR<Game[]>('/games', {
+  const { data: games, isLoading, mutate } = useSWR<Game[]>('/games', {
     refreshInterval: 5000,
   });
   const [isUploadMode, setIsUploadMode] = useState(false);
