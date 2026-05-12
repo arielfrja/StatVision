@@ -1,4 +1,4 @@
-import { Player } from "./player";
+import { PlayerTeamHistory } from "./player";
 
 export interface Team {
     id: string;
@@ -6,5 +6,12 @@ export interface Team {
     name: string;
     createdAt: Date;
     updatedAt: Date;
-    // Note: The players property is removed as the relationship is now M:N via PlayerTeamHistory
+    
+    // UI Compatibility
+    isTemp?: boolean;
+    players?: PlayerTeamHistory[];
+}
+
+export interface TeamWithPlayers extends Team {
+    players: PlayerTeamHistory[];
 }

@@ -7,6 +7,10 @@ export interface Player {
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
+    
+    // UI Compatibility
+    isTemp?: boolean;
+    jerseyNumber?: number | null;
 }
 
 export interface PlayerTeamHistory {

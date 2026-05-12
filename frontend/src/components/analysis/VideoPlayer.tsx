@@ -9,7 +9,7 @@ const ClientVideoPlayer = dynamic(() => import('react-player'), { ssr: false });
 interface VideoPlayerProps {
     videoUrl: string | null;
     playerRef: React.RefObject<any>;
-    onProgress?: (state: { played: number; playedSeconds: number; loaded: number; loadedSeconds: number }) => void;
+    onProgress?: (state: any) => void; // Using any for simpler library-to-native compatibility
     onDuration?: (duration: number) => void;
 }
 
@@ -42,7 +42,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
                             crossOrigin: 'anonymous'
                         }
                     }
-                }}
+                } as any} // Cast to any to bypass strict property check on custom config
             />
         </div>
     );

@@ -1,6 +1,9 @@
 import { GameEvent } from "./gameEvent";
 import { Team } from "./team";
 import { GameTeamStats, GamePlayerStats } from "./stats";
+import { Player } from "./player";
+
+export type { Player, Team };
 
 export enum GameStatus {
     UPLOADED = "UPLOADED",
@@ -58,4 +61,7 @@ export interface Game {
     teamStats: GameTeamStats[];
     playerStats: GamePlayerStats[];
     uploadedAt: Date;
+
+    // UI Compatibility Aliases
+    stats?: GameTeamStats; // Usually used for the first team in simple views
 }

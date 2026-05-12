@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth0 } from '@/app/user-provider';
 import { useRouter, useParams } from 'next/navigation';
 import { Game } from '@/types/game';
 import { Team } from '@/types/team';

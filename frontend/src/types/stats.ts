@@ -30,6 +30,8 @@ export interface GamePlayerStats {
     id: string;
     gameId: string;
     playerId: string;
+    teamId: string;
+    jerseyNumber: number | null;
 
     // Player-specific metrics
     minutesPlayed: number;
