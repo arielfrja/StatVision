@@ -22,4 +22,8 @@ export interface PlayerTeamHistory {
     startDate?: Date | null; // Made optional
     endDate?: Date | null; // Made optional
     player: Player; // Added full player object
+    
+    // UI Compatibility Shorthands
+    isTemp?: boolean;
+    name?: string;
 }

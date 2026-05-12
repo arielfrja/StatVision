@@ -1,19 +1,23 @@
 'use client';
 import React from 'react';
-import dynamic from 'next/dynamic';
+import ReactPlayer from 'react-player';
 import '@material/web/icon/icon.js';
-
-// Dynamically import ReactPlayer to avoid SSR issues
-const ClientVideoPlayer = dynamic(() => import('react-player'), { ssr: false });
 
 interface VideoPlayerProps {
     videoUrl: string | null;
     playerRef: React.RefObject<any>;
-    onProgress?: (state: any) => void; // Using any for simpler library-to-native compatibility
+    onProgress?: (state: any) => void;
     onDuration?: (duration: number) => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgress, onDuration }) => {
+    // We use a state to ensure we only render on the client
+    const [isClient, setIsClient] = React.useState(false);
+    
+    React.useEffect(() => {
+        setIsClient(true);
+    }, []);
+
     if (!videoUrl) {
         return (
             <div style={{ height: '100%', minHeight: '300px', backgroundColor: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
@@ -28,22 +32,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
 
     return (
         <div style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: 'var(--border-radius-md)', overflow: 'hidden', boxShadow: 'var(--shadow-elevation-2)' }}>
-            <ClientVideoPlayer
-                ref={playerRef}
-                url={absoluteVideoUrl}
-                width='100%'
-                height='100%'
-                controls={true}
-                onProgress={onProgress}
-                onDuration={onDuration}
-                config={{
-                    file: {
-                        attributes: {
-                            crossOrigin: 'anonymous'
+            {isClient && (
+                <ReactPlayer
+                    ref={playerRef}
+                    url={absoluteVideoUrl}
+                    width='100%'
+                    height='100%'
+                    controls={true}
+                    onProgress={onProgress}
+                    onDuration={onDuration}
+                    config={{
+                        file: {
+                            attributes: {
+                                crossOrigin: 'anonymous'
+                            }
                         }
-                    }
-                } as any} // Cast to any to bypass strict property check on custom config
-            />
+                    }}
+                />
+            )}
         </div>
     );
 };

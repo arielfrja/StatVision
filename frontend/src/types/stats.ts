@@ -3,6 +3,10 @@ export interface GameTeamStats {
     gameId: string;
     teamId: string;
     
+    // UI Compatibility
+    homeScore?: number;
+    awayScore?: number;
+    
     // Core Stats
     points: number;
     assists: number;
