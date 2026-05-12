@@ -6,14 +6,19 @@
     "auditLog": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/.7a85d14235431d0a40d2516d82ff192dcaf130ef-audit.json",
     "files": [
         {
-            "date": 1777265224059,
-            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/combined-2026-04-27.log",
-            "hash": "5731d0c2b08f0f24cea933a8d06cf82a4908902b1d547792b3c4400d46a128f8"
-        },
-        {
             "date": 1778407296731,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/combined-2026-05-10.log",
             "hash": "0412934030b979c77db52b9cce80c05ceb4acd628630cd454484ab665c2f803f"
+        },
+        {
+            "date": 1778472364869,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/combined-2026-05-11.log",
+            "hash": "574479750477a08886569bfa8e71ea5cb94458fe6e86e335f9aed51e13fd2448"
+        },
+        {
+            "date": 1778558899449,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/combined-2026-05-12.log",
+            "hash": "c65c37bf62819edc291cfeffa30548f6a93b0ec86b3ea32300d57a10ae83161c"
         }
     ],
     "hashType": "sha256"

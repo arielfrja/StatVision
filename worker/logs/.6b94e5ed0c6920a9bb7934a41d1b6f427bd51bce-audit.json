@@ -6,14 +6,19 @@
     "auditLog": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/.6b94e5ed0c6920a9bb7934a41d1b6f427bd51bce-audit.json",
     "files": [
         {
-            "date": 1777265222425,
-            "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/worker-job-2026-04-27.log",
-            "hash": "2d557bd21b9c8e4121bb9b64f9bfde655d82ec8dc3a02306cc45b02a1764b451"
-        },
-        {
             "date": 1778407295001,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/worker-job-2026-05-10.log",
             "hash": "5c2349f15317efc9577647df38afed5cbdba881a164ad95a0834d26faf11038b"
+        },
+        {
+            "date": 1778472366736,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/worker-job-2026-05-11.log",
+            "hash": "200b99dc27af7062d6abaa9ecaad19ccc965140fd492b2a158641105a5116b8b"
+        },
+        {
+            "date": 1778558903535,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/worker/logs/worker-job-2026-05-12.log",
+            "hash": "fddc41d62af3ef9651b7cc8dcdf1c58a9a6b6fccf1cc528bdbc42cc0ec6b3666"
         }
     ],
     "hashType": "sha256"

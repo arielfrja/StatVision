@@ -9,6 +9,11 @@ import {
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { PubSubEventBus } from "../worker/infrastructure/PubSubEventBus";
 import { jobLogger } from "../config/loggers";
+import { VideoAnalysisJobRepository } from "../worker/VideoAnalysisJobRepository";
+import { ChunkRepository } from "../worker/ChunkRepository";
+import { JobFinalizerService } from "../worker/JobFinalizerService";
+import { VideoOrchestratorService } from "../worker/videoProcessorWorker";
+import { ChunkProcessorWorker } from "../worker/ChunkProcessorWorker";
 
 export class AppContainer {
     private static instance: AppContainer;
@@ -34,7 +39,7 @@ export class AppContainer {
         const eventBus = new PubSubEventBus();
         this.services.set("IEventBus", eventBus);
 
-        // Repositories
+        // Repositories (Common)
         const userRepository = new UserRepository(this.dataSource, commonLogger);
         const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);
         const playerRepository = new PlayerRepository(this.dataSource, commonLogger);
@@ -42,6 +47,10 @@ export class AppContainer {
         const gameEventRepository = new GameEventRepository(this.dataSource, commonLogger);
         const teamStatsRepository = new GameTeamStatsRepository(this.dataSource, commonLogger);
         const playerStatsRepository = new GamePlayerStatsRepository(this.dataSource, commonLogger);
+
+        // Repositories (Worker Local)
+        const videoAnalysisJobRepository = new VideoAnalysisJobRepository(this.dataSource);
+        const chunkRepository = new ChunkRepository(this.dataSource);
 
         // Services
         const teamService = new TeamService(this.dataSource, commonLogger);
@@ -55,12 +64,18 @@ export class AppContainer {
         
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
+        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus);
+        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus);
+        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus);
 
         // Registering services
         this.services.set(TeamService.name, teamService);
         this.services.set(PlayerService.name, playerService);
         this.services.set(GameStatsService.name, gameStatsService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
+        this.services.set(JobFinalizerService.name, jobFinalizerService);
+        this.services.set(VideoOrchestratorService.name, videoOrchestratorService);
+        this.services.set(ChunkProcessorWorker.name, chunkProcessorWorker);
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);
@@ -70,6 +85,10 @@ export class AppContainer {
         this.services.set(GameEventRepository.name, gameEventRepository);
         this.services.set(GameTeamStatsRepository.name, teamStatsRepository);
         this.services.set(GamePlayerStatsRepository.name, playerStatsRepository);
+        
+        // Local Repositories
+        this.services.set("VideoAnalysisJobRepository", videoAnalysisJobRepository);
+        this.services.set(ChunkRepository.name, chunkRepository);
     }
 
     public get<T>(serviceIdentifier: string | Function): T {

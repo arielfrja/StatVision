@@ -9,18 +9,15 @@ import "reflect-metadata";
 import express from "express";
 import cors from "cors";
 import { AppDataSource } from "./data-source";
-import swaggerUi from "swagger-ui-express";
-import swaggerJsdoc from "swagger-jsdoc";
+import { authMiddleware } from "./middleware/authMiddleware";
+import { IAuthProvider } from "./auth/authProvider";
 import { getAuthProvider } from "./auth/authProviderFactory";
-import { authMiddleware } from './middleware/authMiddleware';
 import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
-import { playerRoutes } from "./routes/playerRoutes";
 import { playerGlobalRoutes } from "./routes/playerGlobalRoutes";
 import { gameRoutes } from "./routes/gameRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
-import { IAuthProvider } from "./auth/authProvider";
 import { AppContainer } from "./shared/AppContainer";
 import { TeamService, PlayerService, GameStatsService, GameEventRepository } from "@statvision/common";
 import { GameService } from "./modules/games/GameService";
@@ -28,25 +25,25 @@ import { GameAssignmentService } from "./modules/games/GameAssignmentService";
 import { GameAnalysisService } from "./modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
 import { IEventBus } from "./core/interfaces/IEventBus";
+import swaggerUi from "swagger-ui-express";
+import swaggerJsdoc from "swagger-jsdoc";
+import { swaggerOptions } from "./config/swagger";
 
 // Extend the Request type to include the user property
 declare global {
     namespace Express {
         interface Request {
-            user?: { uid: string; email: string | null; };
+            user?: { id?: string; uid: string; email: string | null; };
         }
     }
 }
 
 const app = express();
-app.use(cors({ origin: (origin, callback) => callback(null, origin), credentials: true }));
+
+app.use(cors());
 app.use(express.json());
 app.use(loggingMiddleware);
 
-// Serve uploaded videos statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-import { swaggerOptions } from "./config/swagger";
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -58,9 +55,9 @@ AppDataSource.initialize()
 
         const container = AppContainer.getInstance(AppDataSource);
 
-        const jwksUri = process.env.AUTH0_JWKS_URI!;
-        const audience = process.env.AUTH0_AUDIENCE!;
-        const issuer = process.env.AUTH0_ISSUER!;
+        const jwksUri = process.env.AUTH0_JWKS_URI || "";
+        const audience = process.env.AUTH0_AUDIENCE || "";
+        const issuer = process.env.AUTH0_ISSUER || "";
 
         authProvider = getAuthProvider(jwksUri, audience, issuer);
 
@@ -72,8 +69,7 @@ AppDataSource.initialize()
 
         // Routes
         app.use("/", authRoutes(AppDataSource));
-        app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService)));
-        app.use("/teams/:teamId/players", playerRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
+        app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
         app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService)));
         
         app.use("/games", gameRoutes(
@@ -97,3 +93,5 @@ AppDataSource.initialize()
     .catch((err: any) => {
         logger.error("Error during Data Source initialization:", err);
     });
+
+export default app;

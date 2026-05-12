@@ -22,6 +22,8 @@ jobs:
         run: npm install
       - name: Build Common
         run: npm run build -w common
+      - name: Type Check Common
+        run: npm run type-check -w common
 
   api-ci:
     name: API CI
@@ -75,6 +77,10 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm install
+      - name: Lint Frontend
+        run: npm run lint -w frontend
+      - name: Type Check Frontend
+        run: npm run type-check -w frontend
       - name: Build Frontend
         run: npm run build -w frontend
         env:

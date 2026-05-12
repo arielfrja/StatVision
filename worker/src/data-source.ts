@@ -7,7 +7,7 @@ import * as Entities from "@statvision/common";
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const isProduction = !!process.env.DATABASE_URL || !!process.env.DB_HOST;
+const isProduction = process.env.NODE_ENV === "production";
 
 console.log("DataSource: isProduction =", isProduction);
 console.log("DataSource: DATABASE_URL =", process.env.DATABASE_URL ? "SET" : "NOT SET");

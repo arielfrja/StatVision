@@ -1,17 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { DataSource } from 'typeorm';
-import { TeamService, PlayerService } from '@statvision/common';
+import { TeamService, PlayerService, User } from '@statvision/common';
 import logger from '../config/logger';
 
 export const playerRoutes = (AppDataSource: DataSource, teamService: TeamService, playerService: PlayerService) => {
     const router = Router({ mergeParams: true });
 
     router.get("/", async (req: Request, res: Response) => {
-        if (!req.user || !req.user.uid) return res.status(401).send("Unauthorized");
+        if (!req.user || !req.user.id) return res.status(401).send("Unauthorized");
         const teamId = req.params.teamId as string;
 
         try {
-            const team = await teamService.getTeamByIdAndUser(teamId, req.user.uid);
+            const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);
             if (!team) return res.status(404).json({ message: "Team not found." });
 
             const players = await playerService.getPlayersByTeam(teamId);
@@ -23,12 +23,12 @@ export const playerRoutes = (AppDataSource: DataSource, teamService: TeamService
     });
 
     router.post("/", async (req: Request, res: Response) => {
-        if (!req.user || !req.user.uid) return res.status(401).send("Unauthorized");
+        if (!req.user || !req.user.id) return res.status(401).send("Unauthorized");
         const teamId = req.params.teamId as string;
         const { name, jerseyNumber, description } = req.body;
 
         try {
-            const team = await teamService.getTeamByIdAndUser(teamId, req.user.uid);
+            const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);
             if (!team) return res.status(404).json({ message: "Team not found." });
 
             const newPlayerHistory = await playerService.createPlayerAndAssignToTeam(name, teamId, jerseyNumber, description);

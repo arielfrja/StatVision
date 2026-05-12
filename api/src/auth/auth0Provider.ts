@@ -10,7 +10,7 @@ import { IAuthProvider } from "./authProvider";
 declare global {
     namespace Express {
         interface Request {
-            user?: { uid: string; email: string | null; }; // Generic user info
+            user?: { id?: string; uid: string; email: string | null; }; // Generic user info
             auth?: {
                 sub: string;
                 email?: string | null;

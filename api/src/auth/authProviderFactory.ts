@@ -2,7 +2,6 @@ import { Auth0Provider } from "./auth0Provider";
 import { MockAuthProvider } from "./mockAuthProvider";
 import { IAuthProvider } from "./authProvider";
 import logger from "../config/logger";
-import { getAuth0Config } from '../config/auth0Config';
 
 let authProviderInstance: IAuthProvider;
 
@@ -12,6 +11,7 @@ export const getAuthProvider = (jwksUri: string, audience: string, issuer: strin
             logger.info("Using MockAuthProvider for authentication.");
             authProviderInstance = new MockAuthProvider();
         } else {
+            logger.info("Using Auth0Provider for authentication.");
             authProviderInstance = new Auth0Provider(jwksUri, audience, issuer);
         }
     }

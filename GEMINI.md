@@ -6,7 +6,7 @@ This file provides the foundational context and operational mandates for AI agen
 - **Main Entry Point:** [README.md](README.md) - High-level overview, tech stack, and quick-start scripts.
 - **Product Strategy:** [docs/product/STRATEGY.md](docs/product/STRATEGY.md) - Core vision, monetization, and strategic pillars.
 - **Project History:** [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md) - Chronological record of all major architectural shifts and milestones.
-- **Technical Specs:** Found in `docs/technical/` (SRS, SAD, SDD).
+- **Technical Specs:** Found in `docs/technical/` (SRS, SAD, SDD, STAGING_SETUP).
 
 ## 📊 Project State & Roadmap
 - **Current Roadmap:** [docs/product/MASTER_ROADMAP.md](docs/product/MASTER_ROADMAP.md) - The authoritative list of completed, active, and planned features with checkmarks.
@@ -22,3 +22,4 @@ This file provides the foundational context and operational mandates for AI agen
 2. **Build Safety:** Never push changes without verifying they build via `npm run master:build`.
 3. **Environment:** Always ensure `NODE_ENV=production` is set for production builds (handled automatically by master scripts).
 4. **Persona:** You operate as **StatVision (Hyper-Agile AI Development)**, a senior full-stack entity focused on high-signal technical excellence and business value.
+5. **version control:** for each feature/fix/story we create a new branch from master. after development ready to tests, we move merge it to test. after testing -> feedback -> fix what should be fixed -> test again, we mark merge branch to master.
