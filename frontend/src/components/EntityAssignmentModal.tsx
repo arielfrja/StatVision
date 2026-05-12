@@ -50,17 +50,18 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                 apiClient.get<PlayerTeamHistory[]>(`/players`, { headers })
             ]);
 
-            setIdentifiedEntities(identifiedRes.data.filter(t => t.isTemp));
+            const tempEntities = identifiedRes.data.filter(t => t.isTemp);
+            setIdentifiedEntities(tempEntities);
             setOfficialTeams(teamsRes.data.filter(t => !t.isTemp));
-            setOfficialPlayers(playersRes.data.filter(ph => !ph.player.isTemp));
+            setOfficialPlayers(playersRes.data.filter(ph => ph.player && !ph.player.isTemp));
 
             // Initialize mappings with empty values
             const initialTeamMappings: { [key: string]: string } = {};
-            identifiedRes.data.filter(t => t.isTemp).forEach(t => initialTeamMappings[t.id] = '');
+            tempEntities.forEach(t => initialTeamMappings[t.id] = '');
             setTeamMappings(initialTeamMappings);
 
             const initialPlayerMappings: { [key: string]: string } = {};
-            identifiedRes.data.filter(t => t.isTemp).forEach(t => {
+            tempEntities.forEach(t => {
                 t.players.forEach(p => initialPlayerMappings[p.id] = '');
             });
             setPlayerMappings(initialPlayerMappings);
@@ -193,3 +194,4 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
 };
 
 export default EntityAssignmentModal;
+al;

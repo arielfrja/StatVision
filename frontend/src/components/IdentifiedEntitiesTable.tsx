@@ -100,7 +100,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                                     {team.players.map((player) => (
                                         <tr key={player.id} className="border-b border-bd-ghost/50 hover:bg-white/[0.02] transition-colors group">
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-bold text-white group-hover:text-electric transition-colors">{player.name}</span>
+                                                <span className="text-xs font-bold text-white group-hover:text-electric transition-colors">{player.name || 'Unknown Player'}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="inline-block px-2 py-1 bg-container-highest border border-bd-ghost rounded-md text-[10px] font-black text-tx-primary min-w-[28px]">
