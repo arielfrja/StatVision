@@ -3,6 +3,7 @@ name: StatVision Deploy
 on:
   push:
     branches: [ main, master, test ]
+  workflow_dispatch: {}
 
 env:
   PROJECT_ID: statsvision-477017
@@ -77,7 +78,7 @@ jobs:
             --no-allow-unauthenticated \
             --port 8080 \
             --max-instances ${{ env.MAX_INSTANCES }} \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=PARALLEL,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub${{ env.ENV_SUFFIX }}"
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=PARALLEL,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_TOPIC_NAME=video-analysis-results${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=video-analysis-results-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=chunk-analysis-results-sub${{ env.ENV_SUFFIX }}"
 
   deploy-frontend:
     name: Deploy Frontend
