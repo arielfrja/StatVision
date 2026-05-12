@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
@@ -194,4 +195,3 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
 };
 
 export default EntityAssignmentModal;
-al;

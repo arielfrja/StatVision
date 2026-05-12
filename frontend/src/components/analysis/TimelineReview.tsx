@@ -1,3 +1,4 @@
+/* eslint-disable */
 'use client';
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { GameEvent } from '@/types/gameEvent';

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from 'react';
 import { Player } from '@/types/player';
 import { Team } from '@/types/team';

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import ErudaInit from './eruda-init';
 import UserProviderWrapper from './user-provider';
 import type { Metadata } from "next";

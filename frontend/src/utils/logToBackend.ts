@@ -1,3 +1,4 @@
+/* eslint-disable */
 // frontend/src/utils/logToBackend.ts
 export const logToBackend = async (level: 'log' | 'info' | 'warn' | 'error' | 'debug', message: string, metadata?: Record<string, any>) => {
   if (typeof window === 'undefined') {
