@@ -22,7 +22,7 @@ const BottomNav = () => {
           <Link
             key={item.path}
             href={item.path}
-            className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-2xl transition-all duration-200 ${
+            className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-2xl transition-all duration-100 active:scale-90 active:bg-container-highest click-flash ${
               isActive 
                 ? 'text-[var(--primary-electric)]' 
                 : 'text-[var(--text-dim)]'

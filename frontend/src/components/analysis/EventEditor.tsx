@@ -4,12 +4,10 @@ import { GameEvent } from '@/types/gameEvent';
 import { PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
 import { ALLOWED_EVENT_TYPES } from '@/constants/eventTypes';
+import Button from '../Button';
 
-import '@material/web/button/filled-button.js';
-import '@material/web/button/outlined-button.js';
 import '@material/web/select/filled-select.js';
 import '@material/web/select/select-option.js';
-import '@material/web/icon/icon.js';
 
 interface EventEditorProps {
     event: GameEvent;
@@ -25,6 +23,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
     const [assignedTeamId, setAssignedTeamId] = useState(event.assignedTeamId || '');
     const [assignedPlayerId, setAssignedPlayerId] = useState(event.assignedPlayerId || '');
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         setEventType(event.eventType);
@@ -46,20 +45,32 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
         }
     };
 
+    const handleDelete = async () => {
+        if (!onDelete) return;
+        setIsDeleting(true);
+        try {
+            await onDelete(event.id);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
-        <div className="stadium-card frosted-glass min-w-[320px] max-w-lg border-2 border-bd-ghost shadow-2xl p-6">
+        <div className="stadium-card frosted-glass min-w-[320px] max-w-lg border-2 border-bd-ghost shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h3 className="text-xl font-black italic tracking-tighter uppercase text-white">Edit Event</h3>
+                    <h3 className="text-xl font-black italic tracking-tighter uppercase text-white font-display">Edit Event</h3>
                     <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Moment: {event.absoluteTimestamp.toFixed(1)}s</p>
                 </div>
                 {onDelete && (
-                    <button 
-                        onClick={() => onDelete(event.id)} 
-                        className="w-10 h-10 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-                    >
-                        <span className="material-symbols-outlined text-xl">delete</span>
-                    </button>
+                    <Button 
+                        variant="danger" 
+                        size="sm" 
+                        icon="delete" 
+                        onClick={handleDelete}
+                        isLoading={isDeleting}
+                        className="w-10 h-10 p-0"
+                    />
                 )}
             </div>
 
@@ -122,19 +133,22 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
             </div>
 
             <div className="flex gap-3">
-                <button 
+                <Button 
+                    variant="ghost"
                     onClick={onCancel} 
-                    className="flex-1 py-4 bg-container-high text-tx-secondary rounded-xl text-xs font-black uppercase tracking-widest hover:bg-container-highest transition-all"
+                    fullWidth
+                    disabled={isSaving}
                 >
                     Cancel
-                </button>
-                <button 
+                </Button>
+                <Button 
                     onClick={handleSave} 
-                    disabled={isSaving}
-                    className="flex-[2] py-4 bg-electric text-[#00373a] rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--primary-glow)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                    isLoading={isSaving}
+                    fullWidth
+                    className="flex-[2]"
                 >
-                    {isSaving ? 'Processing...' : 'Apply Intelligence'}
-                </button>
+                    Save Changes
+                </Button>
             </div>
         </div>
     );

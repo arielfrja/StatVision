@@ -6,6 +6,8 @@ import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
 import { Team, GameType, IdentityMode } from '@/types/game';
+import Button from '@/components/Button';
+import Loader from '@/components/Loader';
 
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
@@ -53,7 +55,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 
     const colors = ['White', 'Black', 'Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Navy', 'Grey'];
 
-    if (!mounted) return <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading form...</div>;
+    if (!mounted) return <div className="flex items-center justify-center h-[400px]"><Loader size="large" /></div>;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -137,17 +139,18 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     };
 
     const renderMetadataStep = () => (
-        <form onSubmit={handleMetadataSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ color: 'var(--md-sys-color-primary)' }}>Step 1: Game Details</h3>
+        <form onSubmit={handleMetadataSubmit} className="flex flex-col gap-6">
+            <h3 className="text-lg font-black italic uppercase tracking-tight text-electric">Step 1: Game Details</h3>
             
             <md-filled-text-field
                 label="Game Name"
                 value={gameName}
                 onInput={(e: any) => setGameName(e.target.value)}
                 required
+                className="w-full"
             ></md-filled-text-field>
 
-            <div style={{ display: 'flex', gap: '16px' }}>
+            <div className="flex flex-col md:flex-row gap-4">
                 <md-filled-select
                     label="Game Format"
                     value={gameType}
@@ -160,7 +163,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                             setPointValue('2_AND_3');
                         }
                     }}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                 >
                     <md-select-option value={GameType.FULL_COURT}><span>Full Court (Standard)</span></md-select-option>
                     <md-select-option value={GameType.THREE_X_THREE}><span>FIBA 3x3</span></md-select-option>
@@ -172,59 +175,59 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                     label="Team Detection Mode"
                     value={identityMode}
                     onchange={(e: any) => setIdentityMode(e.target.value as IdentityMode)}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                 >
                     <md-select-option value={IdentityMode.JERSEY_COLORS}><span>Jersey Colors</span></md-select-option>
                     <md-select-option value={IdentityMode.INTERACTION_BASED}><span>Interaction-based (Streetball)</span></md-select-option>
                 </md-filled-select>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '0 16px' }}>
-                <span style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>Scoring:</span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <div className="flex items-center gap-6 px-4 py-3 bg-container-low rounded-xl border border-bd-ghost">
+                <span className="text-[10px] font-black uppercase tracking-widest text-tx-dim">Scoring:</span>
+                <label className="flex items-center gap-2 cursor-pointer group">
                     <md-radio 
                         name="scoring" 
                         value="2_AND_3" 
                         checked={pointValue === '2_AND_3'} 
                         onchange={() => setPointValue('2_AND_3')}
                     ></md-radio>
-                    <span style={{ fontSize: '14px' }}>2s & 3s</span>
+                    <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">2s & 3s</span>
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <label className="flex items-center gap-2 cursor-pointer group">
                     <md-radio 
                         name="scoring" 
                         value="1_AND_2" 
                         checked={pointValue === '1_AND_2'} 
                         onchange={() => setPointValue('1_AND_2')}
                     ></md-radio>
-                    <span style={{ fontSize: '14px' }}>1s & 2s</span>
+                    <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">1s & 2s</span>
                 </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px' }}>
+            <div className="flex flex-col md:flex-row gap-4">
                 <md-filled-text-field
                     label="Date"
                     type="date"
                     value={gameDate}
                     onInput={(e: any) => setGameDate(e.target.value)}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                 ></md-filled-text-field>
                 <md-filled-text-field
                     label="Location"
                     value={location}
                     onInput={(e: any) => setLocation(e.target.value)}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                 ></md-filled-text-field>
             </div>
 
             {identityMode === IdentityMode.JERSEY_COLORS && (
-                <>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                <div className="flex flex-col gap-6 animate-in slide-in-from-top-4 duration-300">
+                    <div className="flex flex-col md:flex-row gap-4">
                         <md-filled-select
                             label="Home Team"
                             value={homeTeamId}
                             onchange={(e: any) => setHomeTeamId(e.target.value)}
-                            style={{ flex: 1 }}
+                            className="flex-1"
                         >
                             <md-select-option value=""><span>Select Team</span></md-select-option>
                             {teams?.map(t => (
@@ -236,7 +239,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                             label="Jersey Color"
                             value={homeTeamColor}
                             onchange={(e: any) => setHomeTeamColor(e.target.value)}
-                            style={{ flex: 1 }}
+                            className="flex-1"
                         >
                             {colors.map(c => (
                                 <md-select-option key={c} value={c}><span>{c}</span></md-select-option>
@@ -244,12 +247,12 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                         </md-filled-select>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div className="flex flex-col md:flex-row gap-4">
                         <md-filled-select
                             label="Away Team"
                             value={awayTeamId}
                             onchange={(e: any) => setAwayTeamId(e.target.value)}
-                            style={{ flex: 1 }}
+                            className="flex-1"
                         >
                             <md-select-option value=""><span>Select Team</span></md-select-option>
                             {teams?.map(t => (
@@ -261,99 +264,114 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                             label="Jersey Color"
                             value={awayTeamColor}
                             onchange={(e: any) => setAwayTeamColor(e.target.value)}
-                            style={{ flex: 1 }}
+                            className="flex-1"
                         >
                             {colors.map(c => (
                                 <md-select-option key={c} value={c}><span>{c}</span></md-select-option>
                             ))}
                         </md-filled-select>
                     </div>
-                </>
+                </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-                <md-outlined-button type="button" onClick={onCancel}>Cancel</md-outlined-button>
-                <md-filled-button type="submit">Next: Upload Video</md-filled-button>
+            <div className="flex justify-end gap-3 mt-4 border-t border-bd-ghost pt-6">
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" icon="arrow_forward">Next: Upload Video</Button>
             </div>
         </form>
     );
 
     const renderUploadStep = () => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <h3 style={{ color: 'var(--md-sys-color-primary)' }}>Step 2: Upload Video</h3>
-            <p style={{ color: 'var(--md-sys-color-on-surface-variant)' }}>
-                Upload the game recording for {gameName}.
+        <div className="flex flex-col gap-6">
+            <h3 className="text-lg font-black italic uppercase tracking-tight text-electric">Step 2: Upload Video</h3>
+            <p className="text-xs font-bold text-tx-dim uppercase tracking-wider">
+                Upload the game recording for <span className="text-white">{gameName}</span>.
             </p>
 
-            <div style={{ border: '2px dashed var(--md-sys-color-outline)', padding: '40px', borderRadius: '12px', textAlign: 'center', backgroundColor: 'var(--md-sys-color-surface-container-highest)' }}>
+            <div className="relative border-2 border-dashed border-bd-ghost p-12 rounded-2xl text-center bg-container-low hover:bg-container-high transition-colors group cursor-pointer overflow-hidden">
                 <input
                     type="file"
                     accept="video/*"
                     onChange={handleFileChange}
-                    style={{ display: 'none' }}
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                     id="video-file-input"
                     disabled={isUploading}
                 />
-                <label htmlFor="video-file-input" style={{ cursor: isUploading ? 'default' : 'pointer', display: 'block' }}>
-                    <md-icon style={{ fontSize: '64px', color: 'var(--md-sys-color-primary)', marginBottom: '16px' }}>
+                <div className="flex flex-col items-center">
+                    <span className={`material-symbols-outlined text-5xl mb-4 transition-colors ${file ? 'text-electric' : 'text-tx-dim group-hover:text-electric'}`}>
                         {file ? 'check_circle' : 'cloud_upload'}
-                    </md-icon>
-                    <p style={{ fontSize: '16px', fontWeight: '500' }}>
+                    </span>
+                    <p className="text-sm font-black uppercase tracking-widest text-white mb-1">
                         {file ? file.name : 'Click to select video file'}
                     </p>
-                    {!file && <p style={{ fontSize: '12px', opacity: 0.7 }}>MP4, MOV or AVI (Max 500MB)</p>}
-                </label>
+                    {!file && <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">MP4, MOV or AVI (Max 500MB)</p>}
+                </div>
+                
+                {/* Visual Accent */}
+                <div className="absolute top-0 left-0 w-1 h-full bg-electric opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
 
             {isUploading && (
-                <div style={{ marginTop: '16px' }}>
-                    <md-linear-progress value={progress / 100}></md-linear-progress>
-                    <p style={{ textAlign: 'center', marginTop: '8px', fontSize: '14px' }}>
-                        Uploading... {progress}%
+                <div className="mt-4 p-6 bg-container-low rounded-xl border border-bd-ghost animate-in fade-in zoom-in duration-300">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-electric">Uploading Video</span>
+                        <span className="text-[10px] font-black tracking-widest text-white">{progress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-container-highest rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-electric shadow-[0_0_10px_var(--primary-electric)] transition-all duration-300" 
+                            style={{ width: `${progress}%` }}
+                        ></div>
+                    </div>
+                    <p className="text-[8px] font-bold text-tx-dim uppercase tracking-[0.2em] mt-3 text-center animate-pulse">
+                        Encrypting & Streaming to Worker
                     </p>
                 </div>
             )}
 
             {error && (
-                <div style={{ padding: '12px', backgroundColor: 'var(--md-sys-color-error-container)', color: 'var(--md-sys-color-on-error-container)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <md-icon>error</md-icon>
-                    <span>{error}</span>
+                <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
+                    <span className="material-symbols-outlined text-lg">error</span>
+                    <span className="text-xs font-bold uppercase tracking-tight">{error}</span>
                 </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-                <md-outlined-button onClick={() => setStep('METADATA')} disabled={isUploading}>Back</md-outlined-button>
-                <md-filled-button onClick={handleUpload} disabled={isUploading || !file}>
-                    {isUploading ? 'Uploading...' : 'Start Analysis'}
-                </md-filled-button>
+            <div className="flex justify-end gap-3 mt-4 border-t border-bd-ghost pt-6">
+                <Button variant="outline" onClick={() => setStep('METADATA')} disabled={isUploading}>Back</Button>
+                <Button onClick={handleUpload} isLoading={isUploading} disabled={!file} icon="bolt">
+                    Start Analysis
+                </Button>
             </div>
         </div>
     );
 
     const renderStatusStep = () => (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
-            <md-icon style={{ fontSize: '80px', color: 'var(--md-sys-color-success)', marginBottom: '24px' }}>task_alt</md-icon>
-            <h3 style={{ marginBottom: '16px' }}>Upload Complete!</h3>
-            <p style={{ color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '32px' }}>
-                Your video for <strong>{gameName}</strong> is being processed.<br/>
+        <div className="text-center py-10 animate-in fade-in zoom-in duration-700">
+            <div className="relative inline-block mb-8">
+                <div className="absolute inset-0 bg-electric blur-3xl opacity-20 rounded-full animate-pulse"></div>
+                <span className="material-symbols-outlined text-8xl text-electric relative z-10 drop-shadow-[0_0_15px_rgba(0,243,255,0.4)]">
+                    task_alt
+                </span>
+            </div>
+            <h3 className="text-2xl font-black italic uppercase tracking-tight text-white mb-4">Upload Complete!</h3>
+            <p className="text-sm font-bold text-tx-secondary uppercase tracking-wider leading-relaxed mb-10 max-w-sm mx-auto">
+                Your video for <span className="text-electric">{gameName}</span> is being processed.<br/>
                 We'll notify you when the analysis is ready.
             </p>
-            <md-filled-button onClick={onUploadComplete}>Return to Dashboard</md-filled-button>
+            <Button onClick={onUploadComplete} size="lg" fullWidth icon="dashboard">Return to Dashboard</Button>
         </div>
     );
 
     return (
-        <div style={{ 
-            maxWidth: '800px', 
-            margin: '0 auto', 
-            padding: '32px', 
-            backgroundColor: 'var(--md-sys-color-surface-container)', 
-            borderRadius: '24px',
-            boxShadow: 'var(--shadow-elevation-2)'
-        }}>
-            {step === 'METADATA' && renderMetadataStep()}
-            {step === 'UPLOAD' && renderUploadStep()}
-            {step === 'STATUS' && renderStatusStep()}
+        <div className="max-w-3xl mx-auto p-10 bg-container rounded-[32px] border border-bd-ghost shadow-2xl overflow-hidden relative">
+            {/* Background Texture */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-electric/5 blur-[120px] rounded-full -mr-32 -mt-32"></div>
+            
+            <div className="relative z-10">
+                {step === 'METADATA' && renderMetadataStep()}
+                {step === 'UPLOAD' && renderUploadStep()}
+                {step === 'STATUS' && renderStatusStep()}
+            </div>
         </div>
     );
 };

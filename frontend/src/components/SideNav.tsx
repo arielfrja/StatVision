@@ -33,7 +33,7 @@ const SideNav = () => {
             <Link
               key={item.path}
               href={item.path}
-              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group ${
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-100 group active:scale-95 active:bg-container-highest click-flash ${
                 isActive 
                   ? 'bg-container-highest text-electric border border-bd-active shadow-[0_0_10px_rgba(0,209,255,0.1)]' 
                   : 'text-tx-secondary hover:bg-container hover:text-tx-primary'

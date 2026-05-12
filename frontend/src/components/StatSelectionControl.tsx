@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import axios from 'axios';
+import Button from './Button';
+import Loader from './Loader';
 
 // Import Material Web Components
 import '@material/web/checkbox/checkbox.js';
-import '@material/web/button/filled-button.js';
-import '@material/web/icon/icon.js';
 
 interface StatSelectionControlProps {
     onPreferencesChanged: (visibleStats: string[]) => void;
@@ -34,12 +34,14 @@ const StatSelectionControl: React.FC<StatSelectionControlProps> = ({ onPreferenc
     const { getAccessTokenSilently } = useAuth0();
     const [visibleStats, setVisibleStats] = useState<string[]>(ALL_STATS.map(s => s.id));
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     useEffect(() => {
         fetchPreferences();
     }, []);
 
     const fetchPreferences = async () => {
+        setIsInitialLoading(true);
         try {
             const token = await getAccessTokenSilently();
             const response = await axios.get('http://localhost:3000/me', {
@@ -51,6 +53,8 @@ const StatSelectionControl: React.FC<StatSelectionControlProps> = ({ onPreferenc
             }
         } catch (error) {
             console.error("Error fetching preferences:", error);
+        } finally {
+            setIsInitialLoading(false);
         }
     };
 
@@ -77,24 +81,37 @@ const StatSelectionControl: React.FC<StatSelectionControlProps> = ({ onPreferenc
         }
     };
 
+    if (isInitialLoading) {
+        return (
+            <div className="p-6 bg-container-low rounded-2xl mb-8 flex flex-col items-center justify-center min-h-[300px] border border-bd-ghost">
+                <Loader size="medium" label="Loading Preferences" />
+            </div>
+        );
+    }
+
     return (
-        <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--md-sys-color-surface-container-low)', borderRadius: 'var(--border-radius-md)', marginBottom: 'var(--spacing-lg)' }}>
-            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Customize Displayed Stats</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+        <div className="p-6 bg-container-low rounded-2xl mb-8 border border-bd-ghost">
+            <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6">Customize Displayed Stats</h3>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-8">
                 {ALL_STATS.map(stat => (
-                    <label key={stat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                    <label key={stat.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-container-highest transition-colors group">
                         <md-checkbox
                             checked={visibleStats.includes(stat.id)}
                             onchange={() => handleToggleStat(stat.id)}
+                            className="scale-90"
                         ></md-checkbox>
-                        <span style={{ fontSize: 'var(--md-sys-typescale-body-medium-size)' }}>{stat.label}</span>
+                        <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">{stat.label}</span>
                     </label>
                 ))}
             </div>
-            <md-filled-button onClick={handleSave} disabled={isLoading}>
-                <md-icon slot="icon">save</md-icon>
-                {isLoading ? 'Saving...' : 'Save Preferences'}
-            </md-filled-button>
+            <Button 
+                onClick={handleSave} 
+                isLoading={isLoading} 
+                icon="save"
+                variant="primary"
+            >
+                Save Preferences
+            </Button>
         </div>
     );
 };

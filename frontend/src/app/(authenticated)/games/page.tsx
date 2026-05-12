@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import Loader from '@/components/Loader';
+import Button from '@/components/Button';
 import { Game, GameStatus } from '@/types/game';
 import UploadForm from '@/components/UploadForm';
 
@@ -34,18 +35,18 @@ const GamesPage = () => {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-[80vh]">
-      <Loader />
+      <Loader size="large" />
     </div>
   );
 
   if (isUploadMode) return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto pb-24">
       <header className="mb-10">
-        <button onClick={() => setIsUploadMode(false)} className="text-electric font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
+        <button onClick={() => setIsUploadMode(false)} className="text-electric font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2 outline-none group">
+          <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
           Back to Gallery
         </button>
-        <h1 className="text-4xl font-black italic tracking-tighter">ANALYZE NEW GAME</h1>
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase">Analyze New Game</h1>
       </header>
       <div className="stadium-card">
         <UploadForm 
@@ -67,20 +68,12 @@ const GamesPage = () => {
           <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase">Stadium Gallery</h1>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={() => router.push('/games/park-setup')}
-            className="px-6 py-3 bg-[var(--bg-container-low)] border border-[var(--border-ghost)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--bg-container)] transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-sm">bolt</span>
-            Park Setup
-          </button>
-          <button 
+          <Button 
             onClick={() => setIsUploadMode(true)}
-            className="inline-flex items-center justify-center px-10 py-4 bg-electric text-[#00373a] rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--primary-glow)] hover:scale-[1.02] transition-transform flex items-center gap-2"
+            icon="add"
           >
-            <span className="material-symbols-outlined text-sm font-black">add</span>
             New Analysis
-          </button>
+          </Button>
           </div>
           </header>
 
@@ -91,12 +84,14 @@ const GamesPage = () => {
           </div>
           <h2 className="text-2xl font-bold uppercase mb-2">No Tape in the Vault</h2>
           <p className="text-tx-secondary font-medium max-w-md mx-auto mb-10">Upload your first game to start seeing AI performance analytics.</p>
-          <button 
+          <Button 
             onClick={() => setIsUploadMode(true)}
-            className="inline-flex items-center justify-center px-12 py-5 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric hover:text-[#00373a] transition-all min-w-[240px]"
+            variant="secondary"
+            size="lg"
+            className="min-w-[240px]"
           >
             Start Analysis
-          </button>
+          </Button>
           </section>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -108,7 +103,7 @@ const GamesPage = () => {
               <div 
                 key={game.id}
                 onClick={() => router.push(`/games/${game.id}`)}
-                className="stadium-card group cursor-pointer border border-bd-ghost hover:border-electric/30"
+                className="stadium-card group cursor-pointer border border-bd-ghost hover:border-electric/30 transition-all duration-300 relative overflow-hidden"
               >
                 <div className="flex justify-between items-start mb-6">
                   <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-widest border transition-all ${
@@ -128,17 +123,13 @@ const GamesPage = () => {
                 </div>
 
                 <div className="flex items-center justify-between pt-6 border-t border-bd-ghost">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-6 h-6 rounded-full bg-container-highest border-2 border-container flex items-center justify-center overflow-hidden">
-                        <span className="material-symbols-outlined text-xs text-tx-dim">person</span>
-                      </div>
-                    ))}
-                    <div className="w-6 h-6 rounded-full bg-container-low border-2 border-container flex items-center justify-center">
-                      <span className="text-[8px] font-black">+{game.events?.length || 0}</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm text-tx-dim">analytics</span>
+                    <span className="text-[10px] font-black uppercase text-tx-dim tracking-widest">
+                        {game.events?.length || 0} Events Logged
+                    </span>
                   </div>
-                  <span className="material-symbols-outlined text-tx-dim group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                  <span className="material-symbols-outlined text-tx-dim group-hover:translate-x-1 transition-transform group-hover:text-electric">arrow_forward</span>
                 </div>
               </div>
             );

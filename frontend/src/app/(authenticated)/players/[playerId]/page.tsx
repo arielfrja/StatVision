@@ -59,14 +59,10 @@ const PlayerProfilePage = () => {
           </div>
         </div>
 
-        <div className="flex flex-row md:flex-col gap-4 border-l border-bd-ghost pl-10 hidden md:flex">
+        <div className="flex flex-row md:flex-col gap-4 border-l border-bd-ghost pl-10 hidden md:flex opacity-50">
           <div className="text-center md:text-left">
-            <p className="text-[10px] font-black uppercase text-tx-dim tracking-widest mb-1">Career Status</p>
-            <p className="text-2xl font-black italic tracking-tighter text-white uppercase">PROSPECT</p>
-          </div>
-          <div className="text-center md:text-left">
-            <p className="text-[10px] font-black uppercase text-tx-dim tracking-widest mb-1">Scout Score</p>
-            <p className="text-3xl font-black italic tracking-tighter text-white mono-stat">--</p>
+            <p className="text-[10px] font-black uppercase text-tx-dim tracking-widest mb-1">Status</p>
+            <p className="text-2xl font-black italic tracking-tighter text-white uppercase">Active</p>
           </div>
         </div>
       </header>
@@ -75,7 +71,7 @@ const PlayerProfilePage = () => {
         {/* Left: Content Area */}
         <div className="lg:col-span-8">
           <div className="flex gap-8 border-b border-bd-ghost mb-8">
-            {['highlights', 'evolution'].map((tab) => (
+            {['highlights'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -92,41 +88,30 @@ const PlayerProfilePage = () => {
           {activeTab === 'highlights' && (
             <div className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">The Mixtape</h2>
-                <span className="text-[10px] font-bold text-electric uppercase opacity-50">Clips Coming Soon</span>
+                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">Intelligence Archives</h2>
               </div>
               
               <div className="stadium-card py-24 text-center border-dashed border-2 border-bd-ghost bg-transparent">
-                 <p className="text-xs font-bold text-tx-dim uppercase tracking-widest">No highlight clips extracted for this player yet.</p>
+                 <span className="material-symbols-outlined text-4xl text-tx-dim mb-4 opacity-30">video_library</span>
+                 <p className="text-xs font-bold text-tx-dim uppercase tracking-widest leading-relaxed">
+                    No analyzed game clips found for this player profile.<br/>
+                    <span className="text-[10px] opacity-60">Upload game footage to begin AI extraction.</span>
+                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right: Skill Matrix Sidebar */}
+        {/* Right: Sidebar */}
         <div className="lg:col-span-4 space-y-8">
-          <section className="stadium-card">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-tx-dim mb-8">Skill Matrix</h3>
-            <div className="flex items-center justify-center py-4">
-              <div className="relative w-48 h-48 flex items-center justify-center opacity-20">
-                <div className="absolute inset-0 border border-white/5 rotate-45" />
-                <div className="absolute inset-4 border border-white/5 rotate-45" />
-                <span className="absolute -top-4 text-[10px] font-black uppercase text-tx-dim">Shooting</span>
-                <span className="absolute -bottom-4 text-[10px] font-black uppercase text-tx-dim">Clutch</span>
-                <span className="absolute -left-10 text-[10px] font-black uppercase text-tx-dim">IQ</span>
-                <span className="absolute -right-10 text-[10px] font-black uppercase text-tx-dim">D</span>
-              </div>
+          <section className="stadium-card border-l-4 border-electric/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-electric/5 blur-3xl -mr-16 -mt-16 group-hover:bg-electric/10 transition-all duration-700"></div>
+            <h3 className="text-[10px] font-black text-electric uppercase tracking-[0.2em] mb-4 italic relative z-10">AI Scout</h3>
+            <div className="relative z-10">
+              <p className="text-xs text-tx-secondary leading-relaxed italic font-medium">
+                "I am monitoring this player's performance across recent games. Skill distribution and efficiency pulse will be generated as more events are recorded."
+              </p>
             </div>
-          </section>
-
-          <section className="stadium-card bg-electric text-[#00373a]">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="material-symbols-outlined font-black">rocket_launch</span>
-              <h3 className="text-xs font-black uppercase tracking-widest">AI Projection</h3>
-            </div>
-            <p className="text-xs font-bold leading-relaxed italic">
-              "Analyzing player efficiency trends. Performance intelligence will be generated after sufficient game data is captured."
-            </p>
           </section>
         </div>
       </div>

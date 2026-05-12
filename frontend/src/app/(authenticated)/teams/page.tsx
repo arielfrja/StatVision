@@ -5,6 +5,7 @@ import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import Loader from '@/components/Loader';
+import Button from '@/components/Button';
 import { Team } from '@/types/team';
 import apiClient from '@/utils/apiClient';
 
@@ -37,7 +38,7 @@ const TeamsPage = () => {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-[80vh]">
-      <Loader />
+      <Loader size="large" />
     </div>
   );
 
@@ -48,13 +49,13 @@ const TeamsPage = () => {
           <p className="text-electric font-bold text-xs uppercase tracking-[0.2em] mb-1">Organization</p>
           <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase">Squad Management</h1>
         </div>
-        <button 
+        <Button 
           onClick={() => setShowModal(true)}
-          className="px-6 py-3 bg-electric text-[#00373a] rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--primary-glow)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+          icon="add"
+          size="md"
         >
-          <span className="material-symbols-outlined text-sm font-bold">add</span>
           Create New Squad
-        </button>
+        </Button>
       </header>
 
       {!teams || teams.length === 0 ? (
@@ -64,12 +65,13 @@ const TeamsPage = () => {
           </div>
           <h2 className="text-2xl font-bold uppercase mb-2">The Roster is Empty</h2>
           <p className="text-tx-secondary font-medium max-w-md mx-auto mb-10">Create your first team to begin building elite rosters and tracking performance.</p>
-          <button 
+          <Button 
             onClick={() => setShowModal(true)}
-            className="px-10 py-4 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric hover:text-[#00373a] transition-all"
+            variant="secondary"
+            size="lg"
           >
             Create Team
-          </button>
+          </Button>
         </section>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -85,7 +87,7 @@ const TeamsPage = () => {
               </div>
 
               <div className="flex justify-between items-start mb-8">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg transition-all group-hover:scale-110 ${
                   team.isTemp ? 'bg-[var(--bg-container-highest)] border border-[var(--border-ghost)]' : 'bg-electric text-[#00373a]'
                 }`}>
                   <span className="material-symbols-outlined font-bold">
@@ -127,7 +129,7 @@ const TeamsPage = () => {
       {/* Modern Redesigned Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="stadium-card max-w-md w-full border border-electric/20 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+          <div className="stadium-card max-w-md w-full border border-electric/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-300">
             <header className="mb-8">
               <h2 className="text-2xl font-black italic tracking-tighter uppercase mb-1">Create New Squad</h2>
               <p className="text-tx-dim font-bold uppercase text-[10px] tracking-widest">Initialize Official Roster</p>
@@ -141,23 +143,28 @@ const TeamsPage = () => {
                 onChange={(e) => setNewTeamName(e.target.value)}
                 placeholder="e.g. Gotham City Knights"
                 className="w-full bg-container-low border border-bd-ghost rounded-xl px-4 py-4 text-white font-bold focus:outline-none focus:border-electric transition-colors"
+                autoFocus
               />
             </div>
 
             <div className="flex gap-3">
-              <button 
+              <Button 
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-4 bg-container-low rounded-xl text-xs font-black uppercase tracking-widest hover:bg-container-highest transition-all"
+                variant="ghost"
+                fullWidth
+                disabled={isCreating}
               >
                 Cancel
-              </button>
-              <button 
+              </Button>
+              <Button 
                 onClick={handleCreateTeam}
-                disabled={isCreating || !newTeamName}
-                className="flex-[2] py-4 bg-electric text-[#00373a] rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--primary-glow)] disabled:opacity-50 transition-all"
+                isLoading={isCreating}
+                disabled={!newTeamName}
+                fullWidth
+                className="flex-[2]"
               >
-                {isCreating ? 'Initializing...' : 'Confirm Squad'}
-              </button>
+                Confirm Squad
+              </Button>
             </div>
           </div>
         </div>

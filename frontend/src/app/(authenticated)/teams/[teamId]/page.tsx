@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import Loader from '@/components/Loader';
+import Button from '@/components/Button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useParams, useRouter } from 'next/navigation';
 import { PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
-import axios from 'axios';
+import apiClient from '@/utils/apiClient';
 
 interface RosterPlayer extends Omit<PlayerTeamHistory, 'player'> {
     player: {
@@ -25,6 +26,7 @@ function TeamPlayersPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [players, setPlayers] = useState<RosterPlayer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRecruiting, setIsRecruiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -38,8 +40,8 @@ function TeamPlayersPage() {
     try {
       const token = await getAccessTokenSilently();
       const [teamRes, playersRes] = await Promise.all([
-        axios.get(`http://localhost:3000/teams/${teamId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`http://localhost:3000/teams/${teamId}/players`, { headers: { Authorization: `Bearer ${token}` } })
+        apiClient.get(`/teams/${teamId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        apiClient.get(`/teams/${teamId}/players`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       setTeam(teamRes.data);
       setPlayers(playersRes.data);
@@ -57,9 +59,10 @@ function TeamPlayersPage() {
 
   const handleCreatePlayer = async () => {
     if (!teamId || !newPlayerName) return;
+    setIsRecruiting(true);
     try {
       const token = await getAccessTokenSilently();
-      await axios.post(`http://localhost:3000/teams/${teamId}/players`, { 
+      await apiClient.post(`/teams/${teamId}/players`, { 
         name: newPlayerName, 
         jerseyNumber: newPlayerJersey || null,
         description: newPlayerDescription || null,
@@ -73,6 +76,8 @@ function TeamPlayersPage() {
       fetchTeamDetails();
     } catch (error: any) {
       setError(error.message);
+    } finally {
+      setIsRecruiting(false);
     }
   };
 
@@ -80,7 +85,7 @@ function TeamPlayersPage() {
     if (!confirm('Remove this player from the roster?')) return;
     try {
       const token = await getAccessTokenSilently();
-      await axios.delete(`http://localhost:3000/teams/${teamId}/players/${playerId}`, {
+      await apiClient.delete(`/teams/${teamId}/players/${playerId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchTeamDetails();
@@ -91,7 +96,7 @@ function TeamPlayersPage() {
 
   if (isLoading) return (
     <div className="flex items-center justify-center h-[80vh]">
-      <Loader />
+      <Loader size="large" />
     </div>
   );
 
@@ -102,24 +107,24 @@ function TeamPlayersPage() {
       {/* Editorial Header */}
       <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <button onClick={() => router.push('/teams')} className="text-electric font-bold text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2 group">
+          <button onClick={() => router.push('/teams')} className="text-electric font-bold text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2 group outline-none">
             <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
             Back to Squads
           </button>
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-electric flex items-center justify-center text-[#00373a] shadow-[0_0_20px_var(--primary-glow)]">
+            <div className="w-12 h-12 rounded-xl bg-electric flex items-center justify-center text-[#00373a] shadow-[0_0_20px_var(--primary-glow)] transition-transform hover:rotate-3">
               <span className="material-symbols-outlined font-bold text-2xl">shield</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase">{team.name}</h1>
           </div>
         </div>
-        <button 
+        <Button 
           onClick={() => setShowAddModal(true)}
-          className="px-6 py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric hover:text-[#00373a] transition-all flex items-center gap-2"
+          icon="person_add"
+          variant="secondary"
         >
-          <span className="material-symbols-outlined text-sm font-bold">person_add</span>
           Recruit Player
-        </button>
+        </Button>
       </header>
 
       {/* Roster Grid */}
@@ -142,7 +147,7 @@ function TeamPlayersPage() {
           ) : (
             <div className="flex flex-col gap-4">
               {players.map((p) => (
-                <div key={p.id} className="stadium-card group flex items-center justify-between py-4 hover:border-electric/20">
+                <div key={p.id} className="stadium-card group flex items-center justify-between py-4 hover:border-electric/20 transition-all duration-300">
                   <div className="flex items-center gap-6">
                     <div className="w-12 h-12 rounded-full bg-[var(--bg-container-low)] flex items-center justify-center border-2 border-[var(--bg-container-highest)] overflow-hidden">
                       <span className="material-symbols-outlined text-[var(--text-dim)] group-hover:scale-110 transition-transform">person</span>
@@ -157,16 +162,15 @@ function TeamPlayersPage() {
                     <span className="text-2xl font-black italic tracking-tighter mono-stat text-electric/40 group-hover:text-electric transition-colors w-12 text-center">
                       {p.jerseyNumber ? `#${p.jerseyNumber}` : '--'}
                     </span>
-                    <div className="flex gap-2 w-24 justify-end">
-                      <button className="w-10 h-10 rounded-lg bg-[var(--bg-container-low)] flex items-center justify-center hover:text-electric transition-colors border border-[var(--border-ghost)]">
-                        <span className="material-symbols-outlined text-xl">edit</span>
-                      </button>
-                      <button 
+                    <div className="flex gap-2 w-24 justify-end opacity-40 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="sm" icon="edit" className="w-10 h-10 p-0" />
+                      <Button 
                         onClick={() => handleDeletePlayer(p.playerId)}
-                        className="w-10 h-10 rounded-lg bg-[var(--bg-container-low)] flex items-center justify-center hover:text-red-400 transition-colors border border-[var(--border-ghost)]"
-                      >
-                        <span className="material-symbols-outlined text-xl">delete</span>
-                      </button>
+                        variant="danger" 
+                        size="sm" 
+                        icon="delete" 
+                        className="w-10 h-10 p-0"
+                      />
                     </div>
                   </div>
                 </div>
@@ -177,38 +181,23 @@ function TeamPlayersPage() {
 
         {/* Right: Tactical Sidebar */}
         <div className="lg:col-span-4 flex flex-col gap-8">
-          <section className="stadium-card border-l-4 border-[var(--accent-gold)]">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mb-6">Squad Archetype</h3>
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-[var(--accent-gold)]/10 flex items-center justify-center text-[var(--accent-gold)]">
-                <span className="material-symbols-outlined font-bold">bolt</span>
-              </div>
-              <div>
-                <h4 className="font-black italic tracking-tight uppercase">High-Tempo Offense</h4>
-                <p className="text-[10px] font-bold text-[var(--text-dim)] uppercase">Team Synergy Rating: 88</p>
-              </div>
+          <section className="stadium-card border-l-4 border-electric/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-electric/5 blur-3xl -mr-16 -mt-16 group-hover:bg-electric/10 transition-all duration-700"></div>
+            <h3 className="text-[10px] font-black text-electric uppercase tracking-[0.2em] mb-4 italic relative z-10">Squad Intelligence</h3>
+            <div className="relative z-10">
+              <p className="text-xs text-tx-secondary leading-relaxed italic font-medium">
+                "AI is currently analyzing the active roster. Team synergy metrics and archetypes will be generated once game data is associated with this squad."
+              </p>
             </div>
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed italic">
-              "This squad excels in transition. Statistics show a 14% increase in efficiency when utilizing early-clock shot opportunities."
-            </p>
           </section>
 
-          <section className="stadium-card bg-gradient-to-br from-[var(--bg-container)] to-[var(--bg-container-low)]">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-dim)] mb-6">Season Leaders</h3>
-            <div className="flex flex-col gap-4">
-              {[
-                { label: 'PTS', name: 'Player #23', val: '24.5' },
-                { label: 'REB', name: 'Player #11', val: '10.2' },
-                { label: 'AST', name: 'Player #02', val: '8.4' },
-              ].map((lead, i) => (
-                <div key={i} className="flex justify-between items-center border-b border-[var(--border-ghost)] pb-3 last:border-0">
-                  <div>
-                    <p className="text-[8px] font-black uppercase text-electric tracking-widest">{lead.label} LEADER</p>
-                    <p className="text-sm font-bold uppercase">{lead.name}</p>
-                  </div>
-                  <span className="text-xl font-black italic mono-stat">{lead.val}</span>
-                </div>
-              ))}
+          <section className="stadium-card bg-gradient-to-br from-container-low to-container relative overflow-hidden group">
+            <h3 className="text-[10px] font-black text-tx-dim uppercase tracking-[0.2em] mb-6 relative z-10">Season Performance</h3>
+            <div className="py-8 text-center border border-bd-ghost border-dashed rounded-xl relative z-10">
+              <span className="material-symbols-outlined text-3xl text-tx-dim mb-2 opacity-20">leaderboard</span>
+              <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest leading-relaxed">
+                Waiting for Game Records
+              </p>
             </div>
           </section>
         </div>
@@ -217,7 +206,7 @@ function TeamPlayersPage() {
       {/* Recruit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="stadium-card max-w-lg w-full border border-electric/20 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+          <div className="stadium-card max-w-lg w-full border border-electric/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in duration-300">
             <header className="mb-8">
               <h2 className="text-3xl font-black italic tracking-tighter uppercase mb-1">Recruit Player</h2>
               <p className="text-[var(--text-dim)] font-bold uppercase text-[10px] tracking-widest">Adding to {team.name} Roster</p>
@@ -232,6 +221,7 @@ function TeamPlayersPage() {
                   onChange={(e) => setNewPlayerName(e.target.value)}
                   placeholder="e.g. Marcus Smart"
                   className="w-full bg-[var(--bg-container-low)] border border-[var(--border-ghost)] rounded-xl px-4 py-4 text-white font-bold focus:outline-none focus:border-electric transition-colors"
+                  autoFocus
                 />
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -259,19 +249,23 @@ function TeamPlayersPage() {
             </div>
 
             <div className="flex gap-3">
-              <button 
+              <Button 
                 onClick={() => setShowAddModal(false)}
-                className="flex-1 py-4 bg-[var(--bg-container-low)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--bg-container-highest)] transition-all"
+                variant="ghost"
+                fullWidth
+                disabled={isRecruiting}
               >
                 Cancel
-              </button>
-              <button 
+              </Button>
+              <Button 
                 onClick={handleCreatePlayer}
+                isLoading={isRecruiting}
                 disabled={!newPlayerName}
-                className="flex-[2] py-4 bg-electric text-[#00373a] rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_var(--primary-glow)] disabled:opacity-50 transition-all"
+                fullWidth
+                className="flex-[2]"
               >
                 Recruit Player
-              </button>
+              </Button>
             </div>
           </div>
         </div>

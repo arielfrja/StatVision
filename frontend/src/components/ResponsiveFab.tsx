@@ -19,28 +19,30 @@ const ResponsiveFab: React.FC<ResponsiveFabProps> = ({ label, icon, onClick, sty
       setIsMobile(window.innerWidth <= 768);
     };
 
-    // Initial check after mounting to avoid hydration mismatch
     checkScreenSize();
-
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
   return (
-    <md-fab
-      {...(!isMobile && { label })}
-      extended={!isMobile}
+    <button
       onClick={onClick}
-      style={{
-        position: 'fixed',
-        bottom: isMobile ? 'calc(var(--spacing-md) + 64px)' : 'var(--spacing-lg)',
-        right: isMobile ? 'var(--spacing-md)' : 'var(--spacing-lg)',
-        zIndex: 1000,
-        ...style,
-      }}
+      className={`
+        fixed z-50 flex items-center justify-center gap-2
+        bg-electric text-[#00373a] font-black uppercase tracking-widest
+        shadow-[0_0_30px_rgba(0,243,255,0.3)] hover:shadow-[0_0_40px_rgba(0,243,255,0.5)]
+        hover:brightness-110 active:scale-95 transition-all duration-300
+        focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4
+        ${isMobile ? 'bottom-[calc(1rem+64px)] right-4 p-4 rounded-full' : 'bottom-8 right-8 px-6 py-4 rounded-2xl'}
+      `}
+      style={style}
     >
-      <md-icon slot="icon">{icon}</md-icon>
-    </md-fab>
+      <span className="material-symbols-outlined text-2xl font-black">{icon}</span>
+      {!isMobile && <span className="text-sm">{label}</span>}
+      
+      {/* Glow Effect */}
+      <div className="absolute inset-0 rounded-inherit bg-gradient-to-tr from-white/0 via-white/20 to-white/0 -translate-x-full hover:translate-x-full transition-transform duration-1000 pointer-events-none"></div>
+    </button>
   );
 };
 
