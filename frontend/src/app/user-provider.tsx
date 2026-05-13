@@ -19,23 +19,39 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 /**
- * Internal hook that returns the mock auth state.
+ * Internal hook that returns a stateful mock auth state.
  */
 const useMockAuth = (router: any): AuthState => {
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('mock_is_authenticated') !== 'false';
+    }
+    return true;
+  });
+
   return useMemo(() => ({
-    isAuthenticated: true,
+    isAuthenticated,
     isLoading: false,
-    user: { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" },
+    user: isAuthenticated ? { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" } : null,
     logout: (options?: any) => {
-        console.log("Mock Logout", options);
+        console.log("Mock Logout Triggered", options);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('mock_is_authenticated', 'false');
+        }
+        setIsAuthenticated(false);
         router.push('/');
     },
     loginWithRedirect: (options?: any) => {
-        console.log("Mock Login Redirect", options);
+        console.log("Mock Login Redirect Triggered", options);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('mock_is_authenticated', 'true');
+        }
+        setIsAuthenticated(true);
+        router.push('/dashboard');
         return Promise.resolve();
     },
     getAccessTokenSilently: () => Promise.resolve("mock-token"),
-  }), [router]);
+  }), [router, isAuthenticated]);
 };
 
 /**
@@ -84,17 +100,30 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID;
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  
   // Check if mock mode is forced OR if we are in a build environment without Auth0 config
-  // Current Mode: Real Auth0 (Mock disabled in Vercel)
   const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
-  console.log("StatVision Auth Config:", { isMock, baseUrl });
+  const router = useRouter();
+
+  useEffect(() => {
+    console.log("StatVision Auth Provider Debug:", { 
+      isMock, 
+      hasDomain: !!domain, 
+      hasClientId: !!clientId, 
+      hasBaseUrl: !!baseUrl,
+      domain: domain?.substring(0, 5) + "...",
+      baseUrl
+    });
+  }, [isMock, domain, clientId, baseUrl]);
 
   const onRedirectCallback = (appState?: AppState) => {
     router.push(appState?.returnTo || '/dashboard');
   };
 
-  // If mock mode is forced OR if we are in a build environment without Auth0 config
-  if (isMock || (!domain && typeof window === 'undefined')) {
+  // Decide which bridge to use
+  const shouldUseMock = isMock || (!domain && typeof window === 'undefined') || !domain || !clientId || !baseUrl;
+
+  if (shouldUseMock) {
     return (
       <MockBridge>
         <SWRProvider>
@@ -102,17 +131,6 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
         </SWRProvider>
       </MockBridge>
     );
-  }
-
-  if (!domain || !clientId || !baseUrl) {
-    // Fallback to MockBridge if configuration is missing, to ensure children always have a context
-    return (
-        <MockBridge>
-          <SWRProvider>
-            {children}
-          </SWRProvider>
-        </MockBridge>
-      );
   }
 
   return (
