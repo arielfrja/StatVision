@@ -117,7 +117,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                                                 <Button 
                                                     variant="ghost" 
                                                     size="sm" 
-                                                    onClick={() => handleSwitchTeam(player.id)}
+                                                    onClick={() => player.id && handleSwitchTeam(player.id)}
                                                     icon="swap_horiz"
                                                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >

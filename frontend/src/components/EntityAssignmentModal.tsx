@@ -58,12 +58,16 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
 
             // Initialize mappings with empty values
             const initialTeamMappings: { [key: string]: string } = {};
-            tempEntities.forEach(t => initialTeamMappings[t.id] = '');
+            tempEntities.forEach(t => {
+                if (t.id) initialTeamMappings[t.id] = '';
+            });
             setTeamMappings(initialTeamMappings);
 
             const initialPlayerMappings: { [key: string]: string } = {};
             tempEntities.forEach(t => {
-                t.players.forEach(p => initialPlayerMappings[p.id] = '');
+                t.players.forEach(p => {
+                    if (p.id) initialPlayerMappings[p.id] = '';
+                });
             });
             setPlayerMappings(initialPlayerMappings);
 
@@ -138,8 +142,8 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                 </div>
                                 <md-filled-select
                                     label="Assign to Official Team"
-                                    value={teamMappings[tempTeam.id] || ''}
-                                    onchange={(e: any) => handleTeamMappingChange(tempTeam.id, e.target.value)}
+                                    value={tempTeam.id ? (teamMappings[tempTeam.id] || '') : ''}
+                                    onchange={(e: any) => tempTeam.id && handleTeamMappingChange(tempTeam.id, e.target.value)}
                                     className="min-w-[280px]"
                                 >
                                     <md-select-option value=""><span>Select Team...</span></md-select-option>
@@ -153,7 +157,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
 
                             <div className="flex flex-col gap-6 pl-8 border-l border-bd-ghost ml-2">
                                 {tempTeam.players.map(tempPlayer => {
-                                    const currentTeamId = teamMappings[tempTeam.id];
+                                    const currentTeamId = tempTeam.id ? teamMappings[tempTeam.id] : '';
                                     return (
                                         <div key={tempPlayer.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-container-high border border-transparent hover:border-bd-ghost transition-all">
                                             <div className="flex items-center gap-3">
@@ -166,8 +170,8 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                             </div>
                                             <md-filled-select
                                                 label="Assign to Official Player"
-                                                value={playerMappings[tempPlayer.id] || ''}
-                                                onchange={(e: any) => handlePlayerMappingChange(tempPlayer.id, e.target.value)}
+                                                value={tempPlayer.id ? (playerMappings[tempPlayer.id] || '') : ''}
+                                                onchange={(e: any) => tempPlayer.id && handlePlayerMappingChange(tempPlayer.id, e.target.value)}
                                                 className="min-w-[240px]"
                                             >
                                                 <md-select-option value=""><span>Select Player...</span></md-select-option>
@@ -175,7 +179,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                                     .filter(ph => !currentTeamId || ph.teamId === currentTeamId)
                                                     .map(ph => (
                                                     <md-select-option key={ph.player.id} value={ph.player.id}>
-                                                        <span>{ph.player.name} (#{ph.jerseyNumber || '??'})</span>
+                                                        <span>{ph.player.name || 'Unknown'} (#{ph.jerseyNumber || '??'})</span>
                                                     </md-select-option>
                                                 ))}
                                             </md-filled-select>

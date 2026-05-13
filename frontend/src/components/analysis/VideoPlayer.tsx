@@ -30,10 +30,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
     const absoluteVideoUrl = videoUrl.startsWith('http') ? videoUrl : `${API_BASE_URL}${videoUrl.startsWith('/') ? '' : '/'}${videoUrl}`;
 
+    // Cast ReactPlayer to any to bypass strict property checking for dynamic component props
+    const Player = ReactPlayer as any;
+
     return (
         <div style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: 'var(--border-radius-md)', overflow: 'hidden', boxShadow: 'var(--shadow-elevation-2)' }}>
             {isClient && (
-                <ReactPlayer
+                <Player
                     ref={playerRef}
                     url={absoluteVideoUrl}
                     width='100%'
@@ -47,7 +50,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
                                 crossOrigin: 'anonymous'
                             }
                         }
-                    } as any}
+                    }}
                 />
             )}
         </div>
