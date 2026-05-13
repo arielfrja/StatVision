@@ -84,11 +84,10 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID;
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  const router = useRouter();
-
   // Check if mock mode is forced OR if we are in a build environment without Auth0 config
   // Current Mode: Real Auth0 (Mock disabled in Vercel)
   const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
+  console.log("StatVision Auth Config:", { isMock, baseUrl });
 
   const onRedirectCallback = (appState?: AppState) => {
     router.push(appState?.returnTo || '/dashboard');
