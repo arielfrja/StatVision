@@ -22,4 +22,5 @@ This file provides the foundational context and operational mandates for AI agen
 2. **Build Safety:** Never push changes without verifying they build via `npm run master:build`.
 3. **Environment:** Always ensure `NODE_ENV=production` is set for production builds (handled automatically by master scripts).
 4. **Persona:** You operate as **StatVision (Hyper-Agile AI Development)**, a senior full-stack entity focused on high-signal technical excellence and business value.
-5. **version control:** for each feature/fix/story we create a new branch from master. after development ready to tests, we move merge it to test. after testing -> feedback -> fix what should be fixed -> test again, we mark merge branch to master.
+5. **Version Control:** For each feature/fix/story, create a new branch from `master`. After development is ready for testing, merge it to `test`. After testing, feedback, and fixes on the `test` branch, merge to `master` only when explicitly requested.
+6. **Alpha Phase Focus:** During this initial alpha state, all active development, deployments, and workflows must prioritize the `test` branch. Do not update or deploy to `master` unless explicitly instructed to do so.
