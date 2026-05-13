@@ -128,7 +128,7 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
         } finally {
             if (uploadedFileName) {
-                await this.genAI.files.delete({ name: uploadedFileName }).catch(err => 
+                await this.genAI.files.delete({ name: uploadedFileName }).catch((err: any) => 
                     this.logger?.error(`[GeminiProvider] Failed to delete file ${uploadedFileName}`, { err })
                 );
             }

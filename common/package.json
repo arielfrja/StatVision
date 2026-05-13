@@ -11,6 +11,8 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/data-source.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.52.0",
+    "@google/genai": "^1.33.0",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.27"
