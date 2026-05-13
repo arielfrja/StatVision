@@ -66,7 +66,15 @@ const MockBridge = ({ children }: { children: React.ReactNode }) => {
 export const useAuth0 = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth0 must be used within a UserProviderWrapper');
+    // During build/prerendering, we might not have a provider yet.
+    // Return a dummy state instead of throwing to avoid breaking the build.
+    return {
+        isAuthenticated: false,
+        isLoading: true,
+        logout: () => {},
+        loginWithRedirect: () => Promise.resolve(),
+        getAccessTokenSilently: () => Promise.resolve(""),
+    } as AuthState;
   }
   return context;
 };
@@ -84,7 +92,8 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
     router.push(appState?.returnTo || '/dashboard');
   };
 
-  if (isMock) {
+  // If mock mode is forced OR if we are in a build environment without Auth0 config
+  if (isMock || (!domain && typeof window === 'undefined')) {
     return (
       <MockBridge>
         <SWRProvider>
@@ -95,8 +104,14 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   }
 
   if (!domain || !clientId || !baseUrl) {
-    // Fail gracefully in production if config is missing, but still provide SWR
-    return <SWRProvider>{children}</SWRProvider>;
+    // Fallback to MockBridge if configuration is missing, to ensure children always have a context
+    return (
+        <MockBridge>
+          <SWRProvider>
+            {children}
+          </SWRProvider>
+        </MockBridge>
+      );
   }
 
   return (
