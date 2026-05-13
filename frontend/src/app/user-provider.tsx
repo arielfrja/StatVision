@@ -86,6 +86,8 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   const router = useRouter();
 
+  // Check if mock mode is forced OR if we are in a build environment without Auth0 config
+  // Current Mode: Real Auth0 (Mock disabled in Vercel)
   const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
 
   const onRedirectCallback = (appState?: AppState) => {
