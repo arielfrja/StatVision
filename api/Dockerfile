@@ -27,4 +27,4 @@ RUN npm prune --production
 WORKDIR /app/api
 EXPOSE 3000
 
-CMD ["node", "build/app.js"]
+CMD ["node", "build/api/src/app.js"]

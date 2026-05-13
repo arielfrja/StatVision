@@ -27,4 +27,4 @@ RUN npm prune --production
 WORKDIR /app/worker
 EXPOSE 8080
 
-CMD ["node", "build/startWorker.js"]
+CMD ["node", "build/worker/src/startWorker.js"]
