@@ -33,4 +33,13 @@ To ensure the test frontend communicates with the test backend:
 1.  Push code changes to the `test` branch.
 2.  GitHub Actions will deploy the `-test` API and Worker.
 3.  Vercel will deploy a "Preview" version of the frontend.
-4.  Verify functionality at the Vercel Preview URL.
+## 6. Troubleshooting & Build Notes
+
+### **Android/arm64 Build Compatibility**
+When building the frontend in environments using `android/arm64` architecture (e.g., local development in Termux or specific ARM runners), Turbopack is currently not supported.
+- **Issue:** `Error: Turbopack is not supported on this platform (android/arm64) because native bindings are not available.`
+- **Solution:** The `scripts/build-all.sh` script is configured to use the `--webpack` flag for Next.js builds:
+  ```bash
+  cd frontend && npm run build -- --webpack
+  ```
+- **Action:** Ensure this flag remains in the master build scripts to maintain cross-platform build stability.

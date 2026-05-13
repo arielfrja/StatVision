@@ -7,6 +7,8 @@
 - **Frontend**: Achieved 100% green CI run by resolving 20+ TypeScript and Linting errors (conditional hooks, type mismatches, build-time auth hydration).
 - **Permissions**: Fixed GCP service account permissions for Artifact Registry and Cloud Run.
 - **Deployment**: Verified successful Docker build and push logic after resolving IAM permission gaps.
+- **Build Optimization**: Resolved `android/arm64` build failure in `test` branch by forcing Webpack (`--webpack`) in `scripts/build-all.sh`, bypassing Turbopack incompatibilities.
+- **Staging Verification**: Successfully deployed `test` branch to Vercel and Cloud Run; verified end-to-end connectivity.
 
 
 ## [2026-05-08] Sprint 1 Planning | Code Consolidation & Strategic Foundation
