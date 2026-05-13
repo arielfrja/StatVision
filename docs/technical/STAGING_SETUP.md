@@ -15,19 +15,19 @@ Please ensure the following secrets are set in your GitHub repository:
 - `GCP_SA_KEY`: (Existing) Service account with Cloud Run and Pub/Sub permissions.
 - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`: (Existing) For frontend deployment.
 
-## 3. Vercel Configuration (Action Required)
-To ensure the test frontend communicates with the test backend:
-1.  Go to **Vercel Dashboard** > **StatVision Project** > **Settings** > **Environment Variables**.
-2.  Add `NEXT_PUBLIC_API_BASE_URL`.
-3.  Set the value to your Cloud Run Test API URL (e.g., `https://statsvision-api-test-xxxx.a.run.app`).
-4.  **Crucial**: Select **ONLY** the "Preview" environment for this variable (or use Vercel's "Environment Specific" feature if you have a separate project for staging).
+## 3. Vercel Configuration (DONE)
+The frontend is configured on Vercel with the following variables for **Production** and **Preview**:
+- `NEXT_PUBLIC_USE_MOCK_AUTH`: `false` (Enables real Auth0)
+- `NEXT_PUBLIC_AUTH0_DOMAIN`: `dev-3os8m0zyfxmx60nn.us.auth0.com`
+- `NEXT_PUBLIC_AUTH0_CLIENT_ID`: `EwznPDvrgImiuHRP45HbapAwGToc4tqM`
+- `NEXT_PUBLIC_AUTH0_AUDIENCE`: `basetball-analyzer`
+- `NEXT_PUBLIC_BASE_URL`: `https://frontend-arielfrja-2128-arielfrja-2128s-projects.vercel.app`
 
-## 4. Auth0 Configuration (Action Required)
-1.  In Auth0, create a new **Client Application** (or use the existing one but add new URLs).
-2.  Add the Vercel Test URL to:
-    - **Allowed Callback URLs**
-    - **Allowed Logout URLs**
-    - **Allowed Web Origins**
+## 4. Auth0 Configuration (DONE)
+The Auth0 application **statsVision** (`EwznPDvrgImiuHRP45HbapAwGToc4tqM`) is configured with the following URIs:
+- **Allowed Callback URLs**: `http://localhost:3001, https://statsvision-477017.web.app, https://frontend-arielfrja-2128-arielfrja-2128s-projects.vercel.app`
+- **Allowed Logout URLs**: `http://localhost:3001, https://statsvision-477017.web.app, https://frontend-arielfrja-2128-arielfrja-2128s-projects.vercel.app`
+- **Allowed Origins**: `http://localhost:3001, https://statsvision-477017.web.app, https://frontend-arielfrja-2128-arielfrja-2128s-projects.vercel.app`
 
 ## 5. Verification Flow
 1.  Push code changes to the `test` branch.
