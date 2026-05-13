@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "next build",
-  "installCommand": "npm install --legacy-peer-deps",
-  "ignore-step": "git diff --quiet HEAD^ HEAD ./"
+  "installCommand": "npm install --legacy-peer-deps"
 }
