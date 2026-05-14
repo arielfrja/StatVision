@@ -1,6 +1,4 @@
-/* eslint-disable */
-import ErudaInit from './eruda-init';
-import UserProviderWrapper from './user-provider';
+import ClientProviders from './client-providers';
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -24,10 +22,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <link rel="stylesheet" href="/material-symbols.css" />
-        <UserProviderWrapper>
-          <ErudaInit />
+        <ClientProviders>
           {children}
-        </UserProviderWrapper>
+        </ClientProviders>
       </body>
     </html>
   );

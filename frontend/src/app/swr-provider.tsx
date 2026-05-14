@@ -6,13 +6,13 @@ import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
 
 export default function SWRProvider({ children }: { children: React.ReactNode }) {
-  const { getAccessTokenSilently } = useAuth0();
+  const auth = useAuth0();
 
   return (
     <SWRConfig
       value={{
         fetcher: async (url: string) => {
-          const token = await getAccessTokenSilently();
+          const token = await auth.getAccessTokenSilently();
           const response = await apiClient.get(url, {
             headers: {
               Authorization: `Bearer ${token}`,

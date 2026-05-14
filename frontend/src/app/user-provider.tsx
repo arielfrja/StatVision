@@ -1,11 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
-import { Auth0Provider, AppState, useAuth0 as useAuth0Real } from '@auth0/auth0-react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import { Auth0Provider, useAuth0 as useAuth0Real } from '@auth0/auth0-react';
 import { useRouter } from 'next/navigation';
 import SWRProvider from './swr-provider';
 
-// Define a common interface for the auth state
 interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -18,139 +17,86 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-/**
- * Internal hook that returns a stateful mock auth state.
- */
-const useMockAuth = (router: any): AuthState => {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('mock_is_authenticated') !== 'false';
-    }
-    return true;
-  });
-
-  return useMemo(() => ({
-    isAuthenticated,
-    isLoading: false,
-    user: isAuthenticated ? { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" } : null,
-    logout: (options?: any) => {
-        console.log("Mock Logout Triggered", options);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('mock_is_authenticated', 'false');
-        }
-        setIsAuthenticated(false);
-        router.push('/');
-    },
-    loginWithRedirect: (options?: any) => {
-        console.log("Mock Login Redirect Triggered", options);
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('mock_is_authenticated', 'true');
-        }
-        setIsAuthenticated(true);
-        router.push('/dashboard');
-        return Promise.resolve();
-    },
-    getAccessTokenSilently: () => Promise.resolve("mock-token"),
-  }), [router, isAuthenticated]);
-};
-
-/**
- * Component that bridges real Auth0 state to our unified AuthContext.
- */
-const Auth0Bridge = ({ children }: { children: React.ReactNode }) => {
-    const realAuth0 = useAuth0Real();
-    return (
-        <AuthContext.Provider value={realAuth0}>
-            {children}
-        </AuthContext.Provider>
-    );
-};
-
-/**
- * Component that bridges Mock state to our unified AuthContext.
- */
-const MockBridge = ({ children }: { children: React.ReactNode }) => {
-    const router = useRouter();
-    const mockAuth = useMockAuth(router);
-    return (
-        <AuthContext.Provider value={mockAuth}>
-            {children}
-        </AuthContext.Provider>
-    );
-};
-
 export const useAuth0 = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    // During build/prerendering, we might not have a provider yet.
-    // Return a dummy state instead of throwing to avoid breaking the build.
-    return {
-        isAuthenticated: false,
-        isLoading: true,
-        logout: () => {},
-        loginWithRedirect: () => Promise.resolve(),
-        getAccessTokenSilently: () => Promise.resolve(""),
-    } as AuthState;
-  }
-  return context;
+  return context || ({
+    isAuthenticated: false,
+    isLoading: true,
+    logout: () => {},
+    loginWithRedirect: () => Promise.resolve(),
+    getAccessTokenSilently: () => Promise.resolve(""),
+  } as AuthState);
 };
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [isAuthenticatedMock, setIsAuthenticatedMock] = useState(true);
+
+  useEffect(() => {
+    setMounted(true);
+    const stored = sessionStorage.getItem('mock_is_authenticated');
+    if (stored === 'false') setIsAuthenticatedMock(false);
+  }, []);
+
   const domain = process.env.NEXT_PUBLIC_AUTH0_DOMAIN;
   const clientId = process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID;
   const audience = process.env.NEXT_PUBLIC_AUTH0_AUDIENCE;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  
-  // Check if mock mode is forced OR if we are in a build environment without Auth0 config
   const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true';
-  const router = useRouter();
 
-  useEffect(() => {
-    console.log("StatVision Auth Provider Debug:", { 
-      isMock, 
-      hasDomain: !!domain, 
-      hasClientId: !!clientId, 
-      hasBaseUrl: !!baseUrl,
-      domain: domain?.substring(0, 5) + "...",
-      baseUrl
-    });
-  }, [isMock, domain, clientId, baseUrl]);
+  const shouldUseMock = isMock || !domain || !clientId || !baseUrl;
 
-  const onRedirectCallback = (appState?: AppState) => {
-    router.push(appState?.returnTo || '/dashboard');
-  };
+  const mockValue = useMemo(() => ({
+    isAuthenticated: isAuthenticatedMock,
+    isLoading: false,
+    user: isAuthenticatedMock ? { sub: "test-user-123", email: "test@statvision.ai", name: "Test User" } : null,
+    logout: () => {
+      sessionStorage.setItem('mock_is_authenticated', 'false');
+      setIsAuthenticatedMock(false);
+      router.push('/');
+    },
+    loginWithRedirect: () => {
+      sessionStorage.setItem('mock_is_authenticated', 'true');
+      setIsAuthenticatedMock(true);
+      router.push('/dashboard');
+      return Promise.resolve();
+    },
+    getAccessTokenSilently: () => Promise.resolve("mock-token"),
+  }), [isAuthenticatedMock, router]);
 
-  // Decide which bridge to use
-  const shouldUseMock = isMock || (!domain && typeof window === 'undefined') || !domain || !clientId || !baseUrl;
+  // SSR: Minimal shell
+  if (!mounted) {
+    return <AuthContext.Provider value={null}>{children}</AuthContext.Provider>;
+  }
 
   if (shouldUseMock) {
     return (
-      <MockBridge>
-        <SWRProvider>
-          {children}
-        </SWRProvider>
-      </MockBridge>
+      <AuthContext.Provider value={mockValue}>
+        <SWRProvider>{children}</SWRProvider>
+      </AuthContext.Provider>
     );
   }
 
+  // Real Auth0 wrapper (rendered on client only)
   return (
     <Auth0Provider
-      domain={domain}
-      clientId={clientId}
-      authorizationParams={{
-        redirect_uri: baseUrl,
-        audience: audience,
-        scope: "openid profile email offline_access",
-      }}
-      onRedirectCallback={onRedirectCallback}
+      domain={domain!}
+      clientId={clientId!}
+      authorizationParams={{ redirect_uri: baseUrl, audience, scope: "openid profile email offline_access" }}
       useRefreshTokens={true}
       cacheLocation="localstorage"
     >
-      <Auth0Bridge>
-        <SWRProvider>
-          {children}
-        </SWRProvider>
-      </Auth0Bridge>
+      <Auth0RealBridge>{children}</Auth0RealBridge>
     </Auth0Provider>
   );
+}
+
+const Auth0RealBridge = ({ children }: { children: React.ReactNode }) => {
+    const realAuth0 = useAuth0Real();
+    return (
+        <AuthContext.Provider value={realAuth0}>
+            <SWRProvider>{children}</SWRProvider>
+        </AuthContext.Provider>
+    );
 }
