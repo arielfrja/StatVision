@@ -50,3 +50,7 @@ skills-lock.json
 *.audit.json
 
 docs/assets/*.webm
+.vercel
+
+# Strategic Consultation Documents
+STADIUM_VISION_CONSULT/
