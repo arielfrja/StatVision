@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import { useRouter, useParams } from 'next/navigation';
-import { Game } from '@/types/game';
+import { Game, GameType, IdentityMode } from '@/types/game';
 import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
 import { GameEvent } from '@/types/gameEvent';
@@ -21,6 +21,10 @@ import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
 
+import '@material/web/textfield/filled-text-field.js';
+import '@material/web/select/filled-select.js';
+import '@material/web/select/select-option.js';
+
 function AnalysisPage() {
     const params = useParams();
     const gameId = params.gameId as string;
@@ -32,18 +36,37 @@ function AnalysisPage() {
     const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
         refreshInterval: (data) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
     });
+    const { data: teams } = useSWR<Team[]>('/teams');
 
     // UI State
-    const [isRetrying, setIsRetrying] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [visibleStats, setVisibleStats] = useState<string[]>(['points', 'assists', 'offensiveRebounds', 'defensiveRebounds', 'steals', 'blocks', 'turnovers', 'fouls']);
+
+    // Form State (for Settings)
+    const [editName, setEditName] = useState('');
+    const [editDate, setEditDate] = useState('');
+    const [editLocation, setEditLocation] = useState('');
+    const [editHomeTeamId, setEditHomeTeamId] = useState('');
+    const [editAwayTeamId, setEditAwayTeamId] = useState('');
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     // Timeline & Editor State
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [selectedEvent, setSelectedEvent] = useState<GameEvent | null>(null);
+
+    useEffect(() => {
+        if (game) {
+            setEditName(game.name || '');
+            setEditDate(game.gameDate ? new Date(game.gameDate).toISOString().split('T')[0] : '');
+            setEditLocation(game.location || '');
+            setEditHomeTeamId(game.homeTeamId || '');
+            setEditAwayTeamId(game.awayTeamId || '');
+        }
+    }, [game]);
 
     // Handlers
     const handleSeek = (time: number) => {
@@ -64,6 +87,25 @@ function AnalysisPage() {
     const handleEventClick = (event: GameEvent) => {
         handleSeek(event.absoluteTimestamp);
         setSelectedEvent(event);
+    };
+
+    const handleSaveSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            await apiClient.patch(`/games/${gameId}`, {
+                name: editName,
+                gameDate: editDate,
+                location: editLocation,
+                homeTeamId: editHomeTeamId || null,
+                awayTeamId: editAwayTeamId || null
+            });
+            await mutate();
+            setShowSettings(false);
+        } catch (err) {
+            console.error("Failed to save settings:", err);
+        } finally {
+            setIsSavingSettings(false);
+        }
     };
 
     const handleSaveEvent = async (updatedEvent: Partial<GameEvent>) => {
@@ -155,6 +197,10 @@ function AnalysisPage() {
                 </div>
                 
                 <div className="flex gap-3">
+                    <button onClick={() => setShowSettings(!showSettings)} className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${showSettings ? 'bg-electric text-black' : 'bg-container-high border border-bd-ghost text-white hover:bg-container-highest'}`}>
+                        <span className="material-symbols-outlined text-sm">settings</span>
+                        {showSettings ? 'Close Settings' : 'Edit Game Info'}
+                    </button>
                     {game.status === 'ANALYZED' && (
                         <button onClick={() => setShowAssignmentModal(true)} className="px-4 py-2 bg-white text-black rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-tx-secondary transition-all">
                             <span className="material-symbols-outlined text-sm">assignment_ind</span>
@@ -166,6 +212,63 @@ function AnalysisPage() {
                     </button>
                 </div>
             </header>
+
+            {/* Game Settings Panel (Collapsible) */}
+            {showSettings && (
+                <div className="mb-12 p-8 bg-container-high rounded-xl border border-bd-ghost animate-in slide-in-from-top-4 duration-300">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-tx-secondary mb-6">Game Logistics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <md-filled-text-field
+                            label="Game Title"
+                            value={editName}
+                            onInput={(e: any) => setEditName(e.target.value)}
+                        ></md-filled-text-field>
+                        <md-filled-text-field
+                            label="Date"
+                            type="date"
+                            value={editDate}
+                            onInput={(e: any) => setEditDate(e.target.value)}
+                        ></md-filled-text-field>
+                        <md-filled-text-field
+                            label="Location"
+                            value={editLocation}
+                            onInput={(e: any) => setEditLocation(e.target.value)}
+                        ></md-filled-text-field>
+                        
+                        <md-filled-select
+                            label="Home Team"
+                            value={editHomeTeamId}
+                            onchange={(e: any) => setEditHomeTeamId(e.target.value)}
+                        >
+                            <md-select-option value=""><span>Select Team</span></md-select-option>
+                            {teams?.map(t => (
+                                <md-select-option key={t.id} value={t.id}><span>{t.name}</span></md-select-option>
+                            ))}
+                        </md-filled-select>
+
+                        <md-filled-select
+                            label="Away Team"
+                            value={editAwayTeamId}
+                            onchange={(e: any) => setEditAwayTeamId(e.target.value)}
+                        >
+                            <md-select-option value=""><span>Select Team</span></md-select-option>
+                            {teams?.map(t => (
+                                <md-select-option key={t.id} value={t.id}><span>{t.name}</span></md-select-option>
+                            ))}
+                        </md-filled-select>
+
+                        <div className="flex items-end">
+                            <button 
+                                onClick={handleSaveSettings}
+                                disabled={isSavingSettings}
+                                className="w-full h-12 bg-white text-black rounded-lg text-xs font-bold hover:bg-electric transition-all disabled:opacity-50"
+                            >
+                                {isSavingSettings ? 'Saving...' : 'Apply Changes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content: Vertical Stack */}
             <div className="space-y-12">

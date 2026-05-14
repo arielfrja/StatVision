@@ -61,27 +61,44 @@ export const gameRoutes = (
             return res.status(401).send("Unauthorized");
         }
 
-        const { name, gameDate, location, season, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
-
-        if (!name) {
-            return res.status(400).json({ message: "Missing game name in body." });
-        }
+        const { name, gameDate, location, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
 
         try {
             const user = await userRepository.findOneBy({ id: req.user.id });
             if (!user) return res.status(404).json({ message: "User not found" });
 
             const newGame = await gameService.createGame({
+                name,
                 homeTeamId,
                 awayTeamId,
                 gameDate,
                 gameType,
                 identityMode,
-                visualContext
+                visualContext,
+                ruleset
             }, user);
             res.status(201).json(newGame);
         } catch (error) {
             logger.error("Error creating new game:", error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    router.patch("/:gameId", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+
+        try {
+            const updatedGame = await gameService.updateGame(gameId, req.user.id, req.body);
+            if (!updatedGame) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+            res.status(200).json(updatedGame);
+        } catch (error) {
+            logger.error(`Error updating game ${gameId}:`, error);
             res.status(500).json({ message: "Internal server error." });
         }
     });
