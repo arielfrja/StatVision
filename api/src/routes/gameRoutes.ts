@@ -103,6 +103,44 @@ export const gameRoutes = (
         }
     });
 
+    router.post("/upload", upload.single('video'), async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.body;
+        const file = req.file;
+
+        if (!gameId || !file) {
+            return res.status(400).json({ message: "Missing gameId or video file." });
+        }
+
+        try {
+            const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+
+            // Update game status and file path
+            game.status = GameStatus.UPLOADED;
+            game.videoUrl = file.path;
+            await gameRepository.save(game);
+
+            // Emit event to start analysis
+            await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
+                gameId: game.id,
+                videoPath: file.path,
+                userId: req.user.id
+            });
+
+            logger.info(`Video uploaded and event emitted for game ${gameId}`);
+            res.status(200).json({ message: "Upload successful. Analysis started.", game });
+        } catch (error) {
+            logger.error(`Error during video upload for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
     router.get("/:gameId", async (req, res) => {
         if (!req.user || !req.user.id) {
             return res.status(401).send("Unauthorized");
