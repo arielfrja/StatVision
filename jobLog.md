@@ -1,5 +1,33 @@
 # Job Log - StatVision
 
+## [2026-05-14] Strategic Pivot: Minimalist Utility Transition
+**Objective:** Transitioned StatVision from a "High-Dopamine/Gaming" aesthetic to a "Minimalist Utility" tool for coaches.
+
+### Major Changes:
+- **Visual Overhaul:** 
+    - Replaced flashy "Stadium" styles (glows, glassmorphism, pulsing animations) with clean, high-contrast "Functional Minimalism".
+    - Standardized typography to **Inter** sans-serif, removing the "black italic uppercase" gaming font.
+    - Simplified color palette to neutrals with a single subtle accent (`electric`).
+- **Analysis Page Redesign:**
+    - Implemented a vertical layout: **Video Player on Top**, side-by-side **Box Score & Play-by-Play** on Bottom.
+    - Removed redundant "Strategic Pulse" selection to lower cognitive load.
+    - Refined "AI Analysis" indicators for a professional, clean look.
+- **Play-by-Play Enhancements:**
+    - Improved row click targets for the "Magic Interaction" (seek to timestamp).
+    - Added **Edit** and **Delete** actions to PBP rows (MoSCoW Must-Have).
+- **Performance Dashboard (Command Center):**
+    - Refactored the main landing page into a clean "Performance Dashboard".
+    - Flattened all cards and removed unnecessary tactical "fluff".
+- **Upload Form Optimization:**
+    - Simplified the "Upload & Forget" flow with a clean, professional multi-step interface.
+
+### Results:
+- Reduced **Time-to-Value** by making data more accessible and readable.
+- Lowered **Cognitive Load** for coaches by removing visual distractions.
+- Built a foundation for **Trust-based AI** by exposing errors via Edit/Delete actions.
+
+**Status:** Strategic Pivot Implementation Complete. Next focus will be on AI Confidence flagging and manual review optimization.
+
 ## [2026-05-13] Cloud Staging & CI/CD Stabilization
 - **Infrastructure**: Provisioned isolated Cloud Staging environment in GCP (`statsvision-477017`) using `-test` suffix for Pub/Sub and services.
 - **CI/CD**: Fixed `ci.yml` and `deploy.yml` for monorepo structure. Added `workflow_dispatch` for manual control.

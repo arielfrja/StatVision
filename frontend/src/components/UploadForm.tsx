@@ -141,7 +141,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 
     const renderMetadataStep = () => (
         <form onSubmit={handleMetadataSubmit} className="flex flex-col gap-6">
-            <h3 className="text-lg font-black italic uppercase tracking-tight text-electric">Step 1: Game Details</h3>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-tx-secondary">Game Information</h3>
             
             <md-filled-text-field
                 label="Game Name"
@@ -166,42 +166,42 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                     }}
                     className="flex-1"
                 >
-                    <md-select-option value={GameType.FULL_COURT}><span>Full Court (Standard)</span></md-select-option>
-                    <md-select-option value={GameType.THREE_X_THREE}><span>FIBA 3x3</span></md-select-option>
-                    <md-select-option value={GameType.STREET_BALL}><span>Streetball / Park</span></md-select-option>
+                    <md-select-option value={GameType.FULL_COURT}><span>Full Court</span></md-select-option>
+                    <md-select-option value={GameType.THREE_X_THREE}><span>3x3</span></md-select-option>
+                    <md-select-option value={GameType.STREET_BALL}><span>Park/Street</span></md-select-option>
                     <md-select-option value={GameType.ONE_X_ONE}><span>1-on-1</span></md-select-option>
                 </md-filled-select>
 
                 <md-filled-select
-                    label="Team Detection Mode"
+                    label="Detection Logic"
                     value={identityMode}
                     onchange={(e: any) => setIdentityMode(e.target.value as IdentityMode)}
                     className="flex-1"
                 >
-                    <md-select-option value={IdentityMode.JERSEY_COLORS}><span>Jersey Colors</span></md-select-option>
-                    <md-select-option value={IdentityMode.INTERACTION_BASED}><span>Interaction-based (Streetball)</span></md-select-option>
+                    <md-select-option value={IdentityMode.JERSEY_COLORS}><span>Uniform Colors</span></md-select-option>
+                    <md-select-option value={IdentityMode.INTERACTION_BASED}><span>Interaction Flow</span></md-select-option>
                 </md-filled-select>
             </div>
 
-            <div className="flex items-center gap-6 px-4 py-3 bg-container-low rounded-xl border border-bd-ghost">
-                <span className="text-[10px] font-black uppercase tracking-widest text-tx-dim">Scoring:</span>
-                <label className="flex items-center gap-2 cursor-pointer group">
+            <div className="flex items-center gap-6 px-4 py-3 bg-container-low rounded-lg border border-bd-ghost">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-tx-dim">Point Values:</span>
+                <label className="flex items-center gap-2 cursor-pointer">
                     <md-radio 
                         name="scoring" 
                         value="2_AND_3" 
                         checked={pointValue === '2_AND_3'} 
                         onchange={() => setPointValue('2_AND_3')}
                     ></md-radio>
-                    <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">2s & 3s</span>
+                    <span className="text-xs font-semibold text-tx-secondary">Standard (2/3)</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer group">
+                <label className="flex items-center gap-2 cursor-pointer">
                     <md-radio 
                         name="scoring" 
                         value="1_AND_2" 
                         checked={pointValue === '1_AND_2'} 
                         onchange={() => setPointValue('1_AND_2')}
                     ></md-radio>
-                    <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">1s & 2s</span>
+                    <span className="text-xs font-semibold text-tx-secondary">Small Court (1/2)</span>
                 </label>
             </div>
 
@@ -222,7 +222,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             </div>
 
             {identityMode === IdentityMode.JERSEY_COLORS && (
-                <div className="flex flex-col gap-6 animate-in slide-in-from-top-4 duration-300">
+                <div className="flex flex-col gap-4 py-4 border-t border-bd-ghost">
                     <div className="flex flex-col md:flex-row gap-4">
                         <md-filled-select
                             label="Home Team"
@@ -277,19 +277,19 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 
             <div className="flex justify-end gap-3 mt-4 border-t border-bd-ghost pt-6">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" icon="arrow_forward">Next: Upload Video</Button>
+                <Button type="submit">Next Step</Button>
             </div>
         </form>
     );
 
     const renderUploadStep = () => (
         <div className="flex flex-col gap-6">
-            <h3 className="text-lg font-black italic uppercase tracking-tight text-electric">Step 2: Upload Video</h3>
-            <p className="text-xs font-bold text-tx-dim uppercase tracking-wider">
-                Upload the game recording for <span className="text-white">{gameName}</span>.
+            <h3 className="text-sm font-bold uppercase tracking-widest text-tx-secondary">Media Upload</h3>
+            <p className="text-xs font-medium text-tx-dim">
+                Please select the video file for <span className="text-white font-semibold">{gameName}</span>.
             </p>
 
-            <div className="relative border-2 border-dashed border-bd-ghost p-12 rounded-2xl text-center bg-container-low hover:bg-container-high transition-colors group cursor-pointer overflow-hidden">
+            <div className="relative border border-dashed border-bd-ghost p-12 rounded-xl text-center bg-container-low hover:bg-container-high transition-colors group cursor-pointer">
                 <input
                     type="file"
                     accept="video/*"
@@ -299,75 +299,64 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                     disabled={isUploading}
                 />
                 <div className="flex flex-col items-center">
-                    <span className={`material-symbols-outlined text-5xl mb-4 transition-colors ${file ? 'text-electric' : 'text-tx-dim group-hover:text-electric'}`}>
-                        {file ? 'check_circle' : 'cloud_upload'}
+                    <span className={`material-symbols-outlined text-4xl mb-3 transition-colors ${file ? 'text-electric' : 'text-tx-dim group-hover:text-electric'}`}>
+                        {file ? 'check_circle' : 'upload_file'}
                     </span>
-                    <p className="text-sm font-black uppercase tracking-widest text-white mb-1">
-                        {file ? file.name : 'Click to select video file'}
+                    <p className="text-sm font-semibold text-white mb-1">
+                        {file ? file.name : 'Select video recording'}
                     </p>
-                    {!file && <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">MP4, MOV or AVI (Max 500MB)</p>}
+                    {!file && <p className="text-[10px] font-medium text-tx-dim uppercase tracking-wider">MP4, MOV, or AVI preferred</p>}
                 </div>
-                
-                {/* Visual Accent */}
-                <div className="absolute top-0 left-0 w-1 h-full bg-electric opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
 
             {isUploading && (
-                <div className="mt-4 p-6 bg-container-low rounded-xl border border-bd-ghost animate-in fade-in zoom-in duration-300">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-electric">Uploading Video</span>
-                        <span className="text-[10px] font-black tracking-widest text-white">{progress}%</span>
+                <div className="mt-4 p-5 bg-container-low rounded-lg border border-bd-ghost">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-tx-secondary">Uploading...</span>
+                        <span className="text-[10px] font-bold text-white mono-stat">{progress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-container-highest rounded-full overflow-hidden">
+                    <div className="w-full h-1 bg-container-highest rounded-full overflow-hidden">
                         <div 
-                            className="h-full bg-electric shadow-[0_0_10px_var(--primary-electric)] transition-all duration-300" 
+                            className="h-full bg-electric transition-all duration-300" 
                             style={{ width: `${progress}%` }}
                         ></div>
                     </div>
-                    <p className="text-[8px] font-bold text-tx-dim uppercase tracking-[0.2em] mt-3 text-center animate-pulse">
-                        Encrypting & Streaming to Worker
-                    </p>
                 </div>
             )}
 
             {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
-                    <span className="material-symbols-outlined text-lg">error</span>
-                    <span className="text-xs font-bold uppercase tracking-tight">{error}</span>
+                <div className="p-4 bg-red-500/5 border border-red-500/20 text-red-500 rounded-lg flex items-center gap-3">
+                    <span className="material-symbols-outlined text-base">error</span>
+                    <span className="text-xs font-semibold">{error}</span>
                 </div>
             )}
 
             <div className="flex justify-end gap-3 mt-4 border-t border-bd-ghost pt-6">
                 <Button variant="outline" onClick={() => setStep('METADATA')} disabled={isUploading}>Back</Button>
-                <Button onClick={handleUpload} isLoading={isUploading} disabled={!file} icon="bolt">
-                    Start Analysis
+                <Button onClick={handleUpload} isLoading={isUploading} disabled={!file}>
+                    Start Processing
                 </Button>
             </div>
         </div>
     );
 
     const renderStatusStep = () => (
-        <div className="text-center py-10 animate-in fade-in zoom-in duration-700">
-            <div className="relative inline-block mb-8">
-                <div className="absolute inset-0 bg-electric blur-3xl opacity-20 rounded-full animate-pulse"></div>
-                <span className="material-symbols-outlined text-8xl text-electric relative z-10 drop-shadow-[0_0_15px_rgba(0,243,255,0.4)]">
-                    task_alt
+        <div className="text-center py-8">
+            <div className="mb-6">
+                <span className="material-symbols-outlined text-6xl text-electric opacity-80">
+                    check_circle
                 </span>
             </div>
-            <h3 className="text-2xl font-black italic uppercase tracking-tight text-white mb-4">Upload Complete!</h3>
-            <p className="text-sm font-bold text-tx-secondary uppercase tracking-wider leading-relaxed mb-10 max-w-sm mx-auto">
-                Your video for <span className="text-electric">{gameName}</span> is being processed.<br/>
-                We'll notify you when the analysis is ready.
+            <h3 className="text-xl font-bold text-white mb-3">Video Received</h3>
+            <p className="text-sm font-medium text-tx-secondary leading-relaxed mb-8 max-w-sm mx-auto">
+                Processing for <span className="text-white font-semibold">{gameName}</span> has started. This may take some time. We will notify you once the stats are ready.
             </p>
-            <Button onClick={onUploadComplete} size="lg" fullWidth icon="dashboard">Return to Dashboard</Button>
+            <Button onClick={onUploadComplete} fullWidth>Return to Dashboard</Button>
         </div>
     );
 
     return (
-        <div className="max-w-3xl mx-auto p-10 bg-container rounded-[32px] border border-bd-ghost shadow-2xl overflow-hidden relative">
-            {/* Background Texture */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-electric/5 blur-[120px] rounded-full -mr-32 -mt-32"></div>
-            
+        <div className="max-w-2xl mx-auto p-8 bg-container rounded-2xl border border-bd-ghost shadow-2xl relative overflow-hidden">
             <div className="relative z-10">
                 {step === 'METADATA' && renderMetadataStep()}
                 {step === 'UPLOAD' && renderUploadStep()}

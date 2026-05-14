@@ -18,10 +18,8 @@ import TimelineReview from '@/components/analysis/TimelineReview';
 import EventEditor from '@/components/analysis/EventEditor';
 import BoxScoreTable from '@/components/analysis/BoxScoreTable';
 import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
-import TeamAndPlayerTables from '@/components/TeamAndPlayerTables';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
-import StatSelectionControl from '@/components/StatSelectionControl';
 
 function AnalysisPage() {
     const params = useParams();
@@ -36,13 +34,11 @@ function AnalysisPage() {
     });
 
     // UI State
-    const [isMobile, setIsMobile] = useState(false);
-    const [activeTab, setActiveTab] = useState<'boxscore' | 'pbp' | 'playerstats' | 'identified_player'>('boxscore');
     const [isRetrying, setIsRetrying] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-    const [visibleStats, setVisibleStats] = useState<string[]>([]);
+    const [visibleStats, setVisibleStats] = useState<string[]>(['points', 'assists', 'offensiveRebounds', 'defensiveRebounds', 'steals', 'blocks', 'turnovers', 'fouls']);
 
     // Timeline & Editor State
     const [currentTime, setCurrentTime] = useState(0);
@@ -80,6 +76,16 @@ function AnalysisPage() {
         }
     };
 
+    const handleDeleteEvent = async (eventId: string) => {
+        if (!confirm('Are you sure you want to delete this event?')) return;
+        try {
+            await apiClient.delete(`/game-events/${eventId}`);
+            mutate();
+        } catch (err: any) {
+            console.error("Error deleting event:", err);
+        }
+    };
+
     const handleAssignPlayer = useCallback(async (gameEventId: string, playerId: string | null) => {
         try {
             await apiClient.put(`/game-events/${gameEventId}/assign-player`, { playerId });
@@ -88,18 +94,6 @@ function AnalysisPage() {
             console.error("Error assigning player:", err);
         }
     }, [mutate]);
-
-    const handleRetryAnalysis = async () => {
-        setIsRetrying(true);
-        try {
-            await apiClient.post(`/games/${gameId}/retry`);
-            mutate();
-        } catch (err: any) {
-            console.error("Failed to retry analysis:", err);
-        } finally {
-            setIsRetrying(false);
-        }
-    };
 
     const handleDeleteGame = async () => {
         setIsDeleting(true);
@@ -113,13 +107,6 @@ function AnalysisPage() {
             setShowDeleteConfirm(false);
         }
     };
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const allPlayers: PlayerTeamHistory[] = React.useMemo(() => {
         if (!game || !game.playerStats) return [];
@@ -139,63 +126,64 @@ function AnalysisPage() {
     if (error || !game) {
         return (
             <div className="p-12 text-center">
-                <h1 className="text-2xl font-black italic uppercase mb-4">Error Loading Intelligence</h1>
-                <button onClick={() => router.push('/games')} className="px-6 py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric transition-all">Back to Gallery</button>
+                <h1 className="text-xl font-semibold mb-4">Error Loading Video Intelligence</h1>
+                <button onClick={() => router.push('/games')} className="px-6 py-2 bg-white text-black rounded-lg text-sm font-bold hover:bg-tx-secondary transition-all">Back to List</button>
             </div>
         );
     }
 
     return (
-        <div className="max-w-[1600px] mx-auto pb-16">
+        <div className="max-w-[1400px] mx-auto pb-20">
             {/* Header Section */}
-            <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-bd-ghost pb-8">
                 <div>
-                    <button onClick={() => router.push('/games')} className="text-electric font-bold text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2 group">
-                        <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
-                        Gallery
+                    <button onClick={() => router.push('/games')} className="text-tx-secondary font-semibold text-xs mb-4 flex items-center gap-2 hover:text-white transition-colors">
+                        <span className="material-symbols-outlined text-sm">arrow_back</span>
+                        Back to Video List
                     </button>
                     <div className="flex items-center gap-4">
-                        <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase">{game.name}</h1>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${
-                            game.status === 'COMPLETED' ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-container-low border-bd-ghost text-tx-dim'
+                        <h1 className="text-3xl font-bold tracking-tight">{game.name}</h1>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                            game.status === 'COMPLETED' ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-container-high border-bd-ghost text-tx-dim'
                         }`}>
                             {game.status}
                         </span>
                     </div>
-                    <p className="text-xs font-bold text-tx-dim uppercase tracking-widest mt-2">
-                        {game.homeTeam?.name || 'Home'} VS {game.awayTeam?.name || 'Away'} • {game.location || 'Stadium'} • {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'Analysis Pending'}
+                    <p className="text-xs font-medium text-tx-dim mt-2">
+                        {game.homeTeam?.name || 'Home'} vs {game.awayTeam?.name || 'Away'} • {game.location || 'Unknown Location'} • {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'Date Pending'}
                     </p>
                 </div>
                 
                 <div className="flex gap-3">
                     {game.status === 'ANALYZED' && (
-                        <button onClick={() => setShowAssignmentModal(true)} className="px-6 py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-electric transition-all flex items-center gap-2 shadow-lg">
+                        <button onClick={() => setShowAssignmentModal(true)} className="px-4 py-2 bg-white text-black rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-tx-secondary transition-all">
                             <span className="material-symbols-outlined text-sm">assignment_ind</span>
                             Finalize Roster
                         </button>
                     )}
-                    <button onClick={() => setShowDeleteConfirm(true)} className="w-12 h-12 rounded-xl bg-container-low border border-bd-ghost flex items-center justify-center text-tx-dim hover:text-red-400 transition-all">
-                        <span className="material-symbols-outlined">delete</span>
+                    <button onClick={() => setShowDeleteConfirm(true)} className="w-10 h-10 rounded-lg bg-container-high border border-bd-ghost flex items-center justify-center text-tx-dim hover:text-red-400 transition-all">
+                        <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </div>
             </header>
 
-            {/* Analysis Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Main Content: Vertical Stack */}
+            <div className="space-y-12">
                 
-                {/* Left: Video & Global Stats */}
-                <div className="lg:col-span-7 xl:col-span-8 space-y-8 lg:sticky lg:top-8">
-                    <section className="stadium-card p-2 bg-black border border-bd-ghost overflow-hidden">
-                        <div className="rounded-lg overflow-hidden aspect-video">
-                            <VideoPlayer 
-                                videoUrl={game.videoUrl} 
-                                playerRef={playerRef} 
-                                onProgress={handleProgress}
-                                onDuration={handleDuration}
-                            />
-                        </div>
+                {/* Section 1: Video Context */}
+                <section className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-tx-dim">Contextual Footage</h2>
+                    </div>
+                    <div className="bg-black border border-bd-ghost rounded-xl overflow-hidden shadow-2xl">
+                        <VideoPlayer 
+                            videoUrl={game.videoUrl} 
+                            playerRef={playerRef} 
+                            onProgress={handleProgress}
+                            onDuration={handleDuration}
+                        />
                         {duration > 0 && (
-                            <div className="mt-2 px-2">
+                            <div className="p-4 border-t border-bd-ghost">
                                 <TimelineReview 
                                     events={game.events || []}
                                     duration={duration}
@@ -205,70 +193,66 @@ function AnalysisPage() {
                                 />
                             </div>
                         )}
-                    </section>
+                    </div>
 
                     {game.status === 'PROCESSING' && (
-                        <div className="stadium-card bg-gradient-to-r from-electric/10 to-transparent border-electric/20 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xs font-black uppercase tracking-widest text-electric flex items-center gap-2">
-                                    <span className="material-symbols-outlined animate-spin text-sm">sync</span>
-                                    AI Brain Analysis in Progress
-                                </h3>
-                                <span className="text-[10px] font-black text-electric/60">Live Event Extraction Active</span>
+                        <div className="bg-container-high border border-electric/20 p-4 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <span className="material-symbols-outlined animate-spin text-electric text-sm">sync</span>
+                                <span className="text-xs font-semibold text-tx-primary">AI Analysis in Progress...</span>
                             </div>
-                            <div className="h-1 w-full bg-container-low rounded-full overflow-hidden">
-                                <div className="h-full w-2/3 bg-electric animate-pulse shadow-[0_0_10px_var(--primary-glow)]" />
-                            </div>
+                            <span className="text-[10px] font-bold text-tx-dim uppercase">Processing tape for events</span>
                         </div>
                     )}
+                </section>
 
-                    {!isMobile && (
-                        <div className="space-y-8">
-                            <div className="flex items-center justify-between border-b border-bd-ghost pb-4">
-                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">Strategic Pulse</h2>
-                                <StatSelectionControl onPreferencesChanged={setVisibleStats} />
-                            </div>
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                <BoxScoreTable game={game} visibleStats={visibleStats} />
-                                <IdentifiedEntitiesTable gameId={game.id} />
-                            </div>
-                            <TeamAndPlayerTables game={game} visibleStats={visibleStats} />
+                {/* Section 2: Data Intelligence */}
+                <section className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    
+                    {/* Left: Box Score & Entities */}
+                    <div className="lg:col-span-7 space-y-10">
+                        <BoxScoreTable game={game} visibleStats={visibleStats} />
+                        <div className="space-y-4">
+                            <h2 className="text-sm font-semibold tracking-tight text-tx-secondary uppercase px-1">Detected Personnel</h2>
+                            <IdentifiedEntitiesTable gameId={game.id} />
                         </div>
-                    )}
-                </div>
+                    </div>
 
-                {/* Right: Intelligence Feed / Editor */}
-                <div className="lg:col-span-5 xl:col-span-4 h-full">
-                    {selectedEvent ? (
-                        <div className="lg:sticky lg:top-8">
-                            <EventEditor 
-                                event={selectedEvent}
-                                allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
-                                allPlayers={allPlayers}
-                                onSave={handleSaveEvent}
-                                onCancel={() => setSelectedEvent(null)}
-                            />
-                        </div>
-                    ) : (
-                        <div className="flex flex-col h-full lg:max-h-[calc(100vh-160px)]">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-tx-dim">Play-by-Play</h2>
-                                <span className="text-[10px] font-bold text-electric uppercase px-3 py-1 bg-electric/10 rounded-full">Live Feed</span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto pr-2 no-scrollbar">
-                                <PlayByPlayFeed 
-                                    events={game.events || []} 
-                                    onRowClick={handleSeek} 
-                                    allPlayers={allPlayers} 
-                                    onAssignPlayer={handleAssignPlayer} 
+                    {/* Right: Play-by-Play / Editor */}
+                    <div className="lg:col-span-5">
+                        {selectedEvent ? (
+                            <div className="sticky top-8">
+                                <EventEditor 
+                                    event={selectedEvent}
+                                    allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
+                                    allPlayers={allPlayers}
+                                    onSave={handleSaveEvent}
+                                    onCancel={() => setSelectedEvent(null)}
                                 />
                             </div>
-                        </div>
-                    )}
-                </div>
+                        ) : (
+                            <div className="flex flex-col h-full space-y-4">
+                                <div className="flex items-center justify-between px-1">
+                                    <h2 className="text-sm font-semibold tracking-tight text-tx-secondary uppercase">Play-by-Play</h2>
+                                    <span className="text-[10px] font-bold text-tx-dim uppercase">Log</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto max-h-[800px] no-scrollbar">
+                                    <PlayByPlayFeed 
+                                        events={game.events || []} 
+                                        onRowClick={handleSeek} 
+                                        allPlayers={allPlayers} 
+                                        onAssignPlayer={handleAssignPlayer}
+                                        onEditEvent={setSelectedEvent}
+                                        onDeleteEvent={handleDeleteEvent}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </section>
             </div>
 
-            {/* Modals & Overlays */}
+            {/* Modals */}
             <EntityAssignmentModal
                 gameId={game.id}
                 isOpen={showAssignmentModal}
@@ -277,16 +261,16 @@ function AnalysisPage() {
             />
 
             {showDeleteConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="stadium-card max-w-sm w-full text-center border border-red-500/20 shadow-2xl">
-                        <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-4 text-white">Purge Tape?</h3>
-                        <p className="text-xs text-tx-secondary font-medium mb-10 leading-relaxed uppercase tracking-widest">
-                            This action will permanently delete this analysis and all associated video data.
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+                    <div className="bg-container border border-bd-ghost max-w-sm w-full p-8 rounded-2xl text-center shadow-2xl">
+                        <h3 className="text-xl font-bold mb-2">Delete Analysis?</h3>
+                        <p className="text-xs text-tx-secondary font-medium mb-8 leading-relaxed uppercase tracking-widest">
+                            This will permanently remove all stats and video data for this game.
                         </p>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-4 bg-container-low rounded-xl text-xs font-black uppercase tracking-widest hover:bg-container-highest transition-all">Cancel</button>
-                            <button onClick={handleDeleteGame} disabled={isDeleting} className="flex-1 py-4 bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:bg-red-600 transition-all">
-                                {isDeleting ? 'Purging...' : 'Delete'}
+                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 bg-container-high rounded-lg text-xs font-bold hover:bg-container-highest transition-all">Cancel</button>
+                            <button onClick={handleDeleteGame} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-all">
+                                {isDeleting ? 'Deleting...' : 'Confirm'}
                             </button>
                         </div>
                     </div>

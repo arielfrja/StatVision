@@ -35,14 +35,16 @@ This manual documents the functional features of the StatVision platform that ha
 
 ---
 
-## 3. The Intelligence Dashboard
-**Status:** 🟢 Production Ready
-**Description:** The primary interface for consuming game data.
+## 3. The Performance Dashboard
+**Status:** 🟢 Production Ready (Minimalist Overhaul)
+**Description:** The primary interface for consuming game data, redesigned for Functional Minimalism to reduce cognitive load for coaches.
 
 ### Features:
+- **Context-First Layout:** A vertical stack placing the Video Player on top (primary context) and data tables directly below.
 - **Synced Play-by-Play:** A chronological list of game events where clicking an event jumps the video player to that exact timestamp.
-- **Live Event Stream:** Results appear in a "Draft" state as soon as the first chunk is processed, allowing coaches to see data in near-real-time.
-- **Auto-Box Scores:** Real-time calculation of traditional points, rebounds, and assists.
+- **Side-by-Side Data View:** Standard Box Score and Play-by-Play feed are displayed side-by-side for simultaneous review.
+- **Interactive Event Actions:** Users can now **Edit** or **Delete** AI-generated events directly from the feed to ensure 100% box score accuracy.
+- **High-Contrast Analytics:** Flat, high-contrast data tables using Inter typography for maximum readability in low-light gym environments.
 
 ---
 

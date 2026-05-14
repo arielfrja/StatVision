@@ -1,7 +1,6 @@
 'use client';
 import React from 'react';
 import ReactPlayer from 'react-player';
-import '@material/web/icon/icon.js';
 
 interface VideoPlayerProps {
     videoUrl: string | null;
@@ -20,9 +19,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
 
     if (!videoUrl) {
         return (
-            <div style={{ height: '100%', minHeight: '300px', backgroundColor: 'var(--md-sys-color-surface-container-high)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius-md)', boxShadow: 'var(--shadow-elevation-1)' }}>
-                <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-on-surface-variant)' }}>videocam_off</md-icon>
-                <p style={{ marginTop: 'var(--spacing-md)', color: 'var(--md-sys-color-on-surface-variant)' }}>No video linked to this game or processing in progress.</p>
+            <div className="w-full min-h-[400px] bg-container-high rounded-xl flex flex-col items-center justify-center p-8 text-center border border-bd-ghost">
+                <span className="material-symbols-outlined text-4xl text-tx-dim mb-4 opacity-30">videocam_off</span>
+                <p className="text-xs font-medium text-tx-dim uppercase tracking-wider">No video linked or processing in progress.</p>
             </div>
         );
     }
@@ -34,7 +33,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
     const Player = ReactPlayer as any;
 
     return (
-        <div style={{ width: '100%', height: '100%', minHeight: '300px', borderRadius: 'var(--border-radius-md)', overflow: 'hidden', boxShadow: 'var(--shadow-elevation-2)' }}>
+        <div className="w-full h-full min-h-[300px] rounded-xl overflow-hidden bg-black border border-bd-ghost">
             {isClient && (
                 <Player
                     ref={playerRef}

@@ -5,48 +5,33 @@
 @import "./analysis-table.css";
 
 @theme {
-  --color-electric: #00F3FF;
-  --color-action: #FF8C00;
-  --color-gold: #FFD700;
-  --color-stadium: #0c0e10;
-  --color-container: #161a1e;
-  --color-container-high: #1b2025;
-  --color-container-highest: #20262c;
-  --color-container-low: #111416;
-  --color-container-lowest: #0c0e10;
+  --color-electric: #00D1FF;
+  --color-action: #FF6B00;
+  --color-gold: #D4AF37;
+  --color-stadium: #0a0c0e;
+  --color-container: #121417;
+  --color-container-high: #1a1d21;
+  --color-container-highest: #24292f;
+  --color-container-low: #0f1113;
+  --color-container-lowest: #0a0c0e;
   
-  --color-tx-primary: #e0e6ed;
-  --color-tx-secondary: #a6acb2;
-  --color-tx-dim: #70767c;
+  --color-tx-primary: #f8fafc;
+  --color-tx-secondary: #94a3b8;
+  --color-tx-dim: #64748b;
   
-  --color-bd-ghost: rgba(66, 73, 78, 0.15);
-  --color-bd-active: rgba(0, 243, 255, 0.3);
+  --color-bd-main: rgba(255, 255, 255, 0.1);
+  --color-bd-ghost: rgba(255, 255, 255, 0.05);
   
-  /* Simplified Typography to Inter */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-inter), ui-monospace, SFMono-Regular, monospace;
-
-  /* Explicit Spacing Scale */
-  --sp-xs: 0.25rem;
-  --sp-sm: 0.5rem;
-  --sp-md: 1rem;
-  --sp-lg: 1.5rem;
-  --sp-xl: 2rem;
-  --sp-2xl: 3rem;
-  --sp-3xl: 4rem;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
 }
 
 :root {
-  --bg-stadium: #0c0e10;
-  --bg-container: #161a1e;
-  --bg-container-high: #1b2025;
-  --primary-electric: #00F3FF;
-  --primary-glow: rgba(0, 243, 255, 0.15);
-  --text-primary: #e0e6ed;
-  --text-secondary: #a6acb2;
-  
-  --font-header: var(--font-sans);
-  --font-body: var(--font-sans);
+  --bg-main: #0a0c0e;
+  --bg-card: #121417;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #00D1FF;
 }
 
 /* CSS Reset */
@@ -58,21 +43,19 @@
 
 html, body {
   height: 100%;
-  background-color: var(--bg-stadium);
-  color: var(--text-primary);
-  font-family: var(--font-body);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
-  overflow-x: hidden;
+  line-height: 1.6;
 }
 
-/* Main Layout Engine */
+/* Clean Layout */
 .main-content-wrapper {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -82,117 +65,54 @@ html, body {
 }
 
 .main-content-container {
-  padding: 2.5rem;
+  padding: 2rem;
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   flex: 1;
 }
 
-@media (max-width: 767px) {
-  .main-content-container {
-    padding: 1.25rem;
-    padding-bottom: 6rem;
-  }
-}
-
-/* Stadium UI Components */
-.stadium-card {
-  background: var(--bg-container);
-  border-radius: 16px;
+/* Minimalist Cards */
+.utility-card {
+  background: var(--bg-card);
+  border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid rgba(66, 73, 78, 0.15);
-  display: flex;
-  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Unified Button System */
-button, 
-md-filled-button, 
-md-outlined-button {
+/* Buttons */
+button {
   cursor: pointer;
-  font-family: var(--font-header) !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   outline: none;
 }
 
-/* Interaction States */
-:focus-visible {
-  outline: 3px solid var(--primary-electric);
-  outline-offset: 2px;
-  box-shadow: 0 0 20px var(--primary-glow);
-}
-
 button:active {
-  transform: scale(0.94);
-  filter: brightness(1.8) contrast(1.2);
-  transition: all 0.05s ease-out;
+  transform: translateY(1px);
 }
 
-/* Custom Click Effect for Links and Items */
-.clickable:active {
-  transform: scale(0.96);
-  background-color: var(--color-container-highest) !important;
-  opacity: 0.9;
-}
-
-/* Flash effect for intense feedback */
-@keyframes click-flash {
-  0% { filter: brightness(1); }
-  50% { filter: brightness(2); }
-  100% { filter: brightness(1); }
-}
-
-.click-flash:active {
-  animation: click-flash 0.2s ease-out;
-}
-
-/* Material Web Component Token Overrides */
-:root {
-  --md-filled-button-container-shape: 12px;
-  --md-filled-button-label-text-size: 14px;
-  --md-filled-button-label-text-weight: 700;
-  --md-filled-button-container-height: 48px;
-  --md-filled-button-leading-space: 24px;
-  --md-filled-button-trailing-space: 24px;
-  
-  --md-outlined-button-container-shape: 12px;
-  --md-outlined-button-label-text-size: 14px;
-  --md-outlined-button-label-text-weight: 700;
-  --md-outlined-button-container-height: 48px;
-  --md-outlined-button-outline-width: 2px;
-  --md-outlined-button-leading-space: 24px;
-  --md-outlined-button-trailing-space: 24px;
-  
-  --md-sys-color-primary: var(--primary-electric);
-}
-
-/* Typography Utilities */
-.mono-stat {
-  font-family: var(--font-mono);
-}
-
-/* Glassmorphism */
-.frosted-glass {
-  background: rgba(22, 26, 30, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* Custom Scrollbar */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-stadium);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-container-highest);
+  background: #334155;
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-electric);
+  background: var(--accent);
 }
+
+/* Utility Classes */
+.mono-stat {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+

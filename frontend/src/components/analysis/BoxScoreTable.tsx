@@ -32,19 +32,19 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats }) => 
     ];
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between px-2">
-                <h2 className="text-xl font-black italic uppercase tracking-tight text-white">Box Score</h2>
-                <div className="h-px flex-1 bg-gradient-to-r from-bd-ghost to-transparent ml-6"></div>
+        <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-1">
+                <h2 className="text-sm font-semibold tracking-tight text-tx-secondary uppercase">Box Score</h2>
+                <div className="h-px flex-1 bg-bd-ghost ml-4"></div>
             </div>
 
-            <div className="bg-container border border-bd-ghost rounded-2xl overflow-hidden shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="bg-container border border-bd-ghost rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-container-high/50 border-b border-bd-ghost">
+                            <tr className="bg-container-high/30 border-b border-bd-ghost">
                                 {headers.map((header, i) => (
-                                    <th key={i} className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-tx-dim">
+                                    <th key={i} className="px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-tx-dim">
                                         {header}
                                     </th>
                                 ))}
@@ -52,11 +52,11 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats }) => 
                         </thead>
                         <tbody>
                             {teamStats.map((team, index) => (
-                                <tr key={index} className="border-b border-bd-ghost/50 hover:bg-white/[0.02] transition-colors group">
-                                    <td className="px-6 py-5">
-                                        <div className="flex items-center gap-3">
+                                <tr key={index} className="border-b border-bd-ghost hover:bg-white/[0.01] transition-colors group">
+                                    <td className="px-5 py-4">
+                                        <div className="flex items-center gap-2">
                                             <div className={`w-1.5 h-1.5 rounded-full ${team.isHome ? 'bg-electric' : 'bg-gold'}`}></div>
-                                            <span className="text-xs font-black uppercase tracking-tight text-white group-hover:text-electric transition-colors">
+                                            <span className="text-xs font-semibold text-white group-hover:text-electric transition-colors">
                                                 {team.name}
                                             </span>
                                         </div>
@@ -67,8 +67,8 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats }) => 
                                             value = (value * 100).toFixed(1) + '%';
                                         }
                                         return (
-                                            <td key={statId} className="px-6 py-5">
-                                                <span className="text-xs font-black tracking-widest text-tx-secondary mono-stat">
+                                            <td key={statId} className="px-5 py-4">
+                                                <span className="text-xs font-medium text-tx-secondary mono-stat">
                                                     {value}
                                                 </span>
                                             </td>
