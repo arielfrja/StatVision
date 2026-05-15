@@ -30,11 +30,15 @@ export class ChunkProcessorWorker {
     private logger = chunkLogger;
     private processingMode: string;
 
-    constructor(private dataSource: DataSource, private eventBus: IEventBus) {
+    constructor(
+        private dataSource: DataSource, 
+        private eventBus: IEventBus,
+        private progressManager: ProgressManager
+    ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus);
+        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager);
         this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -173,8 +177,7 @@ export class ChunkProcessorWorker {
                 identifiedTeams: updatedIdentifiedTeams
             });
 
-            const progressManager = ProgressManager.getInstance();
-            progressManager.updateJob(jobId, 1, `Chunk ${chunk.sequence + 1} analyzed.`);
+            await this.progressManager.updateJob(jobId, 1, `Chunk ${chunk.sequence + 1} analyzed.`, 'ANALYZING');
 
             // Publish live result
             const resultMessage = {

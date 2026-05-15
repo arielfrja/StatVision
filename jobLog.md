@@ -54,3 +54,16 @@
 - **Decision:** Standardize the Gemini Analysis providers to use a single, shared infrastructure abstraction.
 - **Sprint Goal:** Establish a clean, shared service layer and prepare for Multi-Tenancy / Temporal Roster implementation.
 - **Status:** Sprint Completed. Logic consolidated into `@statvision/common`. Backend builds passing.
+
+## [2026-05-15] Real-Time Infrastructure Design
+- **Decision:** Selected Socket.io for API-to-Frontend real-time communication.
+- **Decision:** Leveraged existing GCP Pub/Sub for Worker-to-API progress propagation.
+- **Documentation:** Created [docs/specifications/REALTIME_PROGRESS_SPEC.md](docs/specifications/REALTIME_PROGRESS_SPEC.md).
+- **Planning:** Added Task **[DEV-105]** to `next_sprint.md` for implementation.
+
+## [2026-05-15] Real-Time Progress Implementation Complete
+- **Database**: Added `progress`, `current_phase`, and `total_chunks` to `worker_video_analysis_jobs`.
+- **Worker**: Enhanced `ProgressManager` to persist state to DB and publish to Pub/Sub topic `job-progress`.
+- **API**: Initialized Socket.io server and implemented `ProgressSubscriberService` to forward Pub/Sub updates to clients.
+- **Frontend**: Created `useJobProgress` hook and `JobProgressBar` component for live UI updates.
+- **Status**: DEV-105 Completed. Ready for QA.

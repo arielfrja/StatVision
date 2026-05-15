@@ -20,6 +20,7 @@ import BoxScoreTable from '@/components/analysis/BoxScoreTable';
 import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
+import { JobProgressBar } from '@/components/JobProgressBar';
 
 import '@material/web/textfield/filled-text-field.js';
 import '@material/web/select/filled-select.js';
@@ -299,13 +300,7 @@ function AnalysisPage() {
                     </div>
 
                     {game.status === 'PROCESSING' && (
-                        <div className="bg-container-high border border-electric/20 p-4 rounded-xl flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined animate-spin text-electric text-sm">sync</span>
-                                <span className="text-xs font-semibold text-tx-primary">AI Analysis in Progress...</span>
-                            </div>
-                            <span className="text-[10px] font-bold text-tx-dim uppercase">Processing tape for events</span>
-                        </div>
+                        <JobProgressBar gameId={game.id} />
                     )}
                 </section>
 

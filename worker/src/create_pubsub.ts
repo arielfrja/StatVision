@@ -12,6 +12,7 @@ async function createResources() {
         { topic: 'video-upload-events', sub: 'video-upload-events-sub' },
         { topic: 'chunk-analysis', sub: 'chunk-analysis-sub' },
         { topic: 'video-analysis-results', sub: 'video-analysis-results-sub' },
+        { topic: 'job-progress', sub: 'job-progress-sub' },
     ];
 
     for (const res of resources) {

@@ -14,6 +14,7 @@ import { ChunkRepository } from "../worker/ChunkRepository";
 import { JobFinalizerService } from "../worker/JobFinalizerService";
 import { VideoOrchestratorService } from "../worker/videoProcessorWorker";
 import { ChunkProcessorWorker } from "../worker/ChunkProcessorWorker";
+import { ProgressManager } from "../worker/ProgressManager";
 
 export class AppContainer {
     private static instance: AppContainer;
@@ -52,6 +53,9 @@ export class AppContainer {
         const videoAnalysisJobRepository = new VideoAnalysisJobRepository(this.dataSource);
         const chunkRepository = new ChunkRepository(this.dataSource);
 
+        // Progress Manager
+        const progressManager = new ProgressManager(eventBus, videoAnalysisJobRepository);
+
         // Services
         const teamService = new TeamService(this.dataSource, commonLogger);
         
@@ -64,9 +68,9 @@ export class AppContainer {
         
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
-        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus);
-        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus);
-        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus);
+        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus, progressManager);
+        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus, progressManager);
+        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus, progressManager);
 
         // Registering services
         this.services.set(TeamService.name, teamService);
@@ -76,6 +80,7 @@ export class AppContainer {
         this.services.set(JobFinalizerService.name, jobFinalizerService);
         this.services.set(VideoOrchestratorService.name, videoOrchestratorService);
         this.services.set(ChunkProcessorWorker.name, chunkProcessorWorker);
+        this.services.set(ProgressManager.name, progressManager);
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);

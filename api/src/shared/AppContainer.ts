@@ -4,33 +4,24 @@ import {
     TeamRepository, PlayerRepository, GameRepository, 
     GameEventRepository, GameTeamStatsRepository, 
     GamePlayerStatsRepository, UserRepository,
-    AppError, User, Team, ILogger
+    AppError, User, Team, ILogger, IEventBus, PubSubEventBus
 } from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
 import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
+import { ProgressSubscriberService } from "../service/ProgressSubscriberService";
 import logger from "../config/logger";
-import { IEventBus } from "../core/interfaces/IEventBus";
-
-// Simple mock for API to compile
-class MockEventBus implements IEventBus {
-    async publish(topic: string, message: any): Promise<void> {
-        console.log(`[MockEventBus] Publishing to ${topic}`);
-    }
-    async subscribe(subscriptionName: string, handler: (data: any, originalMessage: any) => Promise<void>, options?: any): Promise<void> {
-        console.log(`[MockEventBus] Subscribed to ${subscriptionName}`);
-    }
-}
+import { Server } from "socket.io";
 
 export class AppContainer {
     private static instance: AppContainer;
     private dataSource: DataSource;
     private services: Map<string, any> = new Map();
+    private io?: Server;
 
     private constructor(dataSource: DataSource) {
         this.dataSource = dataSource;
-        this.registerServices();
     }
 
     public static getInstance(dataSource: DataSource): AppContainer {
@@ -40,9 +31,14 @@ export class AppContainer {
         return AppContainer.instance;
     }
 
+    public setIo(io: Server): void {
+        this.io = io;
+        this.registerServices();
+    }
+
     private registerServices(): void {
         // Infrastructure
-        const eventBus = new MockEventBus();
+        const eventBus = new PubSubEventBus();
         this.services.set("IEventBus", eventBus);
         const commonLogger = logger as unknown as ILogger;
 
@@ -80,6 +76,11 @@ export class AppContainer {
         this.services.set(GameAssignmentService.name, gameAssignmentService);
         this.services.set(GameAnalysisService.name, gameAnalysisService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
+
+        if (this.io) {
+            const progressSubscriberService = new ProgressSubscriberService(eventBus, this.io);
+            this.services.set(ProgressSubscriberService.name, progressSubscriberService);
+        }
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);
