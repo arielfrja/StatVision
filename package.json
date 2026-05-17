@@ -16,7 +16,9 @@
     "worker:dev": "npm run dev -w worker",
     "frontend:dev": "npm run dev -w frontend",
     "build": "npm run build -w common && npm run build -w api && npm run build -w worker",
-    "test": "npm test --workspaces"
+    "test": "npm test --workspaces",
+    "migrate:run": "npm run typeorm migration:run -w common",
+    "infra:pubsub": "npm run init-pubsub -w worker"
   },
   "overrides": {
     "react": "19.0.0",

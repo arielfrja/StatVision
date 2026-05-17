@@ -1,0 +1,8 @@
+uploads/
+docs/
+api/
+worker/
+common/
+node_modules/
+.git/
+*.log

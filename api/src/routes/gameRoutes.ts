@@ -11,7 +11,11 @@ import multer from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const UPLOAD_DIR = '/data/data/com.termux/files/home/data/development/StatVision/uploads';
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

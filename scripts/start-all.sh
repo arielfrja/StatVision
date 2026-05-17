@@ -9,6 +9,10 @@ echo "🚀 [START] Launching production StatVision services..."
 # Ensure we have a way to kill all background processes on exit
 trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 
+# 0. Run Database Migrations
+echo "🗄️ [DB] Running migrations..."
+npm run migrate:run
+
 # 1. Start API Service (Production Build)
 echo "🔌 [API] Starting from build/app.js..."
 (cd api && npm run start) &
