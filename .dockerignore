@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+build
+.git
+.vercel
+uploads
+docs
+frontend
+frontend-test
+*.webm
+*.mp4
+*.log
