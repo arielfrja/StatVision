@@ -93,7 +93,8 @@ export class VideoChunkerService {
         tempDir: string,
         chunkDuration: number,
         overlap: number,
-        jobId: string
+        jobId: string,
+        progressManager: ProgressManager
     ): Promise<VideoChunk[]> {
         chunkLogger.info(`[VideoChunkerService] Starting to chunk video: ${filePath}`, { phase: 'chunking' });
         const metadata = await this.getVideoMetadata(filePath);
@@ -129,7 +130,8 @@ export class VideoChunkerService {
                 sequence,
                 totalChunks,
                 frameRate,
-                jobId
+                jobId,
+                progressManager
             );
 
             chunks.push({
@@ -154,7 +156,8 @@ export class VideoChunkerService {
         sequence: number,
         totalChunks: number,
         frameRate: number,
-        jobId: string
+        jobId: string,
+        progressManager: ProgressManager
     ): Promise<string> {
         const outputFileName = `enhanced-chunk-${sequence}-${path.basename(filePath, path.extname(filePath))}-${startTime.toFixed(0)}.mp4`;
         const chunkPath = path.join(tempDir, outputFileName);
@@ -171,7 +174,6 @@ export class VideoChunkerService {
         chunkLogger.info(`[VideoChunkerService] Executing ffmpeg for sequence ${sequence + 1}/${totalChunks}`, { phase: 'chunking' });
         chunkLogger.debug(`[VideoChunkerService] FFmpeg command: ${command} ${args.join(' ')}`, { phase: 'chunking' });
         
-        const progressManager = ProgressManager.getInstance();
         const totalFramesInChunk = Math.floor(chunkDuration * frameRate);
         const barId = `chunking-${jobId}-${sequence}`; // Unique ID for the bar
         progressManager.startChunkBar(barId, totalFramesInChunk, 'Chunking', `Chunk ${sequence + 1}/${totalChunks}`); // MODIFIED LINE

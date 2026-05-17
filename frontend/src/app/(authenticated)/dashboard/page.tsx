@@ -7,6 +7,7 @@ import { Game, GameStatus } from '@/types/game';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
 import Link from 'next/link';
+import { JobProgressBar } from '@/components/JobProgressBar';
 
 const PerformanceDashboardPage = () => {
   const { data: games, isLoading } = useSWR<Game[]>('/games');
@@ -59,8 +60,11 @@ const PerformanceDashboardPage = () => {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-tx-secondary text-xs mt-1 font-semibold">{activeGame?.name || 'No Active Session'}</p>
         </div>
-        <div className="flex gap-2">
-           <Link href="/games" passHref>
+        <div className="flex flex-col gap-2 min-w-[300px]">
+           {activeGame?.status === GameStatus.PROCESSING && (
+             <JobProgressBar gameId={activeGame.id} />
+           )}
+           <Link href="/games" passHref className="self-end">
              <button className="px-4 py-2 bg-container-high border border-bd-ghost rounded-lg text-xs font-bold hover:bg-container-highest transition-colors">
                 View Archive
              </button>

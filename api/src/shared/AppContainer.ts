@@ -11,16 +11,18 @@ import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
 import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
+import { ProgressSubscriberService } from "../service/ProgressSubscriberService";
 import logger from "../config/logger";
+import { Server } from "socket.io";
 
 export class AppContainer {
     private static instance: AppContainer;
     private dataSource: DataSource;
     private services: Map<string, any> = new Map();
+    private io?: Server;
 
     private constructor(dataSource: DataSource) {
         this.dataSource = dataSource;
-        this.registerServices();
     }
 
     public static getInstance(dataSource: DataSource): AppContainer {
@@ -28,6 +30,11 @@ export class AppContainer {
             AppContainer.instance = new AppContainer(dataSource);
         }
         return AppContainer.instance;
+    }
+
+    public setIo(io: Server): void {
+        this.io = io;
+        this.registerServices();
     }
 
     private registerServices(): void {
@@ -70,6 +77,11 @@ export class AppContainer {
         this.services.set(GameAssignmentService.name, gameAssignmentService);
         this.services.set(GameAnalysisService.name, gameAnalysisService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
+
+        if (this.io) {
+            const progressSubscriberService = new ProgressSubscriberService(eventBus, this.io);
+            this.services.set(ProgressSubscriberService.name, progressSubscriberService);
+        }
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);

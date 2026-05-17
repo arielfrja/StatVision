@@ -30,7 +30,11 @@ export class VideoOrchestratorService {
     private chunkLogger = chunkLogger;
     private processingMode: string;
 
-    constructor(private dataSource: DataSource, private eventBus: IEventBus) {
+    constructor(
+        private dataSource: DataSource, 
+        private eventBus: IEventBus,
+        private progressManager: ProgressManager
+    ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
@@ -82,7 +86,8 @@ export class VideoOrchestratorService {
                 tempDir, 
                 workerConfig.chunkDurationSeconds, 
                 workerConfig.chunkOverlapSeconds, 
-                savedJob.id
+                savedJob.id,
+                this.progressManager
             );
             this.jobLogger.info(`[ORCHESTRATOR] Split video into ${chunks.length} chunks.`, { phase: 'orchestration' });
 
@@ -97,8 +102,7 @@ export class VideoOrchestratorService {
                 savedChunks.push(await this.chunkRepository.create(chunk));
             }
 
-            const progressManager = ProgressManager.getInstance();
-            progressManager.addJob(savedJob.id, savedChunks.length);
+            await this.progressManager.addJob(savedJob.id, savedChunks.length, gameId);
 
             for (const chunk of savedChunks) {
                 await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, {
@@ -134,11 +138,10 @@ export class VideoOrchestratorService {
             if (chunks.length === 0) {
                  await this.processVideoUpload({ gameId: job.gameId, filePath: job.filePath, userId: job.userId });
             } else {
-                const progressManager = ProgressManager.getInstance();
-                progressManager.addJob(job.id, chunks.length);
+                await this.progressManager.addJob(job.id, chunks.length, job.gameId);
                 const completedCount = chunks.filter(c => c.status === ChunkStatus.COMPLETED).length;
                 if (completedCount > 0) {
-                    progressManager.updateJob(job.id, completedCount, `Resuming: ${completedCount}/${chunks.length} complete`);
+                    await this.progressManager.updateJob(job.id, completedCount, `Resuming: ${completedCount}/${chunks.length} complete`, 'RESUMING');
                 }
 
                 for (const chunk of chunks) {

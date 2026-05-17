@@ -8,3 +8,8 @@
 - [x] **[DEV-103]** Update `api` and `worker` to import from `@statvision/common` for shared services.
 - [x] **[DEV-104]** Verify builds and ensure no regressions in team/player management.
 - [ ] **[PO-101]** Refine User Stories for "Temporal Roster Management" based on the new shared service structure.
+- [x] **[DEV-105]** Implement Real-time Worker Progress Updates (Ref: [[REALTIME_PROGRESS_SPEC]])
+    - [x] Update `VideoAnalysisJob` entity and database schema.
+    - [x] Enhance `ProgressManager` to publish to `job-progress` topic.
+    - [x] Implement Socket.io server and Pub/Sub forwarder in the API.
+    - [x] Build `JobProgressBar` component in the frontend.

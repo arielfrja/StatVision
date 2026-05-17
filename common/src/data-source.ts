@@ -6,7 +6,7 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const isProduction = !!process.env.DATABASE_URL || !!process.env.DB_HOST;
+const isProduction = !!process.env.DATABASE_URL || (!!process.env.DB_HOST && process.env.DB_HOST !== 'localhost');
 
 console.log("DataSource: isProduction =", isProduction);
 console.log("DataSource: DATABASE_URL =", process.env.DATABASE_URL ? "SET" : "NOT SET");

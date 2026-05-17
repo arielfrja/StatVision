@@ -8,6 +8,8 @@ dotenv.config({ path: envPath });
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import { AppDataSource } from "./data-source";
 import { authMiddleware } from "./middleware/authMiddleware";
 import { IAuthProvider } from "./auth/authProvider";
@@ -24,6 +26,7 @@ import { GameService } from "./modules/games/GameService";
 import { GameAssignmentService } from "./modules/games/GameAssignmentService";
 import { GameAnalysisService } from "./modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
+import { ProgressSubscriberService } from "./service/ProgressSubscriberService";
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import { swaggerOptions } from "./config/swagger";
@@ -38,6 +41,13 @@ declare global {
 }
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*", // Adjust in production
+        methods: ["GET", "POST"]
+    }
+});
 
 app.use(cors());
 app.use(express.json());
@@ -53,6 +63,7 @@ AppDataSource.initialize()
         logger.info("Data Source has been initialized!");
 
         const container = AppContainer.getInstance(AppDataSource);
+        container.setIo(io);
 
         const jwksUri = process.env.AUTH0_JWKS_URI || "";
         const audience = process.env.AUTH0_AUDIENCE || "";
@@ -62,6 +73,36 @@ AppDataSource.initialize()
 
         // Initialize background consumers
         container.get<VideoAnalysisResultService>(VideoAnalysisResultService).startConsumingResults();
+        container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
+
+        // WebSocket Handlers
+        io.on("connection", (socket) => {
+            logger.info(`Socket connected: ${socket.id}`);
+
+            socket.on("join_job", (jobId: string) => {
+                logger.info(`Socket ${socket.id} joining room job:${jobId}`);
+                socket.join(`job:${jobId}`);
+            });
+
+            socket.on("leave_job", (jobId: string) => {
+                logger.info(`Socket ${socket.id} leaving room job:${jobId}`);
+                socket.leave(`job:${jobId}`);
+            });
+
+            socket.on("join_game", (gameId: string) => {
+                logger.info(`Socket ${socket.id} joining room game:${gameId}`);
+                socket.join(`game:${gameId}`);
+            });
+
+            socket.on("leave_game", (gameId: string) => {
+                logger.info(`Socket ${socket.id} leaving room game:${gameId}`);
+                socket.leave(`game:${gameId}`);
+            });
+
+            socket.on("disconnect", () => {
+                logger.info(`Socket disconnected: ${socket.id}`);
+            });
+        });
 
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
@@ -85,7 +126,7 @@ AppDataSource.initialize()
         app.use(errorMiddleware);
 
         const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
+        httpServer.listen(PORT, () => {
             logger.info(`Server is running on port ${PORT}`);
         });
     })

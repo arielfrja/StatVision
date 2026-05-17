@@ -16,7 +16,11 @@ export class JobFinalizerService {
     private videoChunkerService: VideoChunkerService;
     private logger = jobLogger;
 
-    constructor(private dataSource: DataSource, private eventBus: IEventBus) {
+    constructor(
+        private dataSource: DataSource, 
+        private eventBus: IEventBus,
+        private progressManager: ProgressManager
+    ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
@@ -155,7 +159,7 @@ export class JobFinalizerService {
                 });
             });
 
-            ProgressManager.getInstance().removeJob(jobId);
+            this.progressManager.removeJob(jobId);
 
             // Fetch the updated job for Pub/Sub (after transaction)
             const updatedJob = await this.jobRepository.findOneById(jobId);
