@@ -88,11 +88,26 @@ export class VideoAnalysisResultService {
                 gameEvent.gameId = result.gameId;
                 gameEvent.chunkId = result.chunkId || null;
                 gameEvent.status = GameEventStatus.DRAFT;
+
+                // Ensure non-UUIDs are not saved to UUID columns
+                if (!this.isUuid(gameEvent.assignedTeamId)) {
+                    gameEvent.assignedTeamId = null;
+                }
+                if (!this.isUuid(gameEvent.assignedPlayerId)) {
+                    gameEvent.assignedPlayerId = null;
+                }
+
                 return gameEvent;
             });
             await this.gameEventRepository.batchInsert(gameEventsToInsert);
             this.logger.info(`Successfully streamed ${gameEventsToInsert.length} draft events for game ${result.gameId}.`, { phase: 'results_processing' });
         }
+    }
+
+    private isUuid(id: string | null | undefined): boolean {
+        if (!id) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(id);
     }
 
     private async resolvePlayerIds(gameId: string, events: any[]): Promise<any[]> {
@@ -104,9 +119,19 @@ export class VideoAnalysisResultService {
         const resolutionCache = new Map<string, string>();
 
         for (const event of events) {
-            const teamId = event.assignedTeamId;
+            let teamId = event.assignedTeamId;
             const jerseyNumber = event.identifiedJerseyNumber;
-            if (teamId && jerseyNumber) {
+
+            // Map placeholders if game has assigned teams
+            if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
+                teamId = game.homeTeamId;
+                event.assignedTeamId = teamId;
+            } else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) {
+                teamId = game.awayTeamId;
+                event.assignedTeamId = teamId;
+            }
+
+            if (teamId && jerseyNumber && this.isUuid(teamId)) {
                 const cacheKey = `${teamId}-${jerseyNumber}`;
                 if (resolutionCache.has(cacheKey)) {
                     event.assignedPlayerId = resolutionCache.get(cacheKey);
@@ -149,6 +174,8 @@ export class VideoAnalysisResultService {
     private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
         if (result.identifiedTeams && result.identifiedTeams.length > 0) {
             for (const teamData of result.identifiedTeams) {
+                if (!this.isUuid(teamData.id)) continue; 
+
                 let team = await this.teamRepository.findOneById(teamData.id);
                 if (!team) {
                     team = new Team();
@@ -166,6 +193,8 @@ export class VideoAnalysisResultService {
 
         if (result.identifiedPlayers && result.identifiedPlayers.length > 0) {
             for (const playerData of result.identifiedPlayers) {
+                if (!this.isUuid(playerData.id)) continue;
+
                 let player = await this.playerRepository.findOneById(playerData.id);
                 if (!player) {
                     player = new Player();

@@ -128,7 +128,7 @@ export const gameRoutes = (
             // Emit event to start analysis
             await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
                 gameId: game.id,
-                videoPath: file.path,
+                filePath: file.path,
                 userId: req.user.id
             });
 

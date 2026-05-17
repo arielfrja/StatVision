@@ -181,6 +181,8 @@ export class VideoChunkerService {
         return new Promise<string>((resolve, reject) => {
             const ffmpegProcess = spawn(command, args);
             let stderrBuffer = '';
+            let lastUpdate = 0;
+            const updateInterval = 2000; // 2 seconds
 
             ffmpegProcess.stderr.on('data', (data) => {
                 stderrBuffer += data.toString();
@@ -202,7 +204,7 @@ export class VideoChunkerService {
                         const bitrate = bitrateMatch ? bitrateMatch[1] : '...';
                         const speed = speedMatch ? speedMatch[1] + 'x' : '...';
 
-                        let details = `Chunk ${sequence + 1}/${totalChunks} | Pace: ${currentFps.toFixed(1)} fps | Speed: ${speed} | Bitrate: ${bitrate}`;
+                        let details = `Chunk ${sequence + 1}/${totalChunks} | Pace: ${currentFps.toFixed(1)} fps | Speed: ${speed}`;
                         
                         if (currentFps > 0) {
                             const framesRemaining = totalFramesInChunk - currentFrame;
@@ -211,6 +213,12 @@ export class VideoChunkerService {
                         }
 
                         progressManager.updateChunkBar({ id: barId, value: currentFrame, details });
+
+                        const now = Date.now();
+                        if (now - lastUpdate > updateInterval) {
+                            progressManager.updateDetails(jobId, details, 'CHUNKING');
+                            lastUpdate = now;
+                        }
                     }
                 }
             });

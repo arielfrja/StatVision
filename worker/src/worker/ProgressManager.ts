@@ -56,6 +56,15 @@ export class ProgressManager {
         }
     }
 
+    public async setTotalChunks(jobId: string, totalChunks: number) {
+        this.jobTotalChunks.set(jobId, totalChunks);
+        const bar = this.jobBars.get(jobId);
+        if (bar) {
+            bar.setTotal(totalChunks);
+        }
+        await this.jobRepository.update(jobId, { totalChunks });
+    }
+
     public async updateJob(jobId: string, increment: number, details: string, phase?: string) {
         const bar = this.jobBars.get(jobId);
         const total = this.jobTotalChunks.get(jobId) || 1;
@@ -83,6 +92,24 @@ export class ProgressManager {
         } catch (error) {
             logger.error(`[ProgressManager] Error updating job ${jobId} progress:`, error);
         }
+    }
+
+    public async updateDetails(jobId: string, details: string, phase?: string) {
+        const bar = this.jobBars.get(jobId);
+        const total = this.jobTotalChunks.get(jobId) || 100;
+        const completed = this.jobCompletedChunks.get(jobId) || 0;
+        const gameId = this.jobGameIds.get(jobId) || 'unknown';
+
+        if (bar) {
+            const payload: any = { details };
+            if (phase) payload.phase = phase;
+            bar.update(completed, payload);
+        }
+
+        const progressPercent = Math.min(Math.round((completed / total) * 100), 100);
+        const currentPhase = phase || 'PROCESSING';
+
+        await this.publishProgress(jobId, gameId, progressPercent, currentPhase, details);
     }
 
     private async publishProgress(jobId: string, gameId: string, progress: number, currentPhase: string, details: string) {

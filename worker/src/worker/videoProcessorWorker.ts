@@ -80,6 +80,10 @@ export class VideoOrchestratorService {
         try {
             await this.jobRepository.update(savedJob.id, { status: VideoAnalysisJobStatus.PROCESSING });
             
+            // Initial progress setup (estimated total chunks, will be updated after metadata)
+            await this.progressManager.addJob(savedJob.id, 100, gameId);
+            await this.progressManager.updateDetails(savedJob.id, 'Initializing chunking...', 'CHUNKING');
+
             const tempDir = path.dirname(filePath);
             const chunks = await this.videoChunkerService.chunkVideo(
                 filePath, 
@@ -90,6 +94,8 @@ export class VideoOrchestratorService {
                 this.progressManager
             );
             this.jobLogger.info(`[ORCHESTRATOR] Split video into ${chunks.length} chunks.`, { phase: 'orchestration' });
+
+            await this.progressManager.setTotalChunks(savedJob.id, chunks.length);
 
             const savedChunks = [];
             for (const chunkData of chunks) {
@@ -102,7 +108,10 @@ export class VideoOrchestratorService {
                 savedChunks.push(await this.chunkRepository.create(chunk));
             }
 
-            await this.progressManager.addJob(savedJob.id, savedChunks.length, gameId);
+            // Update with actual chunk count
+            await this.progressManager.updateJob(savedJob.id, 0, 'Chunking complete. Starting analysis.', 'ANALYZING');
+            // Re-syncing the total count is handled by addJob if we change it, but updateJob uses current maps.
+            // Let's actually adjust the total in ProgressManager if possible.
 
             for (const chunk of savedChunks) {
                 await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, {
