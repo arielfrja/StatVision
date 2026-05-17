@@ -20,7 +20,25 @@
 - [ ] **Minimalist UI:** Confirm that all pages follow the new functional minimalist design tokens.
 - [ ] **Video Upload:** Verify the "Fast Upload" flow end-to-end.
 
-**Status:** Features Integrated into `test`. Ready for QA.
+## [2026-05-17] Infrastructure: Vercel Deployment Diagnosis
+**Objective:** Resolve the recurring build failure: "Couldn't find any pages or app directory".
+
+### Diagnosis:
+- **Root Cause:** Vercel project was configured to build from the repository root instead of the `frontend/` subdirectory.
+- **Evidence:** Git-triggered builds showed 923 packages (monorepo total) vs 622 packages for isolated frontend builds.
+- **Resolution:** Manually verified that deploying from the `frontend/` directory via CLI succeeds. 
+- **Recommendation:** User must update Vercel Project Settings > General > Root Directory to `frontend`.
+
+**Status:** Diagnosis Complete. Manual deployment verified at https://frontend-mkle3gnj5-arielfrja-2128s-projects.vercel.app.
+
+## [2026-05-17] Infrastructure: GitHub Deployment Workflow Fix
+**Objective:** Resolve failures in the automated deployment pipeline (`deploy.yml`).
+
+### Fixes:
+- **GCP Sequence:** Moved `Google Auth` before `Sync Pub/Sub Infrastructure` to ensure ADC are available.
+- **Vercel Pathing:** Removed `working-directory: frontend` from the Vercel action to prevent redundant nesting (Vercel project is already configured with `frontend` as root).
+
+**Status:** Fixes applied to `deploy.yml`. Pushing to `test` for verification.
 
 ## [2026-05-15] Infrastructure: GCloud Pub/Sub Emulator Transition
 **Objective:** Replaced the local EventEmitter bus with a fully functional Google Cloud Pub/Sub emulator for local development.
