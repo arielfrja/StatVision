@@ -1,13 +1,13 @@
 import { DataSource } from "typeorm";
-import { 
-    TeamService, PlayerService, GameStatsService, 
-    TeamRepository, PlayerRepository, GameRepository, 
-    GameEventRepository, GameTeamStatsRepository, 
+import {
+    TeamService, PlayerService, GameStatsService,
+    TeamRepository, PlayerRepository, GameRepository,
+    GameEventRepository, GameTeamStatsRepository,
     GamePlayerStatsRepository, UserRepository,
-    User, Team, ILogger, IEventBus
+    User, Team, ILogger, IEventBus,
+    PubSubEventBus
 } from "@statvision/common";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
-import { PubSubEventBus } from "../worker/infrastructure/PubSubEventBus";
 import { jobLogger } from "../config/loggers";
 import { VideoAnalysisJobRepository } from "../worker/VideoAnalysisJobRepository";
 import { ChunkRepository } from "../worker/ChunkRepository";
@@ -34,11 +34,10 @@ export class AppContainer {
 
     private registerServices(): void {
         const commonLogger = jobLogger as unknown as ILogger;
-        
-        // Infrastructure
-        const eventBus = new PubSubEventBus();
-        this.services.set("IEventBus", eventBus);
 
+        // Infrastructure
+        const eventBus = new PubSubEventBus(commonLogger);
+        this.services.set("IEventBus", eventBus);
         // Repositories (Common)
         const userRepository = new UserRepository(this.dataSource, commonLogger);
         const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);

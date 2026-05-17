@@ -5,6 +5,7 @@
   "main": "build/startWorker.js",
   "scripts": {
     "dev": "npx ts-node src/startWorker.ts",
+    "init-pubsub": "npx ts-node src/create_pubsub.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "start": "node build/startWorker.js"

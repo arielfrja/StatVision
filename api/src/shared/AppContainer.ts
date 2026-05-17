@@ -4,24 +4,14 @@ import {
     TeamRepository, PlayerRepository, GameRepository, 
     GameEventRepository, GameTeamStatsRepository, 
     GamePlayerStatsRepository, UserRepository,
-    AppError, User, Team, ILogger
+    AppError, User, Team, ILogger,
+    PubSubEventBus, IEventBus
 } from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
 import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import logger from "../config/logger";
-import { IEventBus } from "../core/interfaces/IEventBus";
-
-// Simple mock for API to compile
-class MockEventBus implements IEventBus {
-    async publish(topic: string, message: any): Promise<void> {
-        console.log(`[MockEventBus] Publishing to ${topic}`);
-    }
-    async subscribe(subscriptionName: string, handler: (data: any, originalMessage: any) => Promise<void>, options?: any): Promise<void> {
-        console.log(`[MockEventBus] Subscribed to ${subscriptionName}`);
-    }
-}
 
 export class AppContainer {
     private static instance: AppContainer;
@@ -42,9 +32,9 @@ export class AppContainer {
 
     private registerServices(): void {
         // Infrastructure
-        const eventBus = new MockEventBus();
-        this.services.set("IEventBus", eventBus);
         const commonLogger = logger as unknown as ILogger;
+        const eventBus = new PubSubEventBus(commonLogger);
+        this.services.set("IEventBus", eventBus);
 
         // Repositories
         const userRepository = new UserRepository(this.dataSource, commonLogger);

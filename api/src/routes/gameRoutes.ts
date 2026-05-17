@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
 import { 
-    GameEventRepository, GameStatsService, GameStatus, GameEvent, Game, User 
+    GameEventRepository, GameStatsService, GameStatus, GameEvent, Game, User, IEventBus
 } from '@statvision/common';
 import { GameService } from '../modules/games/GameService';
 import { GameAssignmentService } from '../modules/games/GameAssignmentService';
@@ -10,7 +10,6 @@ import logger from '../config/logger';
 import multer from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
-import { IEventBus } from '../core/interfaces/IEventBus';
 
 const UPLOAD_DIR = '/data/data/com.termux/files/home/data/development/StatVision/uploads';
 
@@ -123,7 +122,7 @@ export const gameRoutes = (
 
             // Update game status and file path
             game.status = GameStatus.UPLOADED;
-            game.videoUrl = file.path;
+            game.filePath = file.path;
             await gameRepository.save(game);
 
             // Emit event to start analysis

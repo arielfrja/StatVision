@@ -29,6 +29,7 @@ export * from './core/services/TeamService';
 
 export * from './infrastructure/GeminiProvider';
 export * from './infrastructure/PromptLoader';
+export * from './infrastructure/PubSubEventBus';
 
 export * from './constants/gemini';
 export * from './constants/eventTypes';

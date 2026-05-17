@@ -9,5 +9,6 @@ export interface IGameRepository {
     findAllByUserId(userId: string): Promise<Game[]>;
     findOneWithDetails(gameId: string, userId: string): Promise<Game | null>;
     findOneWithDetailsInternal(gameId: string): Promise<Game | null>;
+    save(game: Game): Promise<Game>;
     delete(gameId: string, userId: string): Promise<void>;
 }

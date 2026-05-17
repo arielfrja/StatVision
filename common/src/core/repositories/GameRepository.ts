@@ -112,6 +112,10 @@ export class GameRepository implements IGameRepository {
         });
     }
 
+    async save(game: Game): Promise<Game> {
+        return this.repository.save(game);
+    }
+
     async delete(gameId: string, userId: string): Promise<void> {
         this.logger?.info(`Attempting to delete game ${gameId} for user ${userId} from the database.`);
         const result = await this.repository.delete({ id: gameId, userId: userId });

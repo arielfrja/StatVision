@@ -1,5 +1,28 @@
 # Job Log - StatVision
 
+## [2026-05-15] Infrastructure: GCloud Pub/Sub Emulator Transition
+**Objective:** Replaced the local EventEmitter bus with a fully functional Google Cloud Pub/Sub emulator for local development.
+
+### Major Changes:
+- **Implementation Consolidation:**
+    - Moved `PubSubEventBus` and `IEventBus` to `@statvision/common`.
+    - Removed redundant implementations from `api` and `worker` directories.
+    - Updated `AppContainer` in both services to use the shared implementation.
+- **Local Emulator Support:**
+    - Created `scripts/start-pubsub-emulator.sh` to launch the `gcloud` Pub/Sub emulator.
+    - Created `scripts/init-pubsub.sh` to automatically provision topics and subscriptions on startup.
+    - Added `init-pubsub` script to `worker/package.json` using `ts-node`.
+- **Development Workflow:**
+    - Integrated the emulator into `scripts/run-all.sh`.
+    - Standardized environment variables (`PUBSUB_EMULATOR_HOST=localhost:8085`, `GCP_PROJECT_ID=statvision-local`) for local runs.
+
+### Results:
+- High parity between local development and cloud production environments.
+- Simplified codebase by removing duplicate infrastructure logic.
+- Robust event-driven architecture that accurately simulates asynchronous processing locally.
+
+**Status:** Pub/Sub Emulator Integration Complete.
+
 ## [2026-05-14] Strategic Pivot: Minimalist Utility Transition
 **Objective:** Transitioned StatVision from a "High-Dopamine/Gaming" aesthetic to a "Minimalist Utility" tool for coaches.
 

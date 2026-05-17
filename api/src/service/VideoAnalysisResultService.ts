@@ -4,9 +4,8 @@ import {
     GameRepository, GameEventRepository, GameStatsService, 
     TeamRepository, PlayerRepository, 
     GameStatus, GameEvent, Team, Player, GameTeamStats, GamePlayerStats, 
-    VideoAnalysisJobStatus, GameEventStatus 
+    VideoAnalysisJobStatus, GameEventStatus, IEventBus
 } from "@statvision/common";
-import { IEventBus } from "../core/interfaces/IEventBus";
 import * as winston from 'winston';
 
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
