@@ -1,5 +1,27 @@
 # Job Log - StatVision
 
+## [2026-05-17] Integration: Feature Merging & QA Preparation
+**Objective:** Merged all active feature branches into the `test` branch to prepare for unified QA verification.
+
+### Major Changes:
+- **Branch Merging:**
+    - Merged `feat/minimalist-pivot` (UI overhaul) into `test`.
+    - Merged `feature/local-pubsub-emulator` (Shared Infra) into `test`.
+    - Merged `feat/realtime-progress` (Socket.io updates) into `test`.
+- **Conflict Resolution:**
+    - Resolved infrastructure conflicts in `api/src/app.ts` and `AppContainer.ts` to support both Pub/Sub consumers and Socket.io progress updates.
+    - Standardized `IEventBus` usage across all services to use the consolidated `@statvision/common` implementation.
+- **Verification:**
+    - Successfully executed `npm run master:build` ensuring all services (`api`, `worker`, `frontend`, `common`) are compile-safe.
+
+### QA Task List:
+- [ ] **Real-time Progress:** Verify that video processing progress is reported via Socket.io to the frontend.
+- [ ] **Pub/Sub Emulator:** Ensure that local runs using `scripts/run-all.sh` correctly use the GCloud emulator.
+- [ ] **Minimalist UI:** Confirm that all pages follow the new functional minimalist design tokens.
+- [ ] **Video Upload:** Verify the "Fast Upload" flow end-to-end.
+
+**Status:** Features Integrated into `test`. Ready for QA.
+
 ## [2026-05-15] Infrastructure: GCloud Pub/Sub Emulator Transition
 **Objective:** Replaced the local EventEmitter bus with a fully functional Google Cloud Pub/Sub emulator for local development.
 
