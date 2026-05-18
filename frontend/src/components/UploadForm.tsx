@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
+import axios from 'axios';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
 import { Team, GameType, IdentityMode } from '@/types/game';
@@ -124,11 +125,14 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                     }
                 });
             } else {
-                // Direct GCS PUT (Resumable)
-                await apiClient.put(uploadUrl!, file, {
+                // Direct GCS PUT (Resumable) - Use vanilla axios to avoid extra headers
+                await axios.put(uploadUrl!, file, {
                     headers: { 'Content-Type': file.type || 'video/mp4' },
                     onUploadProgress: (p) => {
-                        if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
+                        if (p.total) {
+                            const percent = Math.round((p.loaded * 100) / p.total);
+                            setProgress(percent);
+                        }
                     }
                 });
             }
