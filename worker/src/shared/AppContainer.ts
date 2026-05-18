@@ -1,11 +1,12 @@
 import { DataSource } from "typeorm";
+import * as path from 'path';
 import {
     TeamService, PlayerService, GameStatsService,
     TeamRepository, PlayerRepository, GameRepository,
     GameEventRepository, GameTeamStatsRepository,
     GamePlayerStatsRepository, UserRepository,
     User, Team, ILogger, IEventBus,
-    PubSubEventBus, GCSStorageProvider, IStorageProvider
+    PubSubEventBus, GCSStorageProvider, LocalStorageProvider, IStorageProvider
 } from "@statvision/common";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { jobLogger } from "../config/loggers";
@@ -40,10 +41,18 @@ export class AppContainer {
         const eventBus = new PubSubEventBus(commonLogger);
         this.services.set("IEventBus", eventBus);
 
-        const storageProvider = new GCSStorageProvider(
-            process.env.UPLOAD_BUCKET || 'statvision-uploads-local', 
-            commonLogger
-        );
+        let storageProvider: IStorageProvider;
+        if (process.env.NODE_ENV === 'production') {
+            storageProvider = new GCSStorageProvider(
+                process.env.UPLOAD_BUCKET || 'statvision-uploads-prod', 
+                commonLogger
+            );
+        } else {
+            storageProvider = new LocalStorageProvider(
+                path.join(process.cwd(), '../storage'),
+                commonLogger
+            );
+        }
         this.services.set("IStorageProvider", storageProvider);
         // Repositories (Common)
         const userRepository = new UserRepository(this.dataSource, commonLogger);

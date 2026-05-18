@@ -16,6 +16,9 @@ trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
 echo "📡 [PUBSUB] Starting emulator..."
 ./scripts/start-pubsub-emulator.sh > /dev/null 2>&1 &
 
+# Ensure local storage directory exists for shared file access
+mkdir -p ./storage
+
 # 1. Initialize Pub/Sub (Wait for emulator in background)
 (sleep 3 && ./scripts/init-pubsub.sh) &
 

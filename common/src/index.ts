@@ -32,6 +32,7 @@ export * from './infrastructure/GeminiProvider';
 export * from './infrastructure/PromptLoader';
 export * from './infrastructure/PubSubEventBus';
 export * from './infrastructure/GCSStorageProvider';
+export * from './infrastructure/LocalStorageProvider';
 
 export * from './constants/gemini';
 export * from './constants/eventTypes';

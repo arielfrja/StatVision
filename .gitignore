@@ -36,6 +36,8 @@ uploads/
 tmp/
 api/src/tmp/
 worker/src/tmp/
+storage/
+worker/tmp/
 .vercel/
 **/ .vercel/
 
