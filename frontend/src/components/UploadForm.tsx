@@ -33,7 +33,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
-    const [status, setStatus] = useState<'READY' | 'UPLOADING' | 'COMPLETE'>('READY');
+    const [progressLabel, setProgressLabel] = useState('Initializing...');
+    const [status, setStatus] = useState<'READY' | 'UPLOADING' | 'ERROR' | 'COMPLETE'>('READY');
+    
+    // Persistence state to allow retries without creating new games
+    const [activeGameId, setActiveGameId] = useState<string | null>(null);
+    const [activeUploadUrl, setActiveUploadUrl] = useState<string | null>(null);
+    const [activeGcsUri, setActiveGcsUri] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -45,8 +51,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
+            // Reset persistence when file changes
+            setActiveGameId(null);
+            setActiveUploadUrl(null);
+            setActiveGcsUri(null);
+            setError(null);
+            setStatus('READY');
+            setProgress(0);
+
             if (!gameName) {
-                // Pre-fill with a suggestion if name is empty
                 setGameName(selectedFile.name.split('.')[0].replace(/[-_]/g, ' '));
             }
         }
@@ -60,50 +73,59 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
 
         setIsProcessing(true);
         setError(null);
-        setProgress(0);
         setStatus('UPLOADING');
 
         try {
             const token = await getAccessTokenSilently();
+            let gameId = activeGameId;
+            let uploadUrl = activeUploadUrl;
+            let gcsUri = activeGcsUri;
 
-            // Step 1: Create Game Record (Draft)
-            const createGameResponse = await apiClient.post('/games', {
-                name: gameName || undefined,
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Step 1: Create Game Record (Draft) if not already created
+            if (!gameId) {
+                setProgressLabel('Creating game record...');
+                const createGameResponse = await apiClient.post('/games', {
+                    name: gameName || undefined,
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                gameId = createGameResponse.data.id;
+                setActiveGameId(gameId);
+                logger.info(`Draft game created with ID: ${gameId}`);
+            }
 
-            const newGameId = createGameResponse.data.id;
-            logger.info(`Draft game created with ID: ${newGameId}`);
-
-            // Step 2: Get Resumable Upload URL
-            const urlResponse = await apiClient.get(`/games/${newGameId}/upload-url`, {
-                params: {
-                    fileName: file.name,
-                    contentType: file.type || 'video/mp4'
-                },
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const { uploadUrl, gcsUri } = urlResponse.data;
-            logger.info(`Acquired resumable upload URL for game: ${newGameId}`);
+            // Step 2: Get Resumable Upload URL if not already acquired
+            if (!uploadUrl) {
+                setProgressLabel('Requesting secure cloud link...');
+                const urlResponse = await apiClient.get(`/games/${gameId}/upload-url`, {
+                    params: {
+                        fileName: file.name,
+                        contentType: file.type || 'video/mp4'
+                    },
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                uploadUrl = urlResponse.data.uploadUrl;
+                gcsUri = urlResponse.data.gcsUri;
+                setActiveUploadUrl(uploadUrl);
+                setActiveGcsUri(gcsUri);
+                logger.info(`Acquired resumable upload URL for game: ${gameId}`);
+            }
 
             // Step 3: Perform Direct Upload
-            // Note: For production GCS, we use simple PUT. 
-            // For local dev mock, we use a small FormData helper.
-            const isLocal = uploadUrl.includes('localhost') || !uploadUrl.startsWith('http');
+            setProgressLabel('Streaming video to Google Cloud...');
+            const isLocal = uploadUrl!.includes('localhost') || !uploadUrl!.startsWith('http');
             
             if (isLocal) {
                 const formData = new FormData();
                 formData.append('file', file);
-                await apiClient.put(uploadUrl, formData, {
+                await apiClient.put(uploadUrl!, formData, {
                     onUploadProgress: (p) => {
                         if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
                     }
                 });
             } else {
                 // Direct GCS PUT (Resumable)
-                await apiClient.put(uploadUrl, file, {
+                await apiClient.put(uploadUrl!, file, {
                     headers: { 'Content-Type': file.type || 'video/mp4' },
                     onUploadProgress: (p) => {
                         if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
@@ -112,7 +134,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             }
 
             // Step 4: Confirm Upload to Backend
-            await apiClient.post(`/games/${newGameId}/upload-complete`, {
+            setProgressLabel('Finalizing and starting AI analysis...');
+            await apiClient.post(`/games/${gameId}/upload-complete`, {
                 gcsUri
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -122,8 +145,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             setStatus('COMPLETE');
         } catch (err: any) {
             logger.error('Upload failed:', err);
-            setError(`Upload failed: ${err.response?.data?.message || err.message}`);
-            setStatus('READY'); 
+            setError(`Upload failed: ${err.response?.data?.message || err.message}. Please check your connection.`);
+            setStatus('ERROR'); 
         } finally {
             setIsProcessing(false);
         }
@@ -184,7 +207,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             {isProcessing && (
                 <div className="p-5 bg-container-low rounded-lg border border-bd-ghost">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-tx-secondary">Streaming to AI Engine...</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-tx-secondary">{progressLabel}</span>
                         <span className="text-[10px] font-bold text-white mono-stat">{progress}%</span>
                     </div>
                     <div className="w-full h-1 bg-container-highest rounded-full overflow-hidden">
@@ -203,7 +226,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             <div className="flex justify-end gap-3 pt-4 border-t border-bd-ghost">
                 <Button variant="outline" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
                 <Button onClick={handleFastUpload} isLoading={isProcessing} disabled={!file}>
-                    Start Analysis
+                    {status === 'ERROR' ? 'Retry Upload' : 'Start Analysis'}
                 </Button>
             </div>
         </div>
