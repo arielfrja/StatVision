@@ -87,4 +87,20 @@ export class GCSStorageProvider implements IStorageProvider {
             throw error;
         }
     }
+
+    async getResumableUploadUrl(destinationPath: string, contentType: string): Promise<string> {
+        try {
+            const [url] = await this.storage.bucket(this.bucketName).file(destinationPath).createResumableUpload({
+                origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+                metadata: {
+                    contentType
+                }
+            });
+            this.logInfo(`[GCSStorageProvider] Created resumable upload URL for ${destinationPath}`);
+            return url;
+        } catch (error) {
+            this.logError(`[GCSStorageProvider] Error creating resumable upload URL for ${destinationPath}:`, error);
+            throw error;
+        }
+    }
 }

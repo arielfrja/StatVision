@@ -52,8 +52,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
         }
     };
 
-    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
-
     const handleFastUpload = async () => {
         if (!file) {
             setError('Please select a video file to begin.');
@@ -78,67 +76,53 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             const newGameId = createGameResponse.data.id;
             logger.info(`Draft game created with ID: ${newGameId}`);
 
-            // Step 2: Determine Chunks
-            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-            
-            // Check current status (in case of resume, though for a new game it will be empty)
-            const statusResponse = await apiClient.get(`/games/upload/status/${newGameId}`, {
+            // Step 2: Get Resumable Upload URL
+            const urlResponse = await apiClient.get(`/games/${newGameId}/upload-url`, {
+                params: {
+                    fileName: file.name,
+                    contentType: file.type || 'video/mp4'
+                },
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const chunksReceived = statusResponse.data.chunksReceived || [];
 
-            // Step 3: Upload Chunks
-            for (let i = 0; i < totalChunks; i++) {
-                if (chunksReceived.includes(i)) {
-                    logger.info(`Chunk ${i} already uploaded, skipping.`);
-                    setProgress(Math.round(((i + 1) * 100) / totalChunks));
-                    continue;
-                }
+            const { uploadUrl, gcsUri } = urlResponse.data;
+            logger.info(`Acquired resumable upload URL for game: ${newGameId}`);
 
-                const start = i * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, file.size);
-                const chunk = file.slice(start, end);
-
-                let attempts = 0;
-                const MAX_ATTEMPTS = 3;
-                let success = false;
-
-                while (attempts < MAX_ATTEMPTS && !success) {
-                    try {
-                        const formData = new FormData();
-                        formData.append('chunk', chunk);
-                        formData.append('gameId', newGameId);
-                        formData.append('chunkIndex', i.toString());
-                        formData.append('totalChunks', totalChunks.toString());
-                        formData.append('fileName', file.name);
-
-                        await apiClient.post('/games/upload/chunk', formData, {
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                                'Content-Type': 'multipart/form-data',
-                            },
-                        });
-                        
-                        success = true;
-                        const percentCompleted = Math.round(((i + 1) * 100) / totalChunks);
-                        setProgress(percentCompleted);
-                    } catch (err: any) {
-                        attempts++;
-                        logger.warn(`Chunk ${i} upload attempt ${attempts} failed:`, err.message);
-                        if (attempts === MAX_ATTEMPTS) throw err;
-                        // Wait a bit before retrying
-                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+            // Step 3: Perform Direct Upload
+            // Note: For production GCS, we use simple PUT. 
+            // For local dev mock, we use a small FormData helper.
+            const isLocal = uploadUrl.includes('localhost') || !uploadUrl.startsWith('http');
+            
+            if (isLocal) {
+                const formData = new FormData();
+                formData.append('file', file);
+                await apiClient.put(uploadUrl, formData, {
+                    onUploadProgress: (p) => {
+                        if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
                     }
-                }
+                });
+            } else {
+                // Direct GCS PUT (Resumable)
+                await apiClient.put(uploadUrl, file, {
+                    headers: { 'Content-Type': file.type || 'video/mp4' },
+                    onUploadProgress: (p) => {
+                        if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
+                    }
+                });
             }
 
-            logger.info('File upload successful.');
+            // Step 4: Confirm Upload to Backend
+            await apiClient.post(`/games/${newGameId}/upload-complete`, {
+                gcsUri
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            logger.info('File upload and confirmation successful.');
             setStatus('COMPLETE');
         } catch (err: any) {
             logger.error('Upload failed:', err);
             setError(`Upload failed: ${err.response?.data?.message || err.message}`);
-            // Keep status as UPLOADING or READY? 
-            // If we allow them to click "Start Analysis" again, it will resume because of status check
             setStatus('READY'); 
         } finally {
             setIsProcessing(false);

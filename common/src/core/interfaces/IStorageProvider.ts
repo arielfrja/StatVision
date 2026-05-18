@@ -32,4 +32,12 @@ export interface IStorageProvider {
      * @param expiresInSeconds Duration in seconds for which the URL is valid.
      */
     getSignedUrl(remotePath: string, expiresInSeconds?: number): Promise<string>;
+
+    /**
+     * Creates a resumable upload session and returns the session URL.
+     * @param destinationPath The path (key) where the file will be stored.
+     * @param contentType The MIME type of the file.
+     * @returns A promise resolving to the resumable upload session URL.
+     */
+    getResumableUploadUrl(destinationPath: string, contentType: string): Promise<string>;
 }

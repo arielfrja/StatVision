@@ -136,6 +136,98 @@ export const gameRoutes = (
         }
     });
 
+    router.get("/:gameId/upload-url", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+        const { fileName, contentType } = req.query;
+
+        if (!fileName || !contentType) {
+            return res.status(400).json({ message: "Missing fileName or contentType query parameters." });
+        }
+
+        try {
+            const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+
+            const destinationPath = `videos/${gameId}/${fileName}`;
+            const uploadUrl = await storageProvider.getResumableUploadUrl(destinationPath, contentType as string);
+
+            res.status(200).json({ uploadUrl, gcsUri: `gs://${process.env.UPLOAD_BUCKET || 'statvision-uploads-prod'}/${destinationPath}` });
+        } catch (error) {
+            logger.error(`Error generating upload URL for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    // Mock endpoint for local resumable uploads (used by LocalStorageProvider)
+    router.put("/upload/local-mock-session", upload.single('file'), async (req, res) => {
+        const { path: destinationPath } = req.query;
+        const file = req.file;
+
+        if (!destinationPath || !file) {
+            return res.status(400).send("Missing path or file");
+        }
+
+        const storageDir = path.join(process.cwd(), '../storage');
+        const targetPath = path.join(storageDir, destinationPath as string);
+        const targetDir = path.dirname(targetPath);
+
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        try {
+            fs.renameSync(file.path, targetPath);
+            res.status(200).send("OK");
+        } catch (err) {
+            logger.error(`Local mock upload failed:`, err);
+            res.status(500).send("Internal error");
+        }
+    });
+
+    router.post("/:gameId/upload-complete", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+        const { gcsUri } = req.body;
+
+        if (!gcsUri) {
+            return res.status(400).json({ message: "Missing gcsUri in body." });
+        }
+
+        try {
+            const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+
+            // Update game status and file path
+            game.status = GameStatus.UPLOADED;
+            game.filePath = gcsUri;
+            await gameRepository.save(game);
+
+            // Emit event to start analysis
+            await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
+                gameId: game.id,
+                filePath: gcsUri,
+                userId: req.user.id
+            });
+
+            logger.info(`Video upload confirmed and event emitted for game ${gameId}: ${gcsUri}`);
+            res.status(200).json({ message: "Upload confirmed. Analysis started.", game });
+        } catch (error) {
+            logger.error(`Error confirming upload for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
     router.get("/upload/status/:gameId", async (req, res) => {
         if (!req.user || !req.user.id) {
             return res.status(401).send("Unauthorized");

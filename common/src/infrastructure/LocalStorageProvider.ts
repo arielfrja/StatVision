@@ -97,4 +97,10 @@ export class LocalStorageProvider implements IStorageProvider {
         const filePath = path.join(this.baseDir, remotePath);
         return `file://${filePath}`;
     }
+
+    async getResumableUploadUrl(destinationPath: string, contentType: string): Promise<string> {
+        // For local development, we point to our own API which will mock the resumable behavior
+        const apiBaseUrl = process.env.API_URL || 'http://localhost:3000';
+        return `${apiBaseUrl}/games/upload/local-mock-session?path=${encodeURIComponent(destinationPath)}`;
+    }
 }
