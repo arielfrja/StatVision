@@ -7,6 +7,7 @@ This file provides the foundational context and operational mandates for AI agen
 - **Product Strategy:** [docs/product/STRATEGY.md](docs/product/STRATEGY.md) - Core vision, monetization, and strategic pillars.
 - **Project History:** [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md) - Chronological record of all major architectural shifts and milestones.
 - **Technical Specs:** Found in `docs/technical/` (SRS, SAD, SDD, STAGING_SETUP).
+- **Cost Estimation:** [docs/product/COST_ESTIMATION.md](docs/product/COST_ESTIMATION.md) - Infrastructure and AI model pricing projections.
 
 ## 📊 Project State & Roadmap
 - **Current Roadmap:** [docs/product/MASTER_ROADMAP.md](docs/product/MASTER_ROADMAP.md) - The authoritative list of completed, active, and planned features with checkmarks.

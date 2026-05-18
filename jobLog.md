@@ -57,6 +57,17 @@
 
 **Status:** Implementation complete and optimized with streams. Ready for testing.
 
+## [2026-05-18] Documentation: Project Cost Estimation Research
+**Objective:** Provide a clear financial roadmap for infrastructure and AI model scaling.
+
+### Activities:
+- Researched May 2026 pricing for Gemini 2.5 Flash, GCP Cloud Run/Storage/PubSub, Vercel, and Supabase.
+- Defined Alpha (Low Volume) vs. Growth (Medium Volume) cost scenarios.
+- Identified strategic cost optimization paths (Batch API, Context Caching).
+- Published comprehensive report to `docs/product/COST_ESTIMATION.md`.
+
+**Status:** Research complete. Documentation added to the knowledge base.
+
 
 ## [2026-05-15] Infrastructure: GCloud Pub/Sub Emulator Transition
 **Objective:** Replaced the local EventEmitter bus with a fully functional Google Cloud Pub/Sub emulator for local development.
