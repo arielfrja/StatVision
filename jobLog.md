@@ -38,7 +38,25 @@
 - **GCP Sequence:** Moved `Google Auth` before `Sync Pub/Sub Infrastructure` to ensure ADC are available.
 - **Vercel Pathing:** Removed `working-directory: frontend` from the Vercel action to prevent redundant nesting (Vercel project is already configured with `frontend` as root).
 
-**Status:** Fixes applied to `deploy.yml`. Pushing to `test` for verification.
+**Status:** Fixes applied to `deploy.yml`. Pushed to `test` for verification.
+
+## [2026-05-17] Feature: Resumable Chunked Video Uploads
+**Objective:** Improve upload reliability for large video files by implementing chunking and retries.
+
+### Changes:
+- **Backend (API):**
+    - Added `GET /games/upload/status/:gameId` to query previously uploaded chunks.
+    - Added `POST /games/upload/chunk` to receive 5MB segments and store them temporarily.
+    - Implemented memory-efficient merging using Node.js streams once all chunks are received.
+    - Automatic cleanup of chunk segments after successful assembly.
+- **Frontend:**
+    - Updated `UploadForm` to slice files into 5MB chunks.
+    - Implemented sequential chunk uploading with a retry policy (3 attempts per chunk).
+    - Integrated progress tracking based on completed chunks.
+    - Support for resuming interrupted uploads by checking server status before starting.
+
+**Status:** Implementation complete and optimized with streams. Ready for testing.
+
 
 ## [2026-05-15] Infrastructure: GCloud Pub/Sub Emulator Transition
 **Objective:** Replaced the local EventEmitter bus with a fully functional Google Cloud Pub/Sub emulator for local development.

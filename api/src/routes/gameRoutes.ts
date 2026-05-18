@@ -106,6 +106,133 @@ export const gameRoutes = (
         }
     });
 
+    router.get("/upload/status/:gameId", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+        const chunksDir = path.join(UPLOAD_DIR, 'chunks', gameId);
+
+        try {
+            const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+
+            if (!fs.existsSync(chunksDir)) {
+                return res.status(200).json({ chunksReceived: [] });
+            }
+
+            const files = fs.readdirSync(chunksDir);
+            const chunksReceived = files
+                .filter(f => f.startsWith('chunk-'))
+                .map(f => parseInt(f.replace('chunk-', ''), 10))
+                .sort((a, b) => a - b);
+
+            res.status(200).json({ chunksReceived });
+        } catch (error) {
+            logger.error(`Error getting upload status for game ${gameId}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    router.post("/upload/chunk", upload.single('chunk'), async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId, chunkIndex, totalChunks, fileName } = req.body;
+        const file = req.file;
+
+        if (!gameId || !file || chunkIndex === undefined || !totalChunks) {
+            return res.status(400).json({ message: "Missing required fields for chunked upload." });
+        }
+
+        const chunksDir = path.join(UPLOAD_DIR, 'chunks', gameId);
+        if (!fs.existsSync(chunksDir)) {
+            fs.mkdirSync(chunksDir, { recursive: true });
+        }
+
+        const chunkPath = path.join(chunksDir, `chunk-${chunkIndex}`);
+        
+        try {
+            const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
+
+            // Move the uploaded file to the chunks directory
+            fs.renameSync(file.path, chunkPath);
+
+            const files = fs.readdirSync(chunksDir);
+            const chunkFiles = files.filter(f => f.startsWith('chunk-'));
+
+            if (chunkFiles.length === parseInt(totalChunks, 10)) {
+                // All chunks received, merge them
+                const finalFileName = `${gameId}-${fileName || 'video.mp4'}`;
+                const finalPath = path.join(UPLOAD_DIR, finalFileName);
+                const writeStream = fs.createWriteStream(finalPath);
+
+                logger.info(`Merging ${totalChunks} chunks for game ${gameId}...`);
+
+                // Function to append a chunk to the write stream using promises for sequential flow
+                const appendChunk = (index: number): Promise<void> => {
+                    return new Promise((resolve, reject) => {
+                        const currentChunkPath = path.join(chunksDir, `chunk-${index}`);
+                        const readStream = fs.createReadStream(currentChunkPath);
+                        readStream.pipe(writeStream, { end: false });
+                        readStream.on('end', () => {
+                            fs.unlinkSync(currentChunkPath);
+                            resolve();
+                        });
+                        readStream.on('error', reject);
+                    });
+                };
+
+                try {
+                    for (let i = 0; i < parseInt(totalChunks, 10); i++) {
+                        await appendChunk(i);
+                    }
+                    writeStream.end();
+
+                    // Wait for write stream to finish
+                    await new Promise((resolve, reject) => {
+                        writeStream.on('finish', resolve);
+                        writeStream.on('error', reject);
+                    });
+
+                    // Cleanup chunks directory
+                    fs.rmdirSync(chunksDir);
+
+                    // Update game status and file path
+                    game.status = GameStatus.UPLOADED;
+                    game.filePath = finalPath;
+                    await gameRepository.save(game);
+
+                    // Emit event to start analysis
+                    await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
+                        gameId: game.id,
+                        filePath: finalPath,
+                        userId: req.user.id
+                    });
+
+                    logger.info(`Video assembled and event emitted for game ${gameId}`);
+                    return res.status(200).json({ message: "Upload complete. Analysis started.", game, status: 'COMPLETE' });
+                } catch (mergeError) {
+                    logger.error(`Error merging chunks for game ${gameId}:`, mergeError);
+                    writeStream.end();
+                    return res.status(500).json({ message: "Error assembling file segments." });
+                }
+            }
+
+            res.status(200).json({ message: `Chunk ${chunkIndex} received.`, status: 'UPLOADING' });
+        } catch (error) {
+            logger.error(`Error during chunk upload for game ${gameId}, index ${chunkIndex}:`, error);
+            res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
     router.post("/upload", upload.single('video'), async (req, res) => {
         if (!req.user || !req.user.id) {
             return res.status(401).send("Unauthorized");

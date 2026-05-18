@@ -52,6 +52,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
         }
     };
 
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+
     const handleFastUpload = async () => {
         if (!file) {
             setError('Please select a video file to begin.');
@@ -76,30 +78,68 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             const newGameId = createGameResponse.data.id;
             logger.info(`Draft game created with ID: ${newGameId}`);
 
-            // Step 2: Upload File
-            const formData = new FormData();
-            formData.append('video', file);
-            formData.append('gameId', newGameId);
-
-            await apiClient.post('/games/upload', formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data',
-                },
-                onUploadProgress: (progressEvent) => {
-                    if (progressEvent.total) {
-                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                        setProgress(percentCompleted);
-                    }
-                },
+            // Step 2: Determine Chunks
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+            
+            // Check current status (in case of resume, though for a new game it will be empty)
+            const statusResponse = await apiClient.get(`/games/upload/status/${newGameId}`, {
+                headers: { Authorization: `Bearer ${token}` }
             });
+            const chunksReceived = statusResponse.data.chunksReceived || [];
+
+            // Step 3: Upload Chunks
+            for (let i = 0; i < totalChunks; i++) {
+                if (chunksReceived.includes(i)) {
+                    logger.info(`Chunk ${i} already uploaded, skipping.`);
+                    setProgress(Math.round(((i + 1) * 100) / totalChunks));
+                    continue;
+                }
+
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunk = file.slice(start, end);
+
+                let attempts = 0;
+                const MAX_ATTEMPTS = 3;
+                let success = false;
+
+                while (attempts < MAX_ATTEMPTS && !success) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('chunk', chunk);
+                        formData.append('gameId', newGameId);
+                        formData.append('chunkIndex', i.toString());
+                        formData.append('totalChunks', totalChunks.toString());
+                        formData.append('fileName', file.name);
+
+                        await apiClient.post('/games/upload/chunk', formData, {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'multipart/form-data',
+                            },
+                        });
+                        
+                        success = true;
+                        const percentCompleted = Math.round(((i + 1) * 100) / totalChunks);
+                        setProgress(percentCompleted);
+                    } catch (err: any) {
+                        attempts++;
+                        logger.warn(`Chunk ${i} upload attempt ${attempts} failed:`, err.message);
+                        if (attempts === MAX_ATTEMPTS) throw err;
+                        // Wait a bit before retrying
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+                    }
+                }
+            }
 
             logger.info('File upload successful.');
             setStatus('COMPLETE');
         } catch (err: any) {
             logger.error('Upload failed:', err);
             setError(`Upload failed: ${err.response?.data?.message || err.message}`);
-            setStatus('READY');
+            // Keep status as UPLOADING or READY? 
+            // If we allow them to click "Start Analysis" again, it will resume because of status check
+            setStatus('READY'); 
         } finally {
             setIsProcessing(false);
         }

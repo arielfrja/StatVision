@@ -13,3 +13,7 @@
     - [x] Enhance `ProgressManager` to publish to `job-progress` topic.
     - [x] Implement Socket.io server and Pub/Sub forwarder in the API.
     - [x] Build `JobProgressBar` component in the frontend.
+- [x] **[DEV-106]** Implement Resumable Chunked Video Uploads
+    - [x] Create backend endpoints for chunked transfer and status tracking.
+    - [x] Implement memory-efficient stream-based file assembly.
+    - [x] Update frontend with chunking, retries, and resumption logic.
