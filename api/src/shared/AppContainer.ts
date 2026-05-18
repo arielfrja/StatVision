@@ -5,7 +5,8 @@ import {
     GameEventRepository, GameTeamStatsRepository, 
     GamePlayerStatsRepository, UserRepository,
     AppError, User, Team, ILogger,
-    PubSubEventBus, IEventBus
+    PubSubEventBus, IEventBus,
+    GCSStorageProvider, IStorageProvider
 } from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
@@ -42,6 +43,12 @@ export class AppContainer {
         const commonLogger = logger as unknown as ILogger;
         const eventBus = new PubSubEventBus(commonLogger);
         this.services.set("IEventBus", eventBus);
+
+        const storageProvider = new GCSStorageProvider(
+            process.env.UPLOAD_BUCKET || 'statvision-uploads-local', 
+            commonLogger
+        );
+        this.services.set("IStorageProvider", storageProvider);
 
         // Repositories
         const userRepository = new UserRepository(this.dataSource, commonLogger);

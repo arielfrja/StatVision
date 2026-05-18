@@ -21,7 +21,7 @@ import { gameRoutes } from "./routes/gameRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { AppContainer } from "./shared/AppContainer";
-import { TeamService, PlayerService, GameStatsService, GameEventRepository, IEventBus } from "@statvision/common";
+import { TeamService, PlayerService, GameStatsService, GameEventRepository, IEventBus, IStorageProvider } from "@statvision/common";
 import { GameService } from "./modules/games/GameService";
 import { GameAssignmentService } from "./modules/games/GameAssignmentService";
 import { GameAnalysisService } from "./modules/games/GameAnalysisService";
@@ -119,7 +119,8 @@ AppDataSource.initialize()
             container.get(GameEventRepository),
             container.get(GameAssignmentService),
             container.get(GameAnalysisService),
-            container.get<IEventBus>("IEventBus")
+            container.get<IEventBus>("IEventBus"),
+            container.get<IStorageProvider>("IStorageProvider")
         ));
 
         // Error handling middleware should be LAST

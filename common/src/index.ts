@@ -11,6 +11,7 @@ export * from './core/entities/VideoAnalysisJob';
 
 export * from './core/interfaces/ILogger';
 export * from './core/interfaces/IEventBus';
+export * from './core/interfaces/IStorageProvider';
 export * from './core/interfaces/IVideoIntelligenceProvider';
 export * from './core/interfaces/video-analysis.interfaces';
 
@@ -30,6 +31,7 @@ export * from './core/services/TeamService';
 export * from './infrastructure/GeminiProvider';
 export * from './infrastructure/PromptLoader';
 export * from './infrastructure/PubSubEventBus';
+export * from './infrastructure/GCSStorageProvider';
 
 export * from './constants/gemini';
 export * from './constants/eventTypes';

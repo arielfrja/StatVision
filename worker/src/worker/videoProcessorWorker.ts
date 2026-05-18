@@ -2,7 +2,7 @@ import { Message, SubscriptionOptions } from '@google-cloud/pubsub';
 import { workerConfig } from '../config/workerConfig';
 import { 
     VideoAnalysisJob, VideoAnalysisJobStatus, 
-    Chunk, ChunkStatus, IEventBus 
+    Chunk, ChunkStatus, IEventBus, IStorageProvider
 } from '@statvision/common';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
@@ -33,7 +33,8 @@ export class VideoOrchestratorService {
     constructor(
         private dataSource: DataSource, 
         private eventBus: IEventBus,
-        private progressManager: ProgressManager
+        private progressManager: ProgressManager,
+        private storageProvider: IStorageProvider
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
@@ -60,6 +61,7 @@ export class VideoOrchestratorService {
 
     private async processVideoUpload(message: PubSubMessage): Promise<void> {
         const { gameId, filePath, userId } = message;
+        let localVideoPath = filePath;
 
         const existingJob = await this.jobRepository.findExistingJob(gameId, filePath);
         if (existingJob) {
@@ -80,13 +82,33 @@ export class VideoOrchestratorService {
         try {
             await this.jobRepository.update(savedJob.id, { status: VideoAnalysisJobStatus.PROCESSING });
             
+            // 1. Download from GCS if needed
+            if (filePath.startsWith('gs://')) {
+                const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
+                const workerJobDir = path.join(tempBaseDir, savedJob.id);
+                if (!fs.existsSync(workerJobDir)) {
+                    fs.mkdirSync(workerJobDir, { recursive: true });
+                }
+
+                const fileName = path.basename(filePath);
+                localVideoPath = path.join(workerJobDir, fileName);
+                
+                // Parse GCS URI: gs://bucket/path/to/file
+                const parts = filePath.replace('gs://', '').split('/');
+                // const bucketName = parts[0]; // Provider already has bucket
+                const remotePath = parts.slice(1).join('/');
+
+                this.jobLogger.info(`[ORCHESTRATOR] Downloading ${filePath} to ${localVideoPath}...`, { phase: 'orchestration' });
+                await this.storageProvider.downloadFile(remotePath, localVideoPath);
+            }
+
             // Initial progress setup (estimated total chunks, will be updated after metadata)
             await this.progressManager.addJob(savedJob.id, 100, gameId);
             await this.progressManager.updateDetails(savedJob.id, 'Initializing chunking...', 'CHUNKING');
 
-            const tempDir = path.dirname(filePath);
+            const tempDir = path.dirname(localVideoPath);
             const chunks = await this.videoChunkerService.chunkVideo(
-                filePath, 
+                localVideoPath, 
                 tempDir, 
                 workerConfig.chunkDurationSeconds, 
                 workerConfig.chunkOverlapSeconds, 
@@ -110,8 +132,6 @@ export class VideoOrchestratorService {
 
             // Update with actual chunk count
             await this.progressManager.updateJob(savedJob.id, 0, 'Chunking complete. Starting analysis.', 'ANALYZING');
-            // Re-syncing the total count is handled by addJob if we change it, but updateJob uses current maps.
-            // Let's actually adjust the total in ProgressManager if possible.
 
             for (const chunk of savedChunks) {
                 await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, {
@@ -119,6 +139,11 @@ export class VideoOrchestratorService {
                     chunkId: chunk.id
                 });
                 this.jobLogger.debug(`[ORCHESTRATOR] Published analysis request for chunk ${chunk.sequence}`, { phase: 'orchestration' });
+            }
+
+            // Cleanup local source video if it was downloaded
+            if (filePath.startsWith('gs://') && fs.existsSync(localVideoPath)) {
+                fs.unlinkSync(localVideoPath);
             }
 
         } catch (error: any) {

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
 import { 
-    GameEventRepository, GameStatsService, GameStatus, GameEvent, Game, User, IEventBus
+    GameEventRepository, GameStatsService, GameStatus, GameEvent, Game, User, IEventBus,
+    IStorageProvider
 } from '@statvision/common';
 import { GameService } from '../modules/games/GameService';
 import { GameAssignmentService } from '../modules/games/GameAssignmentService';
@@ -40,10 +41,39 @@ export const gameRoutes = (
     gameEventRepository: GameEventRepository,
     gameAssignmentService: GameAssignmentService,
     gameAnalysisService: GameAnalysisService,
-    eventBus: IEventBus
+    eventBus: IEventBus,
+    storageProvider: IStorageProvider
 ) => {
     const gameRepository = AppDataSource.getRepository(Game);
     const userRepository = AppDataSource.getRepository(User);
+
+    const handleSuccessfulUpload = async (game: Game, localPath: string, userId: string) => {
+        // 1. Upload to Cloud Storage
+        const fileName = path.basename(localPath);
+        const destinationPath = `videos/${game.id}/${fileName}`;
+        const gcsUri = await storageProvider.uploadFile(localPath, destinationPath);
+
+        // 2. Update game status and file path (GCS URI)
+        game.status = GameStatus.UPLOADED;
+        game.filePath = gcsUri;
+        await gameRepository.save(game);
+
+        // 3. Emit event with GCS URI
+        await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
+            gameId: game.id,
+            filePath: gcsUri,
+            userId
+        });
+
+        // 4. Cleanup local file
+        try {
+            fs.unlinkSync(localPath);
+        } catch (cleanupErr) {
+            logger.warn(`Failed to cleanup local file ${localPath}:`, cleanupErr);
+        }
+
+        return gcsUri;
+    };
 
     router.get("/", async (req, res) => {
         if (!req.user || !req.user.id) {
@@ -205,19 +235,10 @@ export const gameRoutes = (
                     // Cleanup chunks directory
                     fs.rmdirSync(chunksDir);
 
-                    // Update game status and file path
-                    game.status = GameStatus.UPLOADED;
-                    game.filePath = finalPath;
-                    await gameRepository.save(game);
+                    // Move to GCS and Emit Event
+                    const gcsUri = await handleSuccessfulUpload(game, finalPath, req.user.id);
 
-                    // Emit event to start analysis
-                    await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
-                        gameId: game.id,
-                        filePath: finalPath,
-                        userId: req.user.id
-                    });
-
-                    logger.info(`Video assembled and event emitted for game ${gameId}`);
+                    logger.info(`Video assembled and uploaded to GCS for game ${gameId}: ${gcsUri}`);
                     return res.status(200).json({ message: "Upload complete. Analysis started.", game, status: 'COMPLETE' });
                 } catch (mergeError) {
                     logger.error(`Error merging chunks for game ${gameId}:`, mergeError);
@@ -251,19 +272,10 @@ export const gameRoutes = (
                 return res.status(404).json({ message: "Game not found or access denied." });
             }
 
-            // Update game status and file path
-            game.status = GameStatus.UPLOADED;
-            game.filePath = file.path;
-            await gameRepository.save(game);
+            // Move to GCS and Emit Event
+            const gcsUri = await handleSuccessfulUpload(game, file.path, req.user.id);
 
-            // Emit event to start analysis
-            await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
-                gameId: game.id,
-                filePath: file.path,
-                userId: req.user.id
-            });
-
-            logger.info(`Video uploaded and event emitted for game ${gameId}`);
+            logger.info(`Video uploaded and moved to GCS for game ${gameId}: ${gcsUri}`);
             res.status(200).json({ message: "Upload successful. Analysis started.", game });
         } catch (error) {
             logger.error(`Error during video upload for game ${gameId}:`, error);

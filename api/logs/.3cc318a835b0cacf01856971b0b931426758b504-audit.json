@@ -19,6 +19,21 @@
             "date": 1778558902984,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-12.log",
             "hash": "28aaf9a5f2eaaaebe5eac44dd1e3162bd686e94df9838ef6795852523ee216cc"
+        },
+        {
+            "date": 1778754012339,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-14.log",
+            "hash": "696c21732e76ccb8557cfedee73db9d5438561a41f5c55e89e2856dfcf4cd1df"
+        },
+        {
+            "date": 1778832275176,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-15.log",
+            "hash": "ba635a27bcf1fa97273d6ee5087f7d75ee83d139872ad5af06ec2df2c9af81aa"
+        },
+        {
+            "date": 1778995646805,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-17.log",
+            "hash": "2925fb63960c06f80d70eb02bd7440e77a8c3e8decfcdc5d0b0cbb7bb2295b41"
         }
     ],
     "hashType": "sha256"

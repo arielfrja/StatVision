@@ -50,35 +50,20 @@ const createLogger = (logBaseName: string) => {
     });
 
         if (process.env.NODE_ENV !== 'production' && process.env.CONSOLE_LOGGING !== 'true') {
-
             // Console transport removed for minimal output
-
-        } else if (process.env.NODE_ENV !== 'production') {
-
+        } else {
             logger.add(new winston.transports.Console({
-
                 format: winston.format.combine(
-
-                    winston.format.colorize(),
-
+                    process.env.NODE_ENV !== 'production' ? winston.format.colorize() : winston.format.uncolorize(),
                     winston.format.printf(({ timestamp, level, message, stack, phase }) => {
-
                         const phaseStr = phase ? `[${String(phase).toUpperCase()}]` : '';
-
                         if (stack) {
-
                             return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}\n${stack}`;
-
                         }
-
                         return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}`;
-
                     })
-
                 )
-
             }));
-
         }
 
     return logger;

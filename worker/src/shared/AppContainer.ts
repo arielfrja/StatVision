@@ -5,7 +5,7 @@ import {
     GameEventRepository, GameTeamStatsRepository,
     GamePlayerStatsRepository, UserRepository,
     User, Team, ILogger, IEventBus,
-    PubSubEventBus
+    PubSubEventBus, GCSStorageProvider, IStorageProvider
 } from "@statvision/common";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { jobLogger } from "../config/loggers";
@@ -39,6 +39,12 @@ export class AppContainer {
         // Infrastructure
         const eventBus = new PubSubEventBus(commonLogger);
         this.services.set("IEventBus", eventBus);
+
+        const storageProvider = new GCSStorageProvider(
+            process.env.UPLOAD_BUCKET || 'statvision-uploads-local', 
+            commonLogger
+        );
+        this.services.set("IStorageProvider", storageProvider);
         // Repositories (Common)
         const userRepository = new UserRepository(this.dataSource, commonLogger);
         const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);
@@ -68,7 +74,7 @@ export class AppContainer {
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
         const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus, progressManager);
-        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus, progressManager);
+        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus, progressManager, storageProvider);
         const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus, progressManager);
 
         // Registering services
