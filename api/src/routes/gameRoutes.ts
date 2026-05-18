@@ -157,6 +157,10 @@ export const gameRoutes = (
             const destinationPath = `videos/${gameId}/${fileName}`;
             const uploadUrl = await storageProvider.getResumableUploadUrl(destinationPath, contentType as string);
 
+            // Save the upload URL to the game record for persistence/resumption
+            game.uploadUrl = uploadUrl;
+            await gameRepository.save(game);
+
             res.status(200).json({ uploadUrl, gcsUri: `gs://${process.env.UPLOAD_BUCKET || 'statvision-uploads-prod'}/${destinationPath}` });
         } catch (error) {
             logger.error(`Error generating upload URL for game ${gameId}:`, error);

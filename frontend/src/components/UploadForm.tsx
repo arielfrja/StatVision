@@ -22,9 +22,10 @@ import '@material/web/progress/linear-progress.js';
 interface UploadFormProps {
     onUploadComplete: () => void;
     onCancel: () => void;
+    initialGameId?: string;
 }
 
-const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) => {
+const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, initialGameId }) => {
     const { getAccessTokenSilently } = useAuth0();
 
     const [mounted, setMounted] = useState(false);
@@ -38,13 +39,55 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
     const [status, setStatus] = useState<'READY' | 'UPLOADING' | 'ERROR' | 'COMPLETE'>('READY');
     
     // Persistence state to allow retries without creating new games
-    const [activeGameId, setActiveGameId] = useState<string | null>(null);
+    const [activeGameId, setActiveGameId] = useState<string | null>(initialGameId || null);
     const [activeUploadUrl, setActiveUploadUrl] = useState<string | null>(null);
     const [activeGcsUri, setActiveGcsUri] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
+        
+        // Auto-load from localStorage if we are in a session
+        if (!activeGameId) {
+            const savedId = localStorage.getItem('statvision_active_upload_id');
+            if (savedId) setActiveGameId(savedId);
+        }
     }, []);
+
+    // Effect to fetch details if we have an activeGameId but no URL
+    useEffect(() => {
+        const fetchExistingUpload = async () => {
+            if (activeGameId && !activeUploadUrl && mounted) {
+                try {
+                    const token = await getAccessTokenSilently();
+                    const gameResponse = await apiClient.get(`/games/${activeGameId}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    const game: Game = gameResponse.data;
+                    setGameName(game.name);
+                    
+                    // If it was already finished, just complete it
+                    if (game.status !== GameStatus.PENDING) {
+                        setStatus('COMPLETE');
+                        return;
+                    }
+
+                    if (game.uploadUrl) {
+                        setActiveUploadUrl(game.uploadUrl);
+                        // We need the GCS URI too, which our API returns in the /upload-url endpoint
+                        // Let's just trigger a re-fetch of the URL to be safe and consistent
+                    }
+                    
+                    setStatus('ERROR');
+                    setError('Previous upload was interrupted. Please re-select the file to resume.');
+                } catch (err) {
+                    console.error('Failed to restore upload session:', err);
+                }
+            }
+        };
+        
+        fetchExistingUpload();
+    }, [activeGameId, mounted]);
 
     if (!mounted) return <div className="flex items-center justify-center h-[400px]"><Loader size="large" /></div>;
 
@@ -52,13 +95,16 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
-            // Reset persistence when file changes
-            setActiveGameId(null);
-            setActiveUploadUrl(null);
-            setActiveGcsUri(null);
-            setError(null);
-            setStatus('READY');
-            setProgress(0);
+            
+            // If we are resuming, we don't reset the gameId, just the status
+            if (!activeGameId) {
+                setError(null);
+                setStatus('READY');
+                setProgress(0);
+            } else {
+                setStatus('ERROR'); // Still in error/resume mode but file is attached
+                setError(null);
+            }
 
             if (!gameName) {
                 setGameName(selectedFile.name.split('.')[0].replace(/[-_]/g, ' '));
@@ -92,6 +138,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
                 });
                 gameId = createGameResponse.data.id;
                 setActiveGameId(gameId);
+                localStorage.setItem('statvision_active_upload_id', gameId);
                 logger.info(`Draft game created with ID: ${gameId}`);
             }
 
@@ -146,6 +193,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel }) =
             });
 
             logger.info('File upload and confirmation successful.');
+            localStorage.removeItem('statvision_active_upload_id');
             setStatus('COMPLETE');
         } catch (err: any) {
             logger.error('Upload failed:', err);

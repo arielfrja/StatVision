@@ -13,6 +13,11 @@ const PerformanceDashboardPage = () => {
   const { data: games, isLoading } = useSWR<Game[]>('/games');
   const [activeTab, setActiveTab] = useState('live');
 
+  const pendingUpload = useMemo(() => {
+    if (!games) return null;
+    return games.find(g => g.status === GameStatus.PENDING && g.uploadUrl);
+  }, [games]);
+
   const activeGame = useMemo(() => {
     if (!games || games.length === 0) return null;
     return games.find(g => g.status === GameStatus.PROCESSING) || games[0];
@@ -48,6 +53,22 @@ const PerformanceDashboardPage = () => {
 
   return (
     <div className="pb-16 animate-in fade-in duration-500">
+      {/* Pending Upload Alert */}
+      {pendingUpload && (
+        <div className="mb-10 p-5 bg-electric/10 border border-electric/30 rounded-xl flex items-center justify-between animate-pulse-subtle">
+           <div className="flex items-center gap-4">
+              <span className="material-symbols-outlined text-electric text-3xl">upload_file</span>
+              <div>
+                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Unfinished Upload Detected</h3>
+                 <p className="text-xs text-tx-secondary font-medium">Your upload for "<span className="text-electric">{pendingUpload.name}</span>" was interrupted. Ready to resume.</p>
+              </div>
+           </div>
+           <Link href={`/games?resume=${pendingUpload.id}`} passHref>
+              <Button size="sm" className="px-6">Resume Now</Button>
+           </Link>
+        </div>
+      )}
+
       {/* Header Section */}
       <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-bd-ghost pb-8">
         <div>

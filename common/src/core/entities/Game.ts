@@ -64,6 +64,9 @@ export class Game {
     @Column({ name: "file_path", type: "varchar", nullable: true })
     filePath: string; // Local path to the uploaded video file.
 
+    @Column({ name: "upload_url", type: "varchar", nullable: true })
+    uploadUrl: string; // Resumable upload session URL (temporary)
+
     get videoUrl(): string | null {
         if (!this.filePath) return null;
         return `/uploads/${path.basename(this.filePath)}`;

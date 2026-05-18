@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
@@ -10,10 +10,22 @@ import UploadForm from '@/components/UploadForm';
 
 const GamesPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resumeId = searchParams.get('resume');
+
   const { data: games, isLoading, mutate } = useSWR<Game[]>('/games', {
     refreshInterval: 5000,
   });
+  
   const [isUploadMode, setIsUploadMode] = useState(false);
+  const [resumeGameId, setResumeGameId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (resumeId) {
+      setIsUploadMode(true);
+      setResumeGameId(resumeId);
+    }
+  }, [resumeId]);
 
   const getStatusDisplay = (status: GameStatus) => {
     switch (status) {
@@ -28,6 +40,8 @@ const GamesPage = () => {
         return { icon: 'cloud_done', color: 'var(--text-secondary)', label: 'UPLOADED' };
       case GameStatus.ASSIGNMENT_PENDING:
         return { icon: 'person_search', color: 'var(--primary-electric)', label: 'ASSIGNMENT' };
+      case GameStatus.PENDING:
+        return { icon: 'upload_file', color: 'var(--primary-electric)', label: 'UNFINISHED' };
       default:
         return { icon: 'pending', color: 'var(--text-dim)', label: status };
     }
@@ -42,19 +56,35 @@ const GamesPage = () => {
   if (isUploadMode) return (
     <div className="max-w-4xl mx-auto pb-24">
       <header className="mb-10">
-        <button onClick={() => setIsUploadMode(false)} className="text-electric font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2 outline-none group">
+        <button 
+          onClick={() => {
+            setIsUploadMode(false);
+            setResumeGameId(null);
+            router.replace('/games'); // Clear query param
+          }} 
+          className="text-electric font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2 outline-none group"
+        >
           <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
           Back to Gallery
         </button>
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase">Analyze New Game</h1>
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase">
+          {resumeGameId ? 'Resume Analysis' : 'Analyze New Game'}
+        </h1>
       </header>
       <div className="stadium-card">
         <UploadForm 
+          initialGameId={resumeGameId || undefined}
           onUploadComplete={() => {
             setIsUploadMode(false);
+            setResumeGameId(null);
+            router.replace('/games');
             mutate();
           }}
-          onCancel={() => setIsUploadMode(false)}
+          onCancel={() => {
+            setIsUploadMode(false);
+            setResumeGameId(null);
+            router.replace('/games');
+          }}
         />
       </div>
     </div>

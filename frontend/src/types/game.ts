@@ -6,6 +6,7 @@ import { Player } from "./player";
 export type { Player, Team };
 
 export enum GameStatus {
+    PENDING = "PENDING",
     UPLOADED = "UPLOADED",
     PROCESSING = "PROCESSING",
     ANALYZED = "ANALYZED",
@@ -55,6 +56,7 @@ export interface Game {
 
     // File Path
     videoUrl: string | null; // Renamed from filePath
+    uploadUrl: string | null;
 
     events: GameEvent[];
 
