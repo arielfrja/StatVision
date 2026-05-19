@@ -224,16 +224,27 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             }
 
             // Step 4: Confirm Upload to Backend
-            setProgressLabel('Finalizing and starting AI analysis...');
-            await apiClient.post(`/games/${gameId}/upload-complete`, {
-                gcsUri
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            setProgressLabel('Verifying upload and starting AI...');
+            
+            // Add a small breather for the browser network stack (especially on mobile)
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            logger.info('File upload and confirmation successful.');
-            localStorage.removeItem('statvision_active_upload_id');
-            setStatus('COMPLETE');
+            try {
+                await apiClient.post(`/games/${gameId}/upload-complete`, {
+                    gcsUri
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                logger.info('File upload and confirmation successful.');
+                localStorage.removeItem('statvision_active_upload_id');
+                setStatus('COMPLETE');
+                onUploadComplete();
+            } catch (confirmErr: any) {
+                logger.error('Finalization failed:', confirmErr);
+                setError('Upload finished, but AI could not start. Please click Retry to notify the server.');
+                setStatus('ERROR');
+            }
         } catch (err: any) {
             logger.error('Upload failed:', err);
             setError(`Upload failed: ${err.response?.data?.message || err.message}. Please try again.`);

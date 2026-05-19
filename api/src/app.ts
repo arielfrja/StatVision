@@ -50,10 +50,10 @@ const io = new Server(httpServer, {
 });
 
 app.use(cors({
-    origin: true, // Allow the origin of the request
+    origin: '*',
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-goog-resumable"]
+    allowedHeaders: ["*", "Content-Type", "Authorization", "x-goog-resumable"]
 }));
 app.use(express.json());
 app.use(loggingMiddleware);
