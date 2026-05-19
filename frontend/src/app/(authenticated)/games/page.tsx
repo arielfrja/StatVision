@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
