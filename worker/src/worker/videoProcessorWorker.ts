@@ -99,7 +99,18 @@ export class VideoOrchestratorService {
                 const remotePath = parts.slice(1).join('/');
 
                 this.jobLogger.info(`[ORCHESTRATOR] Downloading ${filePath} to ${localVideoPath}...`, { phase: 'orchestration' });
-                await this.storageProvider.downloadFile(remotePath, localVideoPath);
+                try {
+                    await this.storageProvider.downloadFile(remotePath, localVideoPath);
+                    this.jobLogger.info(`[ORCHESTRATOR] Download successful: ${localVideoPath}`, { phase: 'orchestration' });
+                } catch (dlError: any) {
+                    this.jobLogger.error(`[ORCHESTRATOR] GCS Download failed for ${filePath}`, { 
+                        error: dlError.message, 
+                        stack: dlError.stack,
+                        code: dlError.code,
+                        phase: 'orchestration' 
+                    });
+                    throw dlError;
+                }
             }
 
             // Initial progress setup (estimated total chunks, will be updated after metadata)
