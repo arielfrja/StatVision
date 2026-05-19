@@ -11,6 +11,7 @@ import UploadForm from '@/components/UploadForm';
 const GamesPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { getAccessTokenSilently } = useAuth0();
   const resumeId = searchParams.get('resume');
 
   const { data: games, isLoading, mutate } = useSWR<Game[]>('/games', {
@@ -19,6 +20,7 @@ const GamesPage = () => {
   
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [resumeGameId, setResumeGameId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (resumeId) {
@@ -27,15 +29,16 @@ const GamesPage = () => {
     }
   }, [resumeId]);
 
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
-
   const handleDeleteGame = async (e: React.MouseEvent, gameId: string) => {
     e.stopPropagation(); // Prevent navigating to the game page
     if (!confirm('Are you sure you want to delete this game? This action cannot be undone.')) return;
 
     setIsDeleting(gameId);
     try {
-      await apiClient.delete(`/games/${gameId}`);
+      const token = await getAccessTokenSilently();
+      await apiClient.delete(`/games/${gameId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       await mutate();
     } catch (err) {
       console.error("Failed to delete game:", err);

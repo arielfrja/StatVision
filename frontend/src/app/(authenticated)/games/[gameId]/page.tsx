@@ -29,7 +29,7 @@ import '@material/web/select/select-option.js';
 function AnalysisPage() {
     const params = useParams();
     const gameId = params.gameId as string;
-    const { isAuthenticated } = useAuth0();
+    const { isAuthenticated, getAccessTokenSilently } = useAuth0();
     const router = useRouter();
     const playerRef = useRef(null);
 
@@ -139,12 +139,17 @@ function AnalysisPage() {
     }, [mutate]);
 
     const handleDeleteGame = async () => {
+        if (!confirm('Are you sure you want to delete this game? This action cannot be undone.')) return;
         setIsDeleting(true);
         try {
-            await apiClient.delete(`/games/${gameId}`);
+            const token = await getAccessTokenSilently();
+            await apiClient.delete(`/games/${gameId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             router.push('/games');
         } catch (err: any) {
             console.error("Failed to delete game:", err);
+            alert('Failed to delete game. Please try again.');
         } finally {
             setIsDeleting(false);
             setShowDeleteConfirm(false);
