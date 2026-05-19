@@ -27,6 +27,24 @@ const GamesPage = () => {
     }
   }, [resumeId]);
 
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const handleDeleteGame = async (e: React.MouseEvent, gameId: string) => {
+    e.stopPropagation(); // Prevent navigating to the game page
+    if (!confirm('Are you sure you want to delete this game? This action cannot be undone.')) return;
+
+    setIsDeleting(gameId);
+    try {
+      await apiClient.delete(`/games/${gameId}`);
+      await mutate();
+    } catch (err) {
+      console.error("Failed to delete game:", err);
+      alert('Failed to delete game. Please try again.');
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   const getStatusDisplay = (status: GameStatus) => {
     switch (status) {
       case GameStatus.COMPLETED:
@@ -142,7 +160,21 @@ const GamesPage = () => {
                     <span className={`material-symbols-outlined text-sm ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
                     {status.label}
                   </span>
-                  <span className="text-[10px] font-black uppercase text-tx-dim">{date}</span>
+                  
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black uppercase text-tx-dim">{date}</span>
+                    <button 
+                      onClick={(e) => handleDeleteGame(e, game.id)}
+                      disabled={isDeleting === game.id}
+                      className="w-7 h-7 rounded bg-container-high border border-bd-ghost flex items-center justify-center text-tx-dim hover:text-red-400 transition-all"
+                    >
+                      {isDeleting === game.id ? (
+                        <div className="w-3 h-3 border-2 border-tx-dim border-t-red-500 rounded-full animate-spin"></div>
+                      ) : (
+                        <span className="material-symbols-outlined text-base">delete</span>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <h3 className="text-xl font-black italic tracking-tighter uppercase mb-1 group-hover:text-electric transition-colors">{game.name}</h3>
