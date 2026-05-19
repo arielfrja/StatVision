@@ -53,16 +53,21 @@ const createLogger = (logBaseName: string) => {
             // Console transport removed for minimal output
         } else {
             logger.add(new winston.transports.Console({
-                format: winston.format.combine(
-                    process.env.NODE_ENV !== 'production' ? winston.format.colorize() : winston.format.uncolorize(),
-                    winston.format.printf(({ timestamp, level, message, stack, phase }) => {
-                        const phaseStr = phase ? `[${String(phase).toUpperCase()}]` : '';
-                        if (stack) {
-                            return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}\n${stack}`;
-                        }
-                        return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}`;
-                    })
-                )
+                format: process.env.NODE_ENV === 'production' 
+                    ? winston.format.combine(
+                        winston.format.timestamp(),
+                        winston.format.json()
+                      )
+                    : winston.format.combine(
+                        winston.format.colorize(),
+                        winston.format.printf(({ timestamp, level, message, stack, phase }) => {
+                            const phaseStr = phase ? `[${String(phase).toUpperCase()}]` : '';
+                            if (stack) {
+                                return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}\n${stack}`;
+                            }
+                            return `${timestamp} [${level.toUpperCase()}]${phaseStr} ${message}`;
+                        })
+                    )
             }));
         }
 
