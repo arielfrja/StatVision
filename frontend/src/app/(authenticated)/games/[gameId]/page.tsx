@@ -21,6 +21,7 @@ import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
 import { JobProgressBar } from '@/components/JobProgressBar';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 import '@material/web/textfield/filled-text-field.js';
 import '@material/web/select/filled-select.js';
@@ -42,6 +43,7 @@ function AnalysisPage() {
     // UI State
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [visibleStats, setVisibleStats] = useState<string[]>(['points', 'assists', 'offensiveRebounds', 'defensiveRebounds', 'steals', 'blocks', 'turnovers', 'fouls']);
@@ -119,13 +121,19 @@ function AnalysisPage() {
         }
     };
 
-    const handleDeleteEvent = async (eventId: string) => {
-        if (!confirm('Are you sure you want to delete this event?')) return;
+    const handleDeleteEvent = (eventId: string) => {
+        setEventToDelete(eventId);
+    };
+
+    const confirmDeleteEvent = async () => {
+        if (!eventToDelete) return;
         try {
-            await apiClient.delete(`/game-events/${eventId}`);
+            await apiClient.delete(`/game-events/${eventToDelete}`);
             mutate();
         } catch (err: any) {
             console.error("Error deleting event:", err);
+        } finally {
+            setEventToDelete(null);
         }
     };
 
@@ -139,7 +147,6 @@ function AnalysisPage() {
     }, [mutate]);
 
     const handleDeleteGame = async () => {
-        if (!confirm('Are you sure you want to delete this game? This action cannot be undone.')) return;
         setIsDeleting(true);
         try {
             const token = await getAccessTokenSilently();
@@ -149,7 +156,6 @@ function AnalysisPage() {
             router.push('/games');
         } catch (err: any) {
             console.error("Failed to delete game:", err);
-            alert('Failed to delete game. Please try again.');
         } finally {
             setIsDeleting(false);
             setShowDeleteConfirm(false);
@@ -363,22 +369,28 @@ function AnalysisPage() {
                 onAssignmentComplete={mutate}
             />
 
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-                    <div className="bg-container border border-bd-ghost max-w-sm w-full p-8 rounded-2xl text-center shadow-2xl">
-                        <h3 className="text-xl font-bold mb-2">Delete Analysis?</h3>
-                        <p className="text-xs text-tx-secondary font-medium mb-8 leading-relaxed uppercase tracking-widest">
-                            This will permanently remove all stats and video data for this game.
-                        </p>
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-3 bg-container-high rounded-lg text-xs font-bold hover:bg-container-highest transition-all">Cancel</button>
-                            <button onClick={handleDeleteGame} disabled={isDeleting} className="flex-1 py-3 bg-red-500 text-white rounded-lg text-xs font-bold hover:bg-red-600 transition-all">
-                                {isDeleting ? 'Deleting...' : 'Confirm'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ConfirmationModal 
+                isOpen={showDeleteConfirm}
+                header="Delete Analysis?"
+                message="This will permanently remove all stats and video data for this game. This action cannot be undone."
+                okButtonText="Confirm Deletion"
+                cancelButtonText="Cancel"
+                variant="danger"
+                isLoading={isDeleting}
+                onConfirm={handleDeleteGame}
+                onCancel={() => setShowDeleteConfirm(false)}
+            />
+
+            <ConfirmationModal 
+                isOpen={!!eventToDelete}
+                header="Delete Event?"
+                message="Are you sure you want to remove this log entry from the play-by-play feed?"
+                okButtonText="Delete Entry"
+                cancelButtonText="Keep It"
+                variant="danger"
+                onConfirm={confirmDeleteEvent}
+                onCancel={() => setEventToDelete(null)}
+            />
         </div>
     );
 }

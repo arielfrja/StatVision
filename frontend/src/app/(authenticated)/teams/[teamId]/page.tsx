@@ -6,6 +6,7 @@ import { useAuth0 } from '@/app/user-provider';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { useParams, useRouter } from 'next/navigation';
 import { PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
@@ -31,6 +32,8 @@ function TeamPlayersPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerJersey, setNewPlayerJersey] = useState<number | '' >('');
   const [newPlayerDescription, setNewPlayerDescription] = useState('');
@@ -82,16 +85,24 @@ function TeamPlayersPage() {
     }
   };
 
-  const handleDeletePlayer = async (playerId: string) => {
-    if (!confirm('Remove this player from the roster?')) return;
+  const handleDeletePlayer = (playerId: string) => {
+    setPlayerToDelete(playerId);
+  };
+
+  const confirmDeletePlayer = async () => {
+    if (!teamId || !playerToDelete) return;
+    setIsDeleting(true);
     try {
       const token = await getAccessTokenSilently();
-      await apiClient.delete(`/teams/${teamId}/players/${playerId}`, {
+      await apiClient.delete(`/teams/${teamId}/players/${playerToDelete}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      setPlayerToDelete(null);
       fetchTeamDetails();
     } catch (error: any) {
       setError(error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -271,6 +282,18 @@ function TeamPlayersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={!!playerToDelete}
+        header="Release Player?"
+        message="Are you sure you want to remove this player from the active roster? Career stats will be preserved in the global registry."
+        okButtonText="Confirm Release"
+        cancelButtonText="Cancel"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={confirmDeletePlayer}
+        onCancel={() => setPlayerToDelete(null)}
+      />
     </main>
   );
 }
