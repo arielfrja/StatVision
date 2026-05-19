@@ -7,7 +7,7 @@ import useSWR from 'swr';
 import axios from 'axios';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
-import { Team, GameType, IdentityMode } from '@/types/game';
+import { Team, GameType, IdentityMode, Game, GameStatus } from '@/types/game';
 import Button from '@/components/Button';
 import Loader from '@/components/Loader';
 
@@ -138,7 +138,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 });
                 gameId = createGameResponse.data.id;
                 setActiveGameId(gameId);
-                localStorage.setItem('statvision_active_upload_id', gameId);
+                if (gameId) localStorage.setItem('statvision_active_upload_id', gameId);
                 logger.info(`Draft game created with ID: ${gameId}`);
             }
 
