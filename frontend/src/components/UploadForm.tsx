@@ -128,7 +128,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             let uploadUrl = activeUploadUrl;
             let gcsUri = activeGcsUri;
 
-            // Step 1: Create Game Record (Draft) if not already created
+            // Step 1: Create Game Record (Draft)
             if (!gameId) {
                 setProgressLabel('Creating game record...');
                 const createGameResponse = await apiClient.post('/games', {
@@ -142,7 +142,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 logger.info(`Draft game created with ID: ${gameId}`);
             }
 
-            // Step 2: Get Resumable Upload URL if not already acquired
+            // Step 2: Get Resumable Upload URL
             if (!uploadUrl) {
                 setProgressLabel('Requesting secure cloud link...');
                 const urlResponse = await apiClient.get(`/games/${gameId}/upload-url`, {
@@ -159,11 +159,11 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 logger.info(`Acquired resumable upload URL for game: ${gameId}`);
             }
 
-            // Step 3: Perform Direct Upload
-            setProgressLabel('Streaming video to Google Cloud...');
+            // Step 3: Check Progress and Perform Direct Upload
             const isLocal = uploadUrl!.includes('localhost') || !uploadUrl!.startsWith('http');
             
             if (isLocal) {
+                setProgressLabel('Streaming video locally...');
                 const formData = new FormData();
                 formData.append('file', file);
                 await apiClient.put(uploadUrl!, formData, {
@@ -172,16 +172,55 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     }
                 });
             } else {
-                // Direct GCS PUT (Resumable) - Use vanilla axios to avoid extra headers
-                await axios.put(uploadUrl!, file, {
-                    headers: { 'Content-Type': file.type || 'video/mp4' },
-                    onUploadProgress: (p) => {
-                        if (p.total) {
-                            const percent = Math.round((p.loaded * 100) / p.total);
-                            setProgress(percent);
-                        }
+                // 3a. Check if any bytes were already uploaded (Resumable Protocol)
+                setProgressLabel('Checking cloud sync status...');
+                let startByte = 0;
+                try {
+                    const checkResponse = await axios.put(uploadUrl!, null, {
+                        headers: {
+                            'Content-Range': `bytes */${file.size}`
+                        },
+                        validateStatus: (status) => status === 308
+                    });
+                    
+                    const rangeHeader = checkResponse.headers['range'];
+                    if (rangeHeader) {
+                        const parts = rangeHeader.split('=')[1].split('-');
+                        startByte = parseInt(parts[1], 10) + 1;
+                        logger.info(`Resuming upload from byte: ${startByte}`);
                     }
-                });
+                } catch (e) {
+                    // 404 means the session expired, we'd need to clear activeUploadUrl and retry
+                    // For now, assume 0 if check fails
+                    logger.warn('Could not retrieve existing progress, starting from 0.');
+                }
+
+                // 3b. Direct GCS PUT (Resumable)
+                setProgressLabel('Streaming video to Google Cloud...');
+                const chunkToUpload = file.slice(startByte);
+                
+                try {
+                    await axios.put(uploadUrl!, chunkToUpload, {
+                        headers: { 
+                            'Content-Type': file.type || 'video/mp4',
+                            'Content-Range': `bytes ${startByte}-${file.size - 1}/${file.size}`
+                        },
+                        onUploadProgress: (p) => {
+                            if (p.total) {
+                                const uploadedInThisSession = p.loaded;
+                                const totalUploaded = startByte + uploadedInThisSession;
+                                const percent = Math.round((totalUploaded * 100) / file.size);
+                                setProgress(percent);
+                            }
+                        }
+                    });
+                } catch (putErr: any) {
+                    // Special case: if we hit a network error but progress is at 100%, 
+                    // it often means Google finished but closed the connection. 
+                    // We continue to Step 4 to check.
+                    if (progress < 99) throw putErr;
+                    logger.warn('Network error at 100%, attempting to verify with backend.');
+                }
             }
 
             // Step 4: Confirm Upload to Backend
@@ -197,7 +236,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             setStatus('COMPLETE');
         } catch (err: any) {
             logger.error('Upload failed:', err);
-            setError(`Upload failed: ${err.response?.data?.message || err.message}. Please check your connection.`);
+            setError(`Upload failed: ${err.response?.data?.message || err.message}. Please try again.`);
             setStatus('ERROR'); 
         } finally {
             setIsProcessing(false);
