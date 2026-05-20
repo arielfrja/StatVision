@@ -51,9 +51,9 @@ export const gameRoutes = (
 
     const queueOrchestrationTask = async (gameId: string, filePath: string, userId: string) => {
         const projectId = process.env.CLOUD_TASKS_PROJECT_ID || process.env.GCP_PROJECT_ID || 'statsvision-477017';
-        const location = process.env.CLOUD_TASKS_LOCATION || 'us-east4';
+        const location = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
         const queue = process.env.ORCHESTRATOR_QUEUE_NAME || 'orchestrate-queue';
-        const url = process.env.ORCHESTRATOR_URL || 'https://statvision-worker-test-344445353526.us-east4.run.app/api/orchestrate-game';
+        const url = process.env.ORCHESTRATOR_URL || 'https://statvision-worker-test-chsbu3g4oa-uc.a.run.app/api/orchestrate-game';
 
         const parent = tasksClient.queuePath(projectId, location, queue);
         const payload = { gameId, filePath, userId };
@@ -63,6 +63,9 @@ export const gameRoutes = (
                 url,
                 headers: { 'Content-Type': 'application/json' },
                 body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                oidcToken: {
+                    serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
+                },
             },
         };
 

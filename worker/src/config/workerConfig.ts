@@ -47,7 +47,7 @@ export const workerConfig = {
 
     // Cloud Tasks settings
     cloudTasksProjectId: process.env.CLOUD_TASKS_PROJECT_ID || process.env.GCP_PROJECT_ID || 'statsvision-477017',
-    cloudTasksLocation: process.env.CLOUD_TASKS_LOCATION || 'us-east4',
+    cloudTasksLocation: process.env.CLOUD_TASKS_LOCATION || 'us-central1',
     cloudTasksQueueName: process.env.CLOUD_TASKS_QUEUE_NAME || 'analyze-queue',
-    analyzerUrl: process.env.ANALYZER_URL || 'https://statvision-worker-test-344445353526.us-east4.run.app/api/analyze-chunk',
+    analyzerUrl: process.env.ANALYZER_URL || 'https://statvision-worker-test-chsbu3g4oa-uc.a.run.app/api/analyze-chunk',
 };

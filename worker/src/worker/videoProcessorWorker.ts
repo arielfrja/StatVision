@@ -205,6 +205,9 @@ export class VideoOrchestratorService {
                     url: workerConfig.analyzerUrl,
                     headers: { 'Content-Type': 'application/json' },
                     body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                    oidcToken: {
+                        serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
+                    },
                 },
             };
 
