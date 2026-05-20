@@ -70,7 +70,7 @@ export class AppContainer {
 
         // Services
         const teamService = new TeamService(this.dataSource, commonLogger);
-        const gameService = new GameService(this.dataSource);
+        const gameService = new GameService(this.dataSource, storageProvider);
         
         const gameStatsService = new GameStatsService(
             gameRepository,

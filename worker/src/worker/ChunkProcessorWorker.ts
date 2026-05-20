@@ -12,10 +12,12 @@ import {
     Chunk, ChunkStatus, VideoAnalysisJobStatus, 
     IdentifiedPlayer, IdentifiedTeam, 
     IEventBus, IVideoAnalysisProvider,
-    Game, VideoAnalysisJob
+    Game, VideoAnalysisJob, IStorageProvider
 } from '@statvision/common';
 
 import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -37,12 +39,13 @@ export class ChunkProcessorWorker {
         private dataSource: DataSource, 
         private eventBus: IEventBus,
         private progressManager: ProgressManager,
+        private storageProvider: IStorageProvider,
         private videoAnalysisResultService?: VideoAnalysisResultService
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager, videoAnalysisResultService);
+        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
         this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -112,7 +115,29 @@ export class ChunkProcessorWorker {
         chunk.status = ChunkStatus.ANALYZING;
         await this.chunkRepository.update(chunk);
 
+        let localChunkPath = chunk.chunkPath;
+        let isDownloaded = false;
+
         try {
+            // 1. Download if remote (starts with gs://)
+            if (chunk.chunkPath.startsWith('gs://')) {
+                const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
+                const workerJobDir = path.join(tempBaseDir, jobId, 'chunks');
+                if (!fs.existsSync(workerJobDir)) {
+                    fs.mkdirSync(workerJobDir, { recursive: true });
+                }
+
+                const fileName = path.basename(chunk.chunkPath);
+                localChunkPath = path.join(workerJobDir, fileName);
+
+                const uriParts = chunk.chunkPath.split('/');
+                const remotePath = uriParts.slice(3).join('/');
+
+                this.logger.info(`[CHUNK_PROCESSOR] Downloading chunk from ${chunk.chunkPath} to ${localChunkPath}`, { phase: 'analyzing' });
+                await this.storageProvider.downloadFile(remotePath, localChunkPath);
+                isDownloaded = true;
+            }
+
             const gameRepository = this.dataSource.getRepository(Game);
             const game = await gameRepository.findOne({ where: { id: job.gameId } });
             
@@ -148,7 +173,7 @@ export class ChunkProcessorWorker {
 
             const analysisResult = await this.analysisProvider.analyzeVideoChunk(
                 {
-                    chunkPath: chunk.chunkPath,
+                    chunkPath: localChunkPath,
                     startTime: chunk.startTime,
                     sequence: chunk.sequence
                 },
@@ -238,6 +263,15 @@ export class ChunkProcessorWorker {
             
             await this.jobFinalizerService.finalizeJob(jobId);
             throw error;
+        } finally {
+            // Cleanup downloaded local chunk
+            if (isDownloaded && fs.existsSync(localChunkPath)) {
+                try {
+                    fs.unlinkSync(localChunkPath);
+                } catch (err) {
+                    this.logger.warn(`[CHUNK_PROCESSOR] Failed to cleanup local chunk ${localChunkPath}`, { error: err });
+                }
+            }
         }
     }
 }

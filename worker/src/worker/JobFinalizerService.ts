@@ -1,6 +1,6 @@
 import { ProgressManager } from './ProgressManager';
 import { DataSource } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus } from "@statvision/common";
+import { VideoAnalysisJob, VideoAnalysisJobStatus, IStorageProvider } from "@statvision/common";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { ChunkRepository } from "./ChunkRepository";
 import { ChunkStatus } from "@statvision/common";
@@ -8,6 +8,7 @@ import { jobLogger } from '../config/loggers';
 import { VideoChunkerService } from "./VideoChunkerService";
 import { GameEvent, GameEventStatus, IEventBus } from '@statvision/common';
 import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
+import * as fs from 'fs';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
@@ -21,6 +22,7 @@ export class JobFinalizerService {
         private dataSource: DataSource, 
         private eventBus: IEventBus,
         private progressManager: ProgressManager,
+        private storageProvider?: IStorageProvider,
         private videoAnalysisResultService?: VideoAnalysisResultService
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
@@ -201,7 +203,22 @@ export class JobFinalizerService {
             const completedChunks = chunks.filter(c => c.status === ChunkStatus.COMPLETED);
             const chunkPathsToClean = completedChunks.map(c => c.chunkPath);
             this.logger.info(`[JobFinalizerService] Cleaning up ${chunkPathsToClean.length} completed chunk files for job ${jobId}.`, { phase: 'finalizing' });
-            await this.videoChunkerService.cleanupChunks(chunkPathsToClean);
+            
+            for (const chunkPath of chunkPathsToClean) {
+                try {
+                    if (chunkPath.startsWith('gs://')) {
+                        if (this.storageProvider) {
+                            const uriParts = chunkPath.split('/');
+                            const remotePath = uriParts.slice(3).join('/');
+                            await this.storageProvider.deleteFile(remotePath);
+                        }
+                    } else if (fs.existsSync(chunkPath)) {
+                        await fs.promises.unlink(chunkPath);
+                    }
+                } catch (err) {
+                    this.logger.warn(`[JobFinalizerService] Failed to cleanup chunk ${chunkPath}`, { error: err });
+                }
+            }
         } else {
             this.logger.info(`[JobFinalizerService] Job ${jobId} is not yet in a terminal state. Waiting for more chunks to complete.`, { phase: 'finalizing' });
         }

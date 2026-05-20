@@ -82,9 +82,9 @@ export class AppContainer {
         
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
-        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus, progressManager, videoAnalysisResultService);
+        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
         const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus, progressManager, storageProvider);
-        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus, progressManager, videoAnalysisResultService);
+        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
 
         // Registering services
         this.services.set(TeamService.name, teamService);

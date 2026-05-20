@@ -49,4 +49,14 @@ export class VideoAnalysisJobRepository {
             }
         });
     }
+
+    async delete(id: string): Promise<void> {
+        logger.info(`Deleting video analysis job ${id}`, { phase: 'database' });
+        await this.repository.delete(id);
+    }
+
+    async deleteByGameId(gameId: string): Promise<void> {
+        logger.info(`Deleting video analysis jobs for game ${gameId}`, { phase: 'database' });
+        await this.repository.delete({ gameId });
+    }
 }

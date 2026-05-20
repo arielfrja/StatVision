@@ -143,13 +143,26 @@ export class VideoOrchestratorService {
 
             const savedChunks = [];
             for (const chunkData of chunks) {
+                const fileName = path.basename(chunkData.chunkPath);
+                const destinationPath = `chunks/${savedJob.id}/${fileName}`;
+                
+                this.jobLogger.info(`[ORCHESTRATOR] Uploading chunk ${chunkData.sequence} to storage...`, { phase: 'orchestration' });
+                const storageUri = await this.storageProvider.uploadFile(chunkData.chunkPath, destinationPath);
+
                 const chunk = new Chunk();
                 chunk.jobId = savedJob.id;
-                chunk.chunkPath = chunkData.chunkPath;
+                chunk.chunkPath = storageUri;
                 chunk.startTime = chunkData.startTime;
                 chunk.sequence = chunkData.sequence;
                 chunk.status = ChunkStatus.PENDING;
                 savedChunks.push(await this.chunkRepository.create(chunk));
+
+                // Cleanup local chunk file
+                try {
+                    fs.unlinkSync(chunkData.chunkPath);
+                } catch (err) {
+                    this.jobLogger.warn(`[ORCHESTRATOR] Failed to cleanup local chunk ${chunkData.chunkPath}`, { error: err });
+                }
             }
 
             // Update with actual chunk count

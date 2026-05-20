@@ -1,11 +1,11 @@
-import { GameRepository, User, Game, GameType, IdentityMode, GameStatus } from "@statvision/common";
+import { GameRepository, User, Game, GameType, IdentityMode, GameStatus, IStorageProvider, VideoAnalysisJob, Chunk } from "@statvision/common";
 import { DataSource } from "typeorm";
 import logger from "../../config/logger";
 
 export class GameService {
     private gameRepository: GameRepository;
 
-    constructor(dataSource: DataSource) {
+    constructor(private dataSource: DataSource, private storageProvider?: IStorageProvider) {
         this.gameRepository = new GameRepository(dataSource);
     }
 
@@ -58,6 +58,53 @@ export class GameService {
 
     async deleteGame(gameId: string, userId: string): Promise<void> {
         logger.info(`GameService: Deleting game ${gameId} for user ${userId}`);
+        
+        const game = await this.gameRepository.findOneWithDetails(gameId, userId);
+        if (!game) return;
+
+        const jobRepository = this.dataSource.getRepository(VideoAnalysisJob);
+        const chunkRepository = this.dataSource.getRepository(Chunk);
+
+        // 1. Cleanup Storage
+        if (this.storageProvider) {
+            // Cleanup Source Video
+            if (game.filePath) {
+                try {
+                    let remotePath = game.filePath;
+                    if (remotePath.startsWith('gs://')) {
+                        const uriParts = remotePath.split('/');
+                        remotePath = uriParts.slice(3).join('/');
+                    }
+                    logger.info(`GameService: Deleting source file from storage: ${remotePath}`);
+                    await this.storageProvider.deleteFile(remotePath);
+                } catch (error) {
+                    logger.warn(`GameService: Failed to delete source file for game ${gameId}`, error);
+                }
+            }
+
+            // Cleanup Chunks in Storage
+            try {
+                const jobs = await jobRepository.find({ where: { gameId } });
+                for (const job of jobs) {
+                    const chunks = await chunkRepository.find({ where: { jobId: job.id } });
+                    for (const chunk of chunks) {
+                        if (chunk.chunkPath && chunk.chunkPath.startsWith('gs://')) {
+                            const uriParts = chunk.chunkPath.split('/');
+                            const remotePath = uriParts.slice(3).join('/');
+                            logger.debug(`GameService: Deleting chunk file: ${remotePath}`);
+                            await this.storageProvider.deleteFile(remotePath).catch(() => {});
+                        }
+                    }
+                }
+            } catch (error) {
+                logger.warn(`GameService: Error during chunk storage cleanup for game ${gameId}`, error);
+            }
+        }
+
+        // 2. Cleanup Database
+        // Cascade delete on chunks is handled by DB if job is deleted.
+        // But we need to delete the jobs first.
+        await jobRepository.delete({ gameId });
         await this.gameRepository.delete(gameId, userId);
     }
 }
