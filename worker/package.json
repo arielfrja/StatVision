@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google-cloud/pubsub": "^5.2.0",
+    "@google-cloud/tasks": "^6.2.2",
     "@google/genai": "^1.33.0",
     "@statvision/common": "*",
     "cli-progress": "^3.12.0",

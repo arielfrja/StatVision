@@ -22,14 +22,14 @@ StatVision is a monorepo consisting of:
 *   ✅ **Persistent Resumption**: Added `localStorage` and DB columns (`upload_url`) to allow users to resume large uploads across page refreshes.
 *   ✅ **JSON Logging**: Migrated production logs to structured JSON for better observability in Cloud Run.
 
-## 4. Proposed Optimizations (Under Review)
-1.  **Switch to Push Subscriptions**: Change Pub/Sub from Pull to **Push** (Webhooks). This allows the Worker to scale to **0 instances** and only pay for compute when a video actually arrives.
-2.  **Resource Boost**: Increase Worker to **4 vCPU / 4GB RAM** to ensure `ffmpeg` finishes chunking fast enough to prevent network connection drops.
-3.  **Ephemeral Storage**: Explicitly increase container disk limits to accommodate large 4K video downloads.
+## 4. Implemented Optimizations (May 2026)
+1.  **Transition to Cloud Tasks**: Replaced Pub/Sub Pull with **Google Cloud Tasks (Push via HTTP)**. This allows the Worker to scale to **0 instances** when idle, significantly reducing costs.
+2.  **Controlled Fan-Out**: Implemented a two-stage processing model (Chunker -> Analyzer) triggered by Cloud Tasks with strict rate limits (12 chunks/min) to stay within Gemini Free Tier quotas.
+3.  **FFMPEG Stabilization**: Configured `ffmpeg` with `-threads 2` to prevent CPU starvation. This keeps the Node.js event loop responsive for gRPC heartbeats and network stability.
+4.  **Atomic Progress Tracking**: Added `total_chunks` and `completed_chunks` tracking to the database to manage parallel analysis jobs.
 
 ## 5. Current Bottleneck Game
-*   **Game ID**: `6722a6d9-9992-4ce4-b8cc-8ea996de738e`
-*   **Status**: Video is 100% safe in GCS, but the analysis job is currently a "Zombie" (marked as `PROCESSING` in DB but idle in reality).
+*   **Status**: Refactor in progress. System is being transitioned to the new task-based architecture.
 
 ---
-**Status Report Generated for: Senior Architect Review**
+**Status Report Updated: Transitioning to Task-Based Architecture**

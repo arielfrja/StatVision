@@ -62,6 +62,9 @@ export class VideoAnalysisJob {
     @Column({ name: "total_chunks", type: "integer", default: 0 })
     totalChunks: number;
 
+    @Column({ name: "completed_chunks", type: "integer", default: 0 })
+    completedChunks: number;
+
     @Column({ name: "processing_heartbeat_at", type: "timestamp with time zone", nullable: true })
     processingHeartbeatAt: Date | null;
 

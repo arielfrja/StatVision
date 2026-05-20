@@ -48,6 +48,12 @@ export class Game {
     @Column({ type: "enum", enum: GameStatus, default: GameStatus.UPLOADED })
     status: GameStatus;
 
+    @Column({ name: "total_chunks", type: "int", default: 0 })
+    totalChunks: number;
+
+    @Column({ name: "completed_chunks", type: "int", default: 0 })
+    completedChunks: number;
+
     @Column({ name: "game_type", type: "enum", enum: GameType, default: GameType.FULL_COURT })
     gameType: GameType;
 

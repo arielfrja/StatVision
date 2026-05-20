@@ -76,6 +76,14 @@ export class VideoAnalysisResultService {
         this.logger.info(`VideoAnalysisResultService: Consumers started for results and live streams.`, { phase: 'results_processing' });
     }
 
+    public async handleChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
+        await this.processChunkResult(result);
+    }
+
+    public async handleFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {
+        await this.processFinalResult(result);
+    }
+
     private async processChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
         this.logger.info(`Streaming draft results for Game ID: ${result.gameId}, Chunk: ${result.chunkId}`, { phase: 'results_processing' });
         await this.persistIdentifiedEntities(result);

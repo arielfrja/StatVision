@@ -11,8 +11,11 @@ import { workerConfig } from '../config/workerConfig';
 import { 
     Chunk, ChunkStatus, VideoAnalysisJobStatus, 
     IdentifiedPlayer, IdentifiedTeam, 
-    IEventBus, IVideoAnalysisProvider 
+    IEventBus, IVideoAnalysisProvider,
+    Game, VideoAnalysisJob
 } from '@statvision/common';
+
+import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
 
 const CHUNK_ANALYSIS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_SUBSCRIPTION_NAME || 'chunk-analysis-sub';
 
@@ -33,12 +36,13 @@ export class ChunkProcessorWorker {
     constructor(
         private dataSource: DataSource, 
         private eventBus: IEventBus,
-        private progressManager: ProgressManager
+        private progressManager: ProgressManager,
+        private videoAnalysisResultService?: VideoAnalysisResultService
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager);
+        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager, videoAnalysisResultService);
         this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -79,6 +83,11 @@ export class ChunkProcessorWorker {
         });
     }
 
+    public async analyzeChunk(jobId: string, chunkId: string): Promise<void> {
+        this.logger.info(`[CHUNK_PROCESSOR] Direct analysis request for chunk ${chunkId} of job ${jobId}`, { phase: 'analyzing' });
+        await this.processChunk({ jobId, chunkId });
+    }
+
     private async processChunk(message: ChunkMessage): Promise<void> {
         const { jobId, chunkId } = message;
 
@@ -104,7 +113,7 @@ export class ChunkProcessorWorker {
         await this.chunkRepository.update(chunk);
 
         try {
-            const gameRepository = this.dataSource.getRepository('games') as any;
+            const gameRepository = this.dataSource.getRepository(Game);
             const game = await gameRepository.findOne({ where: { id: job.gameId } });
             
             if (!game) throw new Error("Game not found for job.");
@@ -164,6 +173,7 @@ export class ChunkProcessorWorker {
                 game.identityMode
             );
 
+            // Update Chunk in database
             chunk.status = ChunkStatus.COMPLETED;
             chunk.processedEvents = finalEvents;
             chunk.identifiedPlayers = updatedIdentifiedPlayers;
@@ -171,10 +181,27 @@ export class ChunkProcessorWorker {
             chunk.rawGeminiResponse = analysisResult.rawResponse;
             await this.chunkRepository.update(chunk);
 
-            // Update Job with potentially new identified entities
-            await this.jobRepository.update(jobId, {
-                identifiedPlayers: updatedIdentifiedPlayers,
-                identifiedTeams: updatedIdentifiedTeams
+            // --- ATOMIC INCREMENT FOR AGGREGATION TRACKING ---
+            await this.dataSource.transaction(async (transactionalEntityManager) => {
+                // Increment completed_chunks in Game
+                await transactionalEntityManager.createQueryBuilder()
+                    .update(Game)
+                    .set({ completedChunks: () => "completed_chunks + 1" })
+                    .where("id = :id", { id: job.gameId })
+                    .execute();
+
+                // Increment completed_chunks in VideoAnalysisJob
+                await transactionalEntityManager.createQueryBuilder()
+                    .update(VideoAnalysisJob)
+                    .set({ completedChunks: () => "completed_chunks + 1" })
+                    .where("id = :id", { id: jobId })
+                    .execute();
+
+                // Update Job with potentially new identified entities
+                await transactionalEntityManager.update(VideoAnalysisJob, jobId, {
+                    identifiedPlayers: updatedIdentifiedPlayers,
+                    identifiedTeams: updatedIdentifiedTeams
+                });
             });
 
             await this.progressManager.updateJob(jobId, 1, `Chunk ${chunk.sequence + 1} analyzed.`, 'ANALYZING');
@@ -190,8 +217,15 @@ export class ChunkProcessorWorker {
                 identifiedPlayers: updatedIdentifiedPlayers,
                 identifiedTeams: updatedIdentifiedTeams,
                 isFinalResult: false
-            };
+            } as any;
+
+            // --- NEW: Direct call to ResultService for internal DB updates (since Pull is disabled) ---
+            if (this.videoAnalysisResultService) {
+                await this.videoAnalysisResultService.handleChunkResult(resultMessage);
+            }
+
             await this.eventBus.publish(workerConfig.chunkAnalysisResultsTopicName, resultMessage);
+            this.logger.info(`[CHUNK_PROCESSOR] Published analysis result for chunk ${chunk.sequence}`, { phase: 'analyzing' });
 
             // Trigger finalizer check
             await this.jobFinalizerService.finalizeJob(jobId);

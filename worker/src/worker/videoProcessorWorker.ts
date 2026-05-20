@@ -1,8 +1,10 @@
 import { Message, SubscriptionOptions } from '@google-cloud/pubsub';
+import { CloudTasksClient } from '@google-cloud/tasks';
 import { workerConfig } from '../config/workerConfig';
 import { 
     VideoAnalysisJob, VideoAnalysisJobStatus, 
-    Chunk, ChunkStatus, IEventBus, IStorageProvider
+    Chunk, ChunkStatus, IEventBus, IStorageProvider,
+    Game
 } from '@statvision/common';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
@@ -10,7 +12,7 @@ import { ProgressManager } from './ProgressManager';
 import { jobLogger, chunkLogger } from '../config/loggers';
 import * as path from 'path';
 import * as fs from 'fs';
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ChunkRepository } from './ChunkRepository';
 
 const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-upload-events-sub';
@@ -24,8 +26,10 @@ interface PubSubMessage {
 
 export class VideoOrchestratorService {
     private jobRepository: VideoAnalysisJobRepository;
+    private gameRepository: Repository<Game>;
     private chunkRepository: ChunkRepository;
     private videoChunkerService: VideoChunkerService;
+    private tasksClient: CloudTasksClient;
     private jobLogger = jobLogger;
     private chunkLogger = chunkLogger;
     private processingMode: string;
@@ -37,8 +41,10 @@ export class VideoOrchestratorService {
         private storageProvider: IStorageProvider
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
+        this.gameRepository = dataSource.getRepository(Game);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
+        this.tasksClient = new CloudTasksClient();
         this.processingMode = workerConfig.processingMode;
     }
 
@@ -57,6 +63,11 @@ export class VideoOrchestratorService {
         });
 
         this.jobLogger.info(`[ORCHESTRATOR] Consumer started for subscription: ${VIDEO_UPLOAD_SUBSCRIPTION_NAME}`, { phase: 'orchestration' });
+    }
+
+    public async processVideo(gameId: string, filePath: string, userId: string): Promise<void> {
+        this.jobLogger.info(`[ORCHESTRATOR] Direct orchestration request for game ${gameId}`, { phase: 'orchestration' });
+        await this.processVideoUpload({ gameId, filePath, userId });
     }
 
     private async processVideoUpload(message: PubSubMessage): Promise<void> {
@@ -142,15 +153,12 @@ export class VideoOrchestratorService {
             }
 
             // Update with actual chunk count
+            await this.jobRepository.update(savedJob.id, { totalChunks: chunks.length });
+            await this.gameRepository.update(gameId, { totalChunks: chunks.length });
+            
             await this.progressManager.updateJob(savedJob.id, 0, 'Chunking complete. Starting analysis.', 'ANALYZING');
 
-            for (const chunk of savedChunks) {
-                await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, {
-                    jobId: savedJob.id,
-                    chunkId: chunk.id
-                });
-                this.jobLogger.debug(`[ORCHESTRATOR] Published analysis request for chunk ${chunk.sequence}`, { phase: 'orchestration' });
-            }
+            await this.queueChunksForAnalysis(savedJob.id, savedChunks.map(c => c.id));
 
             // Cleanup local source video if it was downloaded
             if (filePath.startsWith('gs://') && fs.existsSync(localVideoPath)) {
@@ -164,6 +172,36 @@ export class VideoOrchestratorService {
                 failureReason: error.message 
             });
             throw error;
+        }
+    }
+
+    private async queueChunksForAnalysis(jobId: string, chunkIds: string[]): Promise<void> {
+        const parent = this.tasksClient.queuePath(
+            workerConfig.cloudTasksProjectId,
+            workerConfig.cloudTasksLocation,
+            workerConfig.cloudTasksQueueName
+        );
+
+        this.jobLogger.info(`[ORCHESTRATOR] Queuing ${chunkIds.length} chunks for Job ${jobId} via Cloud Tasks`, { phase: 'orchestration' });
+
+        for (const chunkId of chunkIds) {
+            const payload = { jobId, chunkId };
+            const task = {
+                httpRequest: {
+                    httpMethod: 'POST' as const,
+                    url: workerConfig.analyzerUrl,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                },
+            };
+
+            try {
+                await this.tasksClient.createTask({ parent, task });
+                this.jobLogger.debug(`[ORCHESTRATOR] Created Cloud Task for chunk ${chunkId}`, { phase: 'orchestration' });
+            } catch (error: any) {
+                this.jobLogger.error(`[ORCHESTRATOR] Failed to create Cloud Task for chunk ${chunkId}`, { error, phase: 'orchestration' });
+                throw error;
+            }
         }
     }
 
@@ -189,13 +227,12 @@ export class VideoOrchestratorService {
                     await this.progressManager.updateJob(job.id, completedCount, `Resuming: ${completedCount}/${chunks.length} complete`, 'RESUMING');
                 }
 
-                for (const chunk of chunks) {
-                    if (chunk.status === ChunkStatus.PENDING || chunk.status === ChunkStatus.FAILED) {
-                        await this.eventBus.publish(CHUNK_ANALYSIS_TOPIC_NAME, {
-                            jobId: job.id,
-                            chunkId: chunk.id
-                        });
-                    }
+                const pendingChunkIds = chunks
+                    .filter(c => c.status === ChunkStatus.PENDING || c.status === ChunkStatus.FAILED)
+                    .map(c => c.id);
+                
+                if (pendingChunkIds.length > 0) {
+                    await this.queueChunksForAnalysis(job.id, pendingChunkIds);
                 }
             }
         }

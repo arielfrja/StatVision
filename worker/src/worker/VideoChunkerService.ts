@@ -165,6 +165,7 @@ export class VideoChunkerService {
         const command = 'ffmpeg';
         const args = [
             '-y', '-stats',
+            '-threads', '2',
             '-ss', String(startTime), '-i', filePath, '-t', String(chunkDuration),
             '-vf', workerConfig.ffmpegVideoFilter,
             '-c:v', 'libx264', '-preset', workerConfig.ffmpegPreset, '-crf', workerConfig.ffmpegCrf, '-c:a', 'aac',

@@ -7,6 +7,7 @@ import { ChunkStatus } from "@statvision/common";
 import { jobLogger } from '../config/loggers';
 import { VideoChunkerService } from "./VideoChunkerService";
 import { GameEvent, GameEventStatus, IEventBus } from '@statvision/common';
+import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
@@ -19,7 +20,8 @@ export class JobFinalizerService {
     constructor(
         private dataSource: DataSource, 
         private eventBus: IEventBus,
-        private progressManager: ProgressManager
+        private progressManager: ProgressManager,
+        private videoAnalysisResultService?: VideoAnalysisResultService
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
@@ -175,7 +177,13 @@ export class JobFinalizerService {
                     processedEvents: updatedJob?.processedEvents,
                     identifiedPlayers: updatedJob?.identifiedPlayers,
                     identifiedTeams: updatedJob?.identifiedTeams,
-                };
+                } as any;
+
+                // --- NEW: Direct call to ResultService for internal DB updates (since Pull is disabled) ---
+                if (this.videoAnalysisResultService) {
+                    await this.videoAnalysisResultService.handleFinalResult(message);
+                }
+
                 await this.eventBus.publish(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME, message);
                 this.logger.info(`[JobFinalizerService] Published final status '${finalStatus}' for job ${jobId} to topic ${VIDEO_ANALYSIS_RESULTS_TOPIC_NAME}.`, { phase: 'finalizing' });
             } catch (error: any) {

@@ -1,5 +1,34 @@
 # Job Log - StatVision
 
+## [2026-05-20] Infrastructure: Cloud Tasks Refactor & Stability
+**Objective:** Transition the video processing pipeline to a "Controlled Fan-Out" architecture using Google Cloud Tasks to reduce costs and fix gRPC timeouts.
+
+### Major Changes:
+- **Cost Optimization:**
+    - Replaced Pub/Sub **Pull** subscriptions in the Worker with **HTTP Push endpoints**.
+    - This allows the Worker to scale to **0 instances** when idle, saving ~60% in monthly compute costs.
+- **Controlled Fan-Out (Scale):**
+    - Split processing into two stages: **Orchestrator (Chunker)** and **Analyzer**.
+    - Implemented a "governor" via Cloud Tasks queue limits (12 chunks/min) to stay within Gemini Free Tier rate limits (15 RPM).
+    - Future-proofed the system for parallel processing by adjusting queue limits.
+- **Stability Fixes:**
+    - Restructured FFMPEG commands to use `-threads 2`, preventing CPU starvation of the Node.js event loop.
+    - This eliminates `14 UNAVAILABLE` gRPC errors caused by dropped heartbeat signals.
+- **Progress Tracking:**
+    - Added `total_chunks` and `completed_chunks` columns to the `games` table and `worker_video_analysis_jobs` for atomic progress tracking.
+    - Implemented atomic increments in the database per chunk completion.
+- **Integration:**
+    - Updated the API to trigger orchestration via Cloud Tasks instead of Pub/Sub.
+    - Added a new migration `1816000000000-AddChunkTrackingToGameAndJob.ts`.
+
+### QA Task List:
+- [ ] **Task Triggering:** Verify that uploading a video through the API creates a Cloud Task for the Worker.
+- [ ] **Chunking Flow:** Confirm the Orchestrator successfully slices the video and queues new Tasks for each chunk.
+- [ ] **Analysis Aggregation:** Verify that `completed_chunks` increments correctly and the job is finalized when all chunks are done.
+- [ ] **Scale-to-Zero:** Confirm (via GCP Console) that Cloud Run instances terminate when no tasks are in the queue.
+
+**Status:** Implementation Complete. Monorepo builds successfully. Ready for deployment to `test` environment.
+
 ## [2026-05-17] Integration: Feature Merging & QA Preparation
 **Objective:** Merged all active feature branches into the `test` branch to prepare for unified QA verification.
 

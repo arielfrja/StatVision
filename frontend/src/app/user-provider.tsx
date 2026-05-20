@@ -19,13 +19,18 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export const useAuth0 = () => {
   const context = useContext(AuthContext);
-  return context || ({
-    isAuthenticated: false,
-    isLoading: true,
-    logout: () => {},
-    loginWithRedirect: () => Promise.resolve(),
-    getAccessTokenSilently: () => Promise.resolve(""),
-  } as AuthState);
+  // During prerendering or initial SSR, context might be null.
+  // We return a safe default to prevent crashes.
+  if (!context) {
+    return {
+      isAuthenticated: false,
+      isLoading: true,
+      logout: () => {},
+      loginWithRedirect: () => Promise.resolve(),
+      getAccessTokenSilently: () => Promise.resolve(""),
+    } as AuthState;
+  }
+  return context;
 };
 
 export default function UserProviderWrapper({ children }: { children: React.ReactNode }) {

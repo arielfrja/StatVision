@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
+import { CloudTasksClient } from '@google-cloud/tasks';
 import { 
     GameEventRepository, GameStatsService, GameStatus, GameEvent, Game, User, IEventBus,
     IStorageProvider
@@ -12,6 +13,7 @@ import multer from 'multer';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const tasksClient = new CloudTasksClient();
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -47,6 +49,32 @@ export const gameRoutes = (
     const gameRepository = AppDataSource.getRepository(Game);
     const userRepository = AppDataSource.getRepository(User);
 
+    const queueOrchestrationTask = async (gameId: string, filePath: string, userId: string) => {
+        const projectId = process.env.CLOUD_TASKS_PROJECT_ID || process.env.GCP_PROJECT_ID || 'statsvision-477017';
+        const location = process.env.CLOUD_TASKS_LOCATION || 'us-east4';
+        const queue = process.env.ORCHESTRATOR_QUEUE_NAME || 'orchestrate-queue';
+        const url = process.env.ORCHESTRATOR_URL || 'https://statvision-worker-test-344445353526.us-east4.run.app/api/orchestrate-game';
+
+        const parent = tasksClient.queuePath(projectId, location, queue);
+        const payload = { gameId, filePath, userId };
+        const task = {
+            httpRequest: {
+                httpMethod: 'POST' as const,
+                url,
+                headers: { 'Content-Type': 'application/json' },
+                body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+            },
+        };
+
+        try {
+            await tasksClient.createTask({ parent, task });
+            logger.info(`Cloud Task created for game orchestration: ${gameId}`);
+        } catch (error) {
+            logger.error(`Failed to create Cloud Task for game orchestration: ${gameId}`, error);
+            throw error;
+        }
+    };
+
     const handleSuccessfulUpload = async (game: Game, localPath: string, userId: string) => {
         // 1. Upload to Cloud Storage
         const fileName = path.basename(localPath);
@@ -59,11 +87,7 @@ export const gameRoutes = (
         await gameRepository.save(game);
 
         // 3. Emit event with GCS URI
-        await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
-            gameId: game.id,
-            filePath: gcsUri,
-            userId
-        });
+        await queueOrchestrationTask(game.id, gcsUri, userId);
 
         // 4. Cleanup local file
         try {
@@ -217,14 +241,10 @@ export const gameRoutes = (
             game.filePath = gcsUri;
             await gameRepository.save(game);
 
-            // Emit event to start analysis
-            await eventBus.publish(VIDEO_UPLOAD_TOPIC_NAME, {
-                gameId: game.id,
-                filePath: gcsUri,
-                userId: req.user.id
-            });
+            // Emit event to start analysis via Cloud Tasks
+            await queueOrchestrationTask(game.id, gcsUri, req.user.id);
 
-            logger.info(`Video upload confirmed and event emitted for game ${gameId}: ${gcsUri}`);
+            logger.info(`Video upload confirmed and Cloud Task created for game ${gameId}: ${gcsUri}`);
             res.status(200).json({ message: "Upload confirmed. Analysis started.", game });
         } catch (error) {
             logger.error(`Error confirming upload for game ${gameId}:`, error);

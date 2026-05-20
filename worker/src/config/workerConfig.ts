@@ -44,4 +44,10 @@ export const workerConfig = {
 
     // Chunk Processor settings
     parallelStageLimit: parseInt(process.env.PARALLEL_STAGE_LIMIT || '3', 10),
+
+    // Cloud Tasks settings
+    cloudTasksProjectId: process.env.CLOUD_TASKS_PROJECT_ID || process.env.GCP_PROJECT_ID || 'statsvision-477017',
+    cloudTasksLocation: process.env.CLOUD_TASKS_LOCATION || 'us-east4',
+    cloudTasksQueueName: process.env.CLOUD_TASKS_QUEUE_NAME || 'analyze-queue',
+    analyzerUrl: process.env.ANALYZER_URL || 'https://statvision-worker-test-344445353526.us-east4.run.app/api/analyze-chunk',
 };

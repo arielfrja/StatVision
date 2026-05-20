@@ -25,8 +25,12 @@ async function main() {
         console.log("Initializing Data Source...");
         await AppDataSource.initialize();
         console.log("Data Source initialized.");
+
+        console.log("Getting container instance...");
+        const container = AppContainer.getInstance(AppDataSource);
+        console.log("Container instance obtained.");
         
-        // --- Cloud Run Health Check Server ---
+        // --- Cloud Run Health Check & Cloud Tasks Server ---
         const app = express();
         const port = process.env.WORKER_PORT || process.env.PORT || 8080;
         
@@ -34,15 +38,47 @@ async function main() {
             res.status(200).send('OK');
         });
 
-        console.log(`Starting health check server on port ${port}...`);
+        // Cloud Tasks Push Endpoint
+        app.post('/api/analyze-chunk', express.json(), async (req, res) => {
+            try {
+                const { jobId, chunkId } = req.body;
+                if (!jobId || !chunkId) {
+                    return res.status(400).send('Missing jobId or chunkId');
+                }
+                
+                console.log(`[HTTP] Received analysis request for chunk ${chunkId} of job ${jobId}`);
+                const chunkProcessorWorker = container.get<ChunkProcessorWorker>(ChunkProcessorWorker);
+                await chunkProcessorWorker.analyzeChunk(jobId, chunkId);
+                res.status(200).send('Chunk analyzed successfully');
+            } catch (error: any) {
+                console.error(`[HTTP] Error analyzing chunk:`, error);
+                res.status(500).send(`Error: ${error.message}`);
+            }
+        });
+
+        // Orchestration Push Endpoint
+        app.post('/api/orchestrate-game', express.json(), async (req, res) => {
+            try {
+                const { gameId, filePath, userId } = req.body;
+                if (!gameId || !filePath || !userId) {
+                    return res.status(400).send('Missing gameId, filePath or userId');
+                }
+                
+                console.log(`[HTTP] Received orchestration request for game ${gameId}`);
+                const videoOrchestratorService = container.get<VideoOrchestratorService>(VideoOrchestratorService);
+                await videoOrchestratorService.processVideo(gameId, filePath, userId);
+                res.status(200).send('Orchestration started successfully');
+            } catch (error: any) {
+                console.error(`[HTTP] Error orchestrating game:`, error);
+                res.status(500).send(`Error: ${error.message}`);
+            }
+        });
+
+        console.log(`Starting worker server on port ${port}...`);
         app.listen(port, () => {
-            console.log(`Health check server listening on port ${port}`);
+            console.log(`Worker server listening on port ${port}`);
         });
         // -------------------------------------
-
-        console.log("Getting container instance...");
-        const container = AppContainer.getInstance(AppDataSource);
-        console.log("Container instance obtained.");
 
         // --- Startup Reconciliation ---
         console.log("Starting reconciliation...");
@@ -67,6 +103,10 @@ async function main() {
         // --- End of Startup Reconciliation ---
 
         console.log("Starting workers...");
+        // NOTE: We are commenting out Pub/Sub pull consumers to allow Cloud Run to scale to zero.
+        // Triggers now happen via Cloud Tasks push endpoints defined above.
+
+        /*
         const videoOrchestratorService = container.get<VideoOrchestratorService>(VideoOrchestratorService);
         videoOrchestratorService.startConsumingMessages();
 
@@ -75,8 +115,9 @@ async function main() {
 
         const videoAnalysisResultService = container.get<VideoAnalysisResultService>(VideoAnalysisResultService);
         videoAnalysisResultService.startConsumingResults();
+        */
         
-        console.log("All services started.");
+        console.log("Worker initialized in PUSH mode. Waiting for Cloud Tasks...");
     } catch (error) {
         console.error("FATAL ERROR IN WORKER MAIN:", error);
         throw error;
