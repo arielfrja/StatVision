@@ -196,7 +196,7 @@ export class VideoAnalysisResultService {
                     playerName = playerName.trim();
 
                     // Search for player in the database
-                    const playerRepo = this.playerRepository['playerRepository']; // Accessing internal repo for direct find
+                    const playerRepo = this.playerRepository['playerBaseRepository']; // Accessing internal repo for direct find
                     let player = await playerRepo.findOne({ 
                         where: { name: playerName, isTemp: true } 
                     });
@@ -205,7 +205,7 @@ export class VideoAnalysisResultService {
                         player = new Player();
                         player.name = playerName;
                         player.isTemp = true;
-                        player = await playerRepo.save(player);
+                        player = await this.playerRepository.save(player);
                         this.logger.info(`[Discovery] Created new Temp Player: \${playerName}`, { playerId: player.id });
                     }
 
