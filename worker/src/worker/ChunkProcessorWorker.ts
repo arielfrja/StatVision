@@ -256,7 +256,21 @@ export class ChunkProcessorWorker {
             await this.jobFinalizerService.finalizeJob(jobId);
 
         } catch (error: any) {
-            this.logger.error(`Failed to process chunk ${chunk.sequence}: ${error.message}`, { error, phase: 'analyzing' });
+            const isRetryable = error.message?.includes('429') || 
+                                error.message?.includes('503') || 
+                                error.message?.includes('500') ||
+                                error.code === 429 ||
+                                error.status === 429;
+
+            if (isRetryable) {
+                this.logger.warn(`[CHUNK_PROCESSOR] Retryable AI error for chunk ${chunk.sequence}: ${error.message}. Retrying via Cloud Tasks...`, { phase: 'analyzing' });
+                // We keep the status as ANALYZING so the user doesn't see a "Failure"
+                chunk.failureReason = `Retryable Error: ${error.message}`;
+                await this.chunkRepository.update(chunk);
+                throw error; // Cloud Tasks will catch the 500 and retry
+            }
+
+            this.logger.error(`[CHUNK_PROCESSOR] Permanent AI failure for chunk ${chunk.sequence}: ${error.message}`, { error, phase: 'analyzing' });
             chunk.status = ChunkStatus.FAILED;
             chunk.failureReason = error.message;
             await this.chunkRepository.update(chunk);

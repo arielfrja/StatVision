@@ -73,22 +73,29 @@ export class VideoOrchestratorService {
     private async processVideoUpload(message: PubSubMessage): Promise<void> {
         const { gameId, filePath, userId } = message;
         let localVideoPath = filePath;
+        let savedJob: VideoAnalysisJob;
 
         const existingJob = await this.jobRepository.findExistingJob(gameId, filePath);
         if (existingJob) {
-            this.jobLogger.info(`[ORCHESTRATOR] Job already exists for game ${gameId} and file ${filePath}. Status: ${existingJob.status}`, { phase: 'orchestration' });
-            if (existingJob.status === VideoAnalysisJobStatus.COMPLETED) return; 
-            if (existingJob.status === VideoAnalysisJobStatus.PROCESSING || existingJob.status === VideoAnalysisJobStatus.PENDING) return; 
+            this.jobLogger.info(`[ORCHESTRATOR] Found existing job ${existingJob.id} for game ${gameId}. Status: ${existingJob.status}`, { phase: 'orchestration' });
+            
+            if (existingJob.status === VideoAnalysisJobStatus.COMPLETED) {
+                this.jobLogger.info(`[ORCHESTRATOR] Job already COMPLETED. Skipping.`, { phase: 'orchestration' });
+                return;
+            }
+            
+            // If it's PROCESSING or PENDING, but we got a task (retry), allow it to continue
+            savedJob = existingJob;
+            this.jobLogger.info(`[ORCHESTRATOR] Resuming/Restarting orchestration for job ${savedJob.id}`, { phase: 'orchestration' });
+        } else {
+            const job = new VideoAnalysisJob();
+            job.gameId = gameId;
+            job.filePath = filePath;
+            job.userId = userId;
+            job.status = VideoAnalysisJobStatus.PENDING;
+            savedJob = await this.jobRepository.create(job);
+            this.jobLogger.info(`[ORCHESTRATOR] Created new VideoAnalysisJob: ${savedJob.id}`, { phase: 'orchestration' });
         }
-
-        const job = new VideoAnalysisJob();
-        job.gameId = gameId;
-        job.filePath = filePath;
-        job.userId = userId;
-        job.status = VideoAnalysisJobStatus.PENDING;
-        
-        const savedJob = await this.jobRepository.create(job);
-        this.jobLogger.info(`[ORCHESTRATOR] Created new VideoAnalysisJob: ${savedJob.id}`, { phase: 'orchestration' });
 
         try {
             await this.jobRepository.update(savedJob.id, { status: VideoAnalysisJobStatus.PROCESSING });
