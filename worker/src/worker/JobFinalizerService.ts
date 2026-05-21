@@ -135,7 +135,7 @@ export class JobFinalizerService {
                             event.identifiedJerseyNumber = eventData.identifiedJerseyNumber;
                             event.eventType = eventData.eventType;
                             event.eventSubType = eventData.eventSubType;
-                            event.isSuccessful = eventData.isSuccessful;
+                            event.isSuccessful = !!eventData.isSuccessful;
                             event.period = eventData.period;
                             event.timeRemaining = eventData.timeRemaining;
                             event.xCoord = eventData.xCoord;

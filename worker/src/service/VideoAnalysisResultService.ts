@@ -97,6 +97,9 @@ export class VideoAnalysisResultService {
                 gameEvent.chunkId = result.chunkId || null;
                 gameEvent.status = GameEventStatus.DRAFT;
 
+                // Explicitly ensure boolean for not-null constraint
+                gameEvent.isSuccessful = !!eventData.isSuccessful;
+
                 // Ensure non-UUIDs are not saved to UUID columns
                 if (!this.isUuid(gameEvent.assignedTeamId)) {
                     gameEvent.assignedTeamId = null;
