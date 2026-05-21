@@ -94,7 +94,7 @@ export class VideoOrchestratorService {
             job.userId = userId;
             job.status = VideoAnalysisJobStatus.PENDING;
             savedJob = await this.jobRepository.create(job);
-            this.jobLogger.info(`[ORCHESTRATOR] Created new VideoAnalysisJob: ${savedJob.id}`, { phase: 'orchestration' });
+            this.jobLogger.info(`[SLICER_START] 🔪 Starting orchestration | Job: ${savedJob.id} | Game: ${gameId}`, { phase: 'orchestration' });
         }
 
         try {
@@ -144,7 +144,10 @@ export class VideoOrchestratorService {
                 savedJob.id,
                 this.progressManager
             );
-            this.jobLogger.info(`[ORCHESTRATOR] Split video into ${chunks.length} chunks.`, { phase: 'orchestration' });
+            this.jobLogger.info(`[SLICER_SUCCESS] 📁 Video sliced into ${chunks.length} chunks | Job: ${savedJob.id}`, { 
+                phase: 'orchestration',
+                chunksCount: chunks.length
+            });
 
             await this.progressManager.setTotalChunks(savedJob.id, chunks.length);
 
@@ -186,7 +189,10 @@ export class VideoOrchestratorService {
             }
 
         } catch (error: any) {
-            this.jobLogger.error(`[ORCHESTRATOR] Orchestration failed for job ${savedJob.id}`, { error, phase: 'orchestration' });
+            this.jobLogger.error(`[SLICER_FAILURE] ❌ Orchestration failed for job ${savedJob.id}: ${error.message}`, { 
+                error: error.stack, 
+                phase: 'orchestration' 
+            });
             await this.jobRepository.update(savedJob.id, { 
                 status: VideoAnalysisJobStatus.FAILED,
                 failureReason: error.message 

@@ -161,7 +161,7 @@ export class VideoAnalysisResultService {
     }
 
     private async processFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {
-        this.logger.info(`Finalizing analysis for Game ID: ${result.gameId}`, { phase: 'results_processing' });
+        this.logger.info(`[JOB_FINALIZE] 🏁 Finalizing Game ID: ${result.gameId} | Status: ${result.status}`, { phase: 'results_processing' });
         let gameStatusToUpdate: GameStatus;
         if (result.status === VideoAnalysisJobStatus.COMPLETED) {
             gameStatusToUpdate = GameStatus.ANALYZED;
@@ -176,6 +176,9 @@ export class VideoAnalysisResultService {
         if (gameStatusToUpdate === GameStatus.ANALYZED) {
             await this.persistIdentifiedEntities(result);
             await this.gameStatsService.calculateAndStoreStats(result.gameId);
+            this.logger.info(`[JOB_SUCCESS] 🎉 Game ${result.gameId} analysis complete and stats calculated.`, { phase: 'results_processing' });
+        } else {
+            this.logger.error(`[JOB_FAILURE] ❌ Game ${result.gameId} failed with status: ${gameStatusToUpdate}`, { phase: 'results_processing' });
         }
     }
 
