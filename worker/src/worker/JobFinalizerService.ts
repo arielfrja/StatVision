@@ -131,29 +131,35 @@ export class JobFinalizerService {
 
                         const gameEvents = finalizedEvents.map(eventData => {
                             const event = new GameEvent();
+                            
+                            // Explicit Mapping
                             event.id = eventData.id;
                             event.gameId = job.gameId;
                             
-                            // Validate and sanitize UUIDs (Player ID should now be a UUID from resolvePlayerIds)
+                            // Validate and sanitize UUIDs
                             event.chunkId = this.isUuid(eventData.chunkId) ? eventData.chunkId : null;
                             event.assignedTeamId = this.isUuid(eventData.assignedTeamId) ? eventData.assignedTeamId : null;
                             event.assignedPlayerId = this.isUuid(eventData.assignedPlayerId) ? eventData.assignedPlayerId : null;
                             
                             event.status = GameEventStatus.DRAFT;
-                            event.identifiedTeamColor = eventData.identifiedTeamColor;
-                            event.identifiedJerseyNumber = eventData.identifiedJerseyNumber;
                             event.eventType = eventData.eventType;
                             event.eventSubType = eventData.eventSubType;
                             event.isSuccessful = !!eventData.isSuccessful;
-                            event.period = eventData.period;
-                            event.timeRemaining = this.parseTime(eventData.timeRemaining);
-                            event.xCoord = eventData.xCoord;
-                            event.yCoord = eventData.yCoord;
-                            event.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp);
+                            
+                            // Sanitized Numeric Fields
+                            event.period = typeof eventData.period === 'number' ? eventData.period : 1;
+                            event.timeRemaining = this.parseTime(eventData.timeRemaining || eventData.timestamp);
+                            event.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp || eventData.timestamp);
                             event.videoClipStartTime = this.parseTime(eventData.videoClipStartTime);
                             event.videoClipEndTime = this.parseTime(eventData.videoClipEndTime);
+                            
+                            event.xCoord = typeof eventData.xCoord === 'number' ? eventData.xCoord : 0;
+                            event.yCoord = typeof eventData.yCoord === 'number' ? eventData.yCoord : 0;
+
+                            event.identifiedTeamColor = eventData.identifiedTeamColor;
+                            event.identifiedJerseyNumber = typeof eventData.identifiedJerseyNumber === 'number' ? eventData.identifiedJerseyNumber : null;
                             event.onCourtPlayerIds = eventData.onCourtPlayerIds;
-                            // relatedEventId and eventDetails can be added here if needed
+                            
                             return event;
                         });
 
@@ -234,17 +240,22 @@ export class JobFinalizerService {
     }
 
     private parseTime(time: any): number {
-        if (typeof time === 'number') return time;
+        if (time === null || time === undefined) return 0;
+        if (typeof time === 'number') return isNaN(time) ? 0 : time;
+        
         if (typeof time === 'string') {
-            if (time.includes(':')) {
-                const parts = time.split(':').map(Number);
+            const cleanTime = time.trim();
+            if (cleanTime.includes(':')) {
+                const parts = cleanTime.split(':').map(p => parseInt(p, 10));
+                if (parts.some(isNaN)) return 0;
+
                 if (parts.length === 2) {
                     return (parts[0] || 0) * 60 + (parts[1] || 0);
                 } else if (parts.length === 3) {
                     return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
                 }
             }
-            const parsed = parseFloat(time);
+            const parsed = parseFloat(cleanTime);
             return isNaN(parsed) ? 0 : parsed;
         }
         return 0;
@@ -252,9 +263,8 @@ export class JobFinalizerService {
 
     private isUuid(id: string | null | undefined): boolean {
         if (!id) return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        // Check for common temporary IDs or malformed strings
-        if (id.startsWith('chunk-') || id.startsWith('TEMP_')) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (typeof id === 'string' && (id.startsWith('chunk-') || id.startsWith('TEMP_'))) return false;
         return uuidRegex.test(id);
     }
 }

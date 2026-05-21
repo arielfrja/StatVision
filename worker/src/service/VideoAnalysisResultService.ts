@@ -91,52 +91,65 @@ export class VideoAnalysisResultService {
 
         if (resolvedEvents && resolvedEvents.length > 0) {
             const gameEventsToInsert = resolvedEvents.map(eventData => {
-                const gameEvent = new GameEvent();
-                Object.assign(gameEvent, eventData);
-                gameEvent.gameId = result.gameId;
-                gameEvent.chunkId = result.chunkId || null;
-                gameEvent.status = GameEventStatus.DRAFT;
+                const event = new GameEvent();
+                
+                // Explicit Mapping (No Object.assign to avoid data pollution)
+                event.gameId = result.gameId;
+                event.chunkId = result.chunkId || null;
+                event.status = GameEventStatus.DRAFT;
+                
+                event.eventType = eventData.eventType;
+                event.eventSubType = eventData.eventSubType;
+                event.isSuccessful = !!eventData.isSuccessful;
+                
+                // Sanitized Numeric Fields
+                event.period = typeof eventData.period === 'number' ? eventData.period : 1;
+                event.timeRemaining = this.parseTime(eventData.timeRemaining || eventData.timestamp);
+                event.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp || eventData.timestamp);
+                event.videoClipStartTime = this.parseTime(eventData.videoClipStartTime);
+                event.videoClipEndTime = this.parseTime(eventData.videoClipEndTime);
+                
+                event.xCoord = typeof eventData.xCoord === 'number' ? eventData.xCoord : 0;
+                event.yCoord = typeof eventData.yCoord === 'number' ? eventData.yCoord : 0;
 
-                // Explicitly ensure boolean and numeric types for DB constraints
-                gameEvent.isSuccessful = !!eventData.isSuccessful;
-                gameEvent.timeRemaining = this.parseTime(eventData.timeRemaining);
-                gameEvent.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp);
-                gameEvent.videoClipStartTime = this.parseTime(eventData.videoClipStartTime);
-                gameEvent.videoClipEndTime = this.parseTime(eventData.videoClipEndTime);
-
-                // Ensure non-UUIDs are not saved to UUID columns
-                if (!this.isUuid(gameEvent.assignedTeamId)) {
-                    gameEvent.assignedTeamId = null;
-                }
-                if (!this.isUuid(gameEvent.assignedPlayerId)) {
-                    gameEvent.assignedPlayerId = null;
-                }
-
-                return gameEvent;
+                // Validated IDs
+                event.assignedTeamId = this.isUuid(eventData.assignedTeamId) ? eventData.assignedTeamId : null;
+                event.assignedPlayerId = this.isUuid(eventData.assignedPlayerId) ? eventData.assignedPlayerId : null;
+                
+                event.identifiedTeamColor = eventData.identifiedTeamColor;
+                event.identifiedJerseyNumber = typeof eventData.identifiedJerseyNumber === 'number' ? eventData.identifiedJerseyNumber : null;
+                
+                return event;
             });
             await this.gameEventRepository.batchInsert(gameEventsToInsert);
-            this.logger.info(`Successfully streamed ${gameEventsToInsert.length} draft events for game ${result.gameId}.`, { phase: 'results_processing' });
+            this.logger.info(`Successfully streamed \${gameEventsToInsert.length} draft events for game \${result.gameId}.`, { phase: 'results_processing' });
         }
     }
 
     private isUuid(id: string | null | undefined): boolean {
         if (!id) return false;
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (typeof id === 'string' && (id.startsWith('chunk-') || id.startsWith('TEMP_'))) return false;
         return uuidRegex.test(id);
     }
 
     private parseTime(time: any): number {
-        if (typeof time === 'number') return time;
+        if (time === null || time === undefined) return 0;
+        if (typeof time === 'number') return isNaN(time) ? 0 : time;
+        
         if (typeof time === 'string') {
-            if (time.includes(':')) {
-                const parts = time.split(':').map(Number);
+            const cleanTime = time.trim();
+            if (cleanTime.includes(':')) {
+                const parts = cleanTime.split(':').map(p => parseInt(p, 10));
+                if (parts.some(isNaN)) return 0;
+
                 if (parts.length === 2) {
                     return (parts[0] || 0) * 60 + (parts[1] || 0);
                 } else if (parts.length === 3) {
                     return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
                 }
             }
-            const parsed = parseFloat(time);
+            const parsed = parseFloat(cleanTime);
             return isNaN(parsed) ? 0 : parsed;
         }
         return 0;
