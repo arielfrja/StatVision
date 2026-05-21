@@ -58,6 +58,7 @@ export const gameRoutes = (
         const parent = tasksClient.queuePath(projectId, location, queue);
         const payload = { gameId, filePath, userId };
         const task = {
+            dispatchTimeout: { seconds: 1800 },
             httpRequest: {
                 httpMethod: 'POST' as const,
                 url,

@@ -200,6 +200,7 @@ export class VideoOrchestratorService {
         for (const chunkId of chunkIds) {
             const payload = { jobId, chunkId };
             const task = {
+                dispatchTimeout: { seconds: 600 },
                 httpRequest: {
                     httpMethod: 'POST' as const,
                     url: workerConfig.analyzerUrl,
