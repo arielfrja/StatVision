@@ -11,7 +11,7 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
     constructor(
         apiKey: string,
-        private modelName: string = "gemini-3.1-flash",
+        private modelName: string = "gemini-3-flash-preview",
         private logger?: ILogger
     ) {
         this.genAI = new GoogleGenAI({ apiKey });
