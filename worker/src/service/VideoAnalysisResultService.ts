@@ -87,7 +87,7 @@ export class VideoAnalysisResultService {
     private async processChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
         this.logger.info(`Streaming draft results for Game ID: ${result.gameId}, Chunk: ${result.chunkId}`, { phase: 'results_processing' });
         await this.persistIdentifiedEntities(result);
-        const resolvedEvents = await this.resolvePlayerIds(result.gameId, result.processedEvents);
+        const resolvedEvents = await this.resolvePlayerIds(result.gameId, result.processedEvents, result.userId);
 
         if (resolvedEvents && resolvedEvents.length > 0) {
             const gameEventsToInsert = resolvedEvents.map(eventData => {
@@ -97,8 +97,12 @@ export class VideoAnalysisResultService {
                 gameEvent.chunkId = result.chunkId || null;
                 gameEvent.status = GameEventStatus.DRAFT;
 
-                // Explicitly ensure boolean for not-null constraint
+                // Explicitly ensure boolean and numeric types for DB constraints
                 gameEvent.isSuccessful = !!eventData.isSuccessful;
+                gameEvent.timeRemaining = this.parseTime(eventData.timeRemaining);
+                gameEvent.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp);
+                gameEvent.videoClipStartTime = this.parseTime(eventData.videoClipStartTime);
+                gameEvent.videoClipEndTime = this.parseTime(eventData.videoClipEndTime);
 
                 // Ensure non-UUIDs are not saved to UUID columns
                 if (!this.isUuid(gameEvent.assignedTeamId)) {
@@ -121,19 +125,40 @@ export class VideoAnalysisResultService {
         return uuidRegex.test(id);
     }
 
-    private async resolvePlayerIds(gameId: string, events: any[]): Promise<any[]> {
+    private parseTime(time: any): number {
+        if (typeof time === 'number') return time;
+        if (typeof time === 'string') {
+            if (time.includes(':')) {
+                const parts = time.split(':').map(Number);
+                if (parts.length === 2) {
+                    return (parts[0] || 0) * 60 + (parts[1] || 0);
+                } else if (parts.length === 3) {
+                    return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+                }
+            }
+            const parsed = parseFloat(time);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+    }
+
+    public async resolvePlayerIds(gameId: string, events: any[], userId: string): Promise<any[]> {
         if (!events || events.length === 0) return events;
         const game = await this.gameRepository.findOneById(gameId);
         if (!game) return events;
         const gameDate = game.gameDate || new Date();
         const resolvedEvents = [];
-        const resolutionCache = new Map<string, string>();
+        
+        // Cache for discovered players in this batch to avoid redundant DB calls/creation
+        const discoveryCache = new Map<string, string>();
 
         for (const event of events) {
             let teamId = event.assignedTeamId;
             const jerseyNumber = event.identifiedJerseyNumber;
+            const color = event.identifiedTeamColor || 'Unknown';
+            const description = event.identifiedPlayerDescription;
 
-            // Map placeholders if game has assigned teams
+            // 1. Map placeholders if game has assigned teams
             if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
                 teamId = game.homeTeamId;
                 event.assignedTeamId = teamId;
@@ -142,22 +167,55 @@ export class VideoAnalysisResultService {
                 event.assignedTeamId = teamId;
             }
 
+            // 2. Try to find existing player
             if (teamId && jerseyNumber && this.isUuid(teamId)) {
-                const cacheKey = `${teamId}-${jerseyNumber}`;
-                if (resolutionCache.has(cacheKey)) {
-                    event.assignedPlayerId = resolutionCache.get(cacheKey);
-                } else {
-                    try {
-                        const history = await this.playerRepository.findPlayerByJerseyAndTeam(teamId, Number(jerseyNumber), gameDate);
-                        if (history) {
-                            event.assignedPlayerId = history.playerId;
-                            resolutionCache.set(cacheKey, history.playerId);
-                        }
-                    } catch (err) {
-                        this.logger.warn(`[HeuristicResolution] Error resolving player for ${cacheKey}`, { error: err });
+                try {
+                    const history = await this.playerRepository.findPlayerByJerseyAndTeam(teamId, Number(jerseyNumber), gameDate);
+                    if (history) {
+                        event.assignedPlayerId = history.playerId;
+                        resolvedEvents.push(event);
+                        continue;
                     }
+                } catch (err) {
+                    this.logger.warn(`[Resolution] Error looking up existing player`, { error: err });
                 }
             }
+
+            // 3. Discovery Logic: If not found, create a Temp Player
+            // Unique key for discovery: Color + Number (if exists) + Description (if exists)
+            const discoveryKey = `${color}-${jerseyNumber || 'no-num'}-${description || 'no-desc'}`;
+            
+            if (discoveryCache.has(discoveryKey)) {
+                event.assignedPlayerId = discoveryCache.get(discoveryKey);
+            } else {
+                try {
+                    // Check DB for a temp player with this descriptive name already
+                    let playerName = `${color} `;
+                    if (jerseyNumber) playerName += `#${jerseyNumber}`;
+                    if (description) playerName += ` (${description})`;
+                    playerName = playerName.trim();
+
+                    // Search for player in the database
+                    const playerRepo = this.playerRepository['playerRepository']; // Accessing internal repo for direct find
+                    let player = await playerRepo.findOne({ 
+                        where: { name: playerName, isTemp: true } 
+                    });
+
+                    if (!player) {
+                        player = new Player();
+                        player.name = playerName;
+                        player.isTemp = true;
+                        player = await playerRepo.save(player);
+                        this.logger.info(`[Discovery] Created new Temp Player: \${playerName}`, { playerId: player.id });
+                    }
+
+                    event.assignedPlayerId = player.id;
+                    discoveryCache.set(discoveryKey, player.id);
+                } catch (err) {
+                    this.logger.error(`[Discovery] Failed to create temp player for \${discoveryKey}`, { error: err });
+                }
+            }
+            
             resolvedEvents.push(event);
         }
         return resolvedEvents;

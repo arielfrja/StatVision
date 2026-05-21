@@ -115,20 +115,26 @@ export class JobFinalizerService {
 
                     // --- NEW: Persist to GameEvent table ---
                     if (allEvents.length > 0) {
-                        this.logger.info(`[JobFinalizerService] Persisting ${allEvents.length} events to GameEvent table for game ${job.gameId}`, { phase: 'finalizing' });
+                        this.logger.info(`[JobFinalizerService] Persisting \${allEvents.length} events to GameEvent table for game \${job.gameId}`, { phase: 'finalizing' });
                         
+                        // Resolve Player IDs (Discovery) for all events before final save
+                        let finalizedEvents = allEvents;
+                        if (this.videoAnalysisResultService) {
+                            finalizedEvents = await this.videoAnalysisResultService.resolvePlayerIds(job.gameId, allEvents, job.userId);
+                        }
+
                         // Clear any existing DRAFT events for this game to avoid duplicates on re-runs
                         await transactionalEntityManager.delete(GameEvent, { 
                             gameId: job.gameId,
                             status: GameEventStatus.DRAFT 
                         });
 
-                        const gameEvents = allEvents.map(eventData => {
+                        const gameEvents = finalizedEvents.map(eventData => {
                             const event = new GameEvent();
                             event.id = eventData.id;
                             event.gameId = job.gameId;
                             
-                            // Validate and sanitize UUIDs
+                            // Validate and sanitize UUIDs (Player ID should now be a UUID from resolvePlayerIds)
                             event.chunkId = this.isUuid(eventData.chunkId) ? eventData.chunkId : null;
                             event.assignedTeamId = this.isUuid(eventData.assignedTeamId) ? eventData.assignedTeamId : null;
                             event.assignedPlayerId = this.isUuid(eventData.assignedPlayerId) ? eventData.assignedPlayerId : null;
