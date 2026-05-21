@@ -6,7 +6,7 @@ export class EventProcessorService {
     public processEvents(
         rawEvents: any[],
         gameId: string,
-        chunkInfo: { startTime: number; sequence: number },
+        chunkInfo: { startTime: number; sequence: number; id?: string },
         chunkDuration: number,
         chunkOverlap: number,
         processedEventKeys: Set<string>,
@@ -29,7 +29,7 @@ export class EventProcessorService {
                 ...rawEvent,
                 gameId,
                 absoluteTimestamp,
-                chunkId: `chunk-${chunkInfo.sequence}`,
+                chunkId: chunkInfo.id || null,
             };
 
             finalEvents.push(processedEvent);

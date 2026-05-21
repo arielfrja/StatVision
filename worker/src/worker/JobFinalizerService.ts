@@ -127,22 +127,25 @@ export class JobFinalizerService {
                             const event = new GameEvent();
                             event.id = eventData.id;
                             event.gameId = job.gameId;
-                            event.chunkId = eventData.chunkId;
+                            
+                            // Validate and sanitize UUIDs
+                            event.chunkId = this.isUuid(eventData.chunkId) ? eventData.chunkId : null;
+                            event.assignedTeamId = this.isUuid(eventData.assignedTeamId) ? eventData.assignedTeamId : null;
+                            event.assignedPlayerId = this.isUuid(eventData.assignedPlayerId) ? eventData.assignedPlayerId : null;
+                            
                             event.status = GameEventStatus.DRAFT;
-                            event.assignedTeamId = eventData.assignedTeamId;
-                            event.assignedPlayerId = eventData.assignedPlayerId;
                             event.identifiedTeamColor = eventData.identifiedTeamColor;
                             event.identifiedJerseyNumber = eventData.identifiedJerseyNumber;
                             event.eventType = eventData.eventType;
                             event.eventSubType = eventData.eventSubType;
                             event.isSuccessful = !!eventData.isSuccessful;
                             event.period = eventData.period;
-                            event.timeRemaining = eventData.timeRemaining;
+                            event.timeRemaining = this.parseTime(eventData.timeRemaining);
                             event.xCoord = eventData.xCoord;
                             event.yCoord = eventData.yCoord;
-                            event.absoluteTimestamp = eventData.absoluteTimestamp;
-                            event.videoClipStartTime = eventData.videoClipStartTime;
-                            event.videoClipEndTime = eventData.videoClipEndTime;
+                            event.absoluteTimestamp = this.parseTime(eventData.absoluteTimestamp);
+                            event.videoClipStartTime = this.parseTime(eventData.videoClipStartTime);
+                            event.videoClipEndTime = this.parseTime(eventData.videoClipEndTime);
                             event.onCourtPlayerIds = eventData.onCourtPlayerIds;
                             // relatedEventId and eventDetails can be added here if needed
                             return event;
@@ -222,5 +225,30 @@ export class JobFinalizerService {
         } else {
             this.logger.info(`[JobFinalizerService] Job ${jobId} is not yet in a terminal state. Waiting for more chunks to complete.`, { phase: 'finalizing' });
         }
+    }
+
+    private parseTime(time: any): number {
+        if (typeof time === 'number') return time;
+        if (typeof time === 'string') {
+            if (time.includes(':')) {
+                const parts = time.split(':').map(Number);
+                if (parts.length === 2) {
+                    return (parts[0] || 0) * 60 + (parts[1] || 0);
+                } else if (parts.length === 3) {
+                    return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+                }
+            }
+            const parsed = parseFloat(time);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+    }
+
+    private isUuid(id: string | null | undefined): boolean {
+        if (!id) return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        // Check for common temporary IDs or malformed strings
+        if (id.startsWith('chunk-') || id.startsWith('TEMP_')) return false;
+        return uuidRegex.test(id);
     }
 }

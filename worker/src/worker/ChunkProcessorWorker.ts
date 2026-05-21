@@ -188,7 +188,7 @@ export class ChunkProcessorWorker {
             const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(
                 analysisResult.events,
                 job.gameId,
-                { startTime: chunk.startTime, sequence: chunk.sequence },
+                { startTime: chunk.startTime, sequence: chunk.sequence, id: chunk.id },
                 workerConfig.chunkDurationSeconds,
                 workerConfig.chunkOverlapSeconds,
                 new Set(), 
