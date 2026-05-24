@@ -55,6 +55,10 @@ export class GameStatsService {
 
     async calculateAndStoreStats(gameId: string): Promise<void> {
         this.logger?.info(`GameStatsService: Starting detailed stats calculation for game ${gameId}.`);
+        
+        // 1. Clear existing stats to ensure a clean state and prevent constraint violations
+        await this.clearStatsForGame(gameId);
+
         const game = await this.gameRepository.findOneWithDetailsInternal(gameId);
         if (!game) {
             this.logger?.error(`GameStatsService: Game ${gameId} not found for stats calculation.`);
@@ -81,28 +85,52 @@ export class GameStatsService {
             const playerId = event.assignedPlayerId;
             const teamStats = teamId ? teamStatsMap.get(teamId) : null;
             const playerStats = playerId ? playerStatsMap.get(playerId) : null;
+            
             if (!teamStats) continue;
 
+            const type = event.eventType.toLowerCase();
+            const subType = (event.eventSubType || '').toLowerCase();
+            const isSuccessful = !!event.isSuccessful;
+
             const updateStats = (stats: AggregatedStats) => {
-                if (event.eventType === 'Shot') {
-                    const isMade = event.isSuccessful;
-                    const isThree = event.eventDetails?.isThree || false;
+                // 1. SHOTS
+                if (type.includes('shot') || type.includes('fg')) {
+                    const isThree = type.includes('3pt') || type.includes('3-point') || subType.includes('3pt');
                     let points = 0;
-                    if (isMade) points = (pointValueRule === '1_AND_2') ? (isThree ? 2 : 1) : (isThree ? 3 : 2);
+                    if (isSuccessful) {
+                        points = (pointValueRule === '1_AND_2') ? (isThree ? 2 : 1) : (isThree ? 3 : 2);
+                    }
+
                     stats.fieldGoalsAttempted += 1;
-                    if (isMade) { stats.fieldGoalsMade += 1; stats.points += points; }
-                    if (isThree) { stats.threePointersAttempted += 1; if (isMade) stats.threePointersMade += 1; }
-                } else if (event.eventType === 'FreeThrow') {
-                    const isMade = event.isSuccessful;
+                    if (isSuccessful) {
+                        stats.fieldGoalsMade += 1;
+                        stats.points += points;
+                    }
+                    if (isThree) {
+                        stats.threePointersAttempted += 1;
+                        if (isSuccessful) stats.threePointersMade += 1;
+                    }
+                } 
+                // 2. FREE THROWS
+                else if (type.includes('free throw') || type.includes('ft')) {
                     stats.freeThrowsAttempted += 1;
-                    if (isMade) { stats.freeThrowsMade += 1; stats.points += 1; }
-                } else if (event.eventType === 'Rebound') {
-                    if (event.eventDetails?.isOffensive) stats.offensiveRebounds += 1; else stats.defensiveRebounds += 1;
-                } else if (event.eventType === 'Assist') stats.assists += 1;
-                else if (event.eventType === 'Steal') stats.steals += 1;
-                else if (event.eventType === 'Block') stats.blocks += 1;
-                else if (event.eventType === 'Turnover') stats.turnovers += 1;
-                else if (event.eventType === 'Foul') stats.fouls += 1;
+                    if (isSuccessful) {
+                        stats.freeThrowsMade += 1;
+                        stats.points += 1;
+                    }
+                } 
+                // 3. REBOUNDS
+                else if (type.includes('rebound')) {
+                    const isOffensive = type.includes('offensive') || subType.includes('offensive') || (event.eventDetails?.isOffensive);
+                    if (isOffensive) stats.offensiveRebounds += 1; 
+                    else stats.defensiveRebounds += 1;
+                } 
+                // 4. CORE COUNTABLES
+                else if (type.includes('assist')) stats.assists += 1;
+                else if (type.includes('steal')) stats.steals += 1;
+                else if (type.includes('block')) stats.blocks += 1;
+                else if (type.includes('turnover')) stats.turnovers += 1;
+                else if (type.includes('foul')) stats.fouls += 1;
             };
 
             updateStats(teamStats);

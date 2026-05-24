@@ -114,6 +114,11 @@
             "date": 1779018933744,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-17.log.16",
             "hash": "a8a51e811682d1e640e911920c40639840ff1c185e678d70d1dd08b99eb29d0e"
+        },
+        {
+            "date": 1779362503836,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-21.log",
+            "hash": "6f3175aa84108f7fae4394bfcd973d2f3ce59ce53566a0cf4f30c0770ca11391"
         }
     ],
     "hashType": "sha256"

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import { useRouter, useParams } from 'next/navigation';
-import { Game, GameType, IdentityMode } from '@/types/game';
+import { Game } from '@/types/game';
 import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
 import { GameEvent } from '@/types/gameEvent';
@@ -22,10 +22,10 @@ import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
 import { JobProgressBar } from '@/components/JobProgressBar';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import Button from '@/components/Button';
 
-import '@material/web/textfield/filled-text-field.js';
-import '@material/web/select/filled-select.js';
-import '@material/web/select/select-option.js';
+import '@material/web/tabs/tabs.js';
+import '@material/web/tabs/primary-tab.js';
 
 function AnalysisPage() {
     const params = useParams();
@@ -38,38 +38,19 @@ function AnalysisPage() {
     const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
         refreshInterval: (data) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
     });
-    const { data: teams } = useSWR<Team[]>('/teams');
 
     // UI State
+    const [activeTab, setActiveTab] = useState(0);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [eventToDelete, setEventToDelete] = useState<string | null>(null);
     const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
-    const [visibleStats, setVisibleStats] = useState<string[]>(['points', 'assists', 'offensiveRebounds', 'defensiveRebounds', 'steals', 'blocks', 'turnovers', 'fouls']);
-
-    // Form State (for Settings)
-    const [editName, setEditName] = useState('');
-    const [editDate, setEditDate] = useState('');
-    const [editLocation, setEditLocation] = useState('');
-    const [editHomeTeamId, setEditHomeTeamId] = useState('');
-    const [editAwayTeamId, setEditAwayTeamId] = useState('');
-    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const [visibleStats, setVisibleStats] = useState<string[]>(['fieldGoalsMade', 'threePointersMade', 'freeThrowsMade', 'offensiveRebounds', 'defensiveRebounds', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'points', 'plusMinus']);
 
     // Timeline & Editor State
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [selectedEvent, setSelectedEvent] = useState<GameEvent | null>(null);
-
-    useEffect(() => {
-        if (game) {
-            setEditName(game.name || '');
-            setEditDate(game.gameDate ? new Date(game.gameDate).toISOString().split('T')[0] : '');
-            setEditLocation(game.location || '');
-            setEditHomeTeamId(game.homeTeamId || '');
-            setEditAwayTeamId(game.awayTeamId || '');
-        }
-    }, [game]);
 
     // Handlers
     const handleSeek = (time: number) => {
@@ -90,25 +71,6 @@ function AnalysisPage() {
     const handleEventClick = (event: GameEvent) => {
         handleSeek(event.absoluteTimestamp);
         setSelectedEvent(event);
-    };
-
-    const handleSaveSettings = async () => {
-        setIsSavingSettings(true);
-        try {
-            await apiClient.patch(`/games/${gameId}`, {
-                name: editName,
-                gameDate: editDate,
-                location: editLocation,
-                homeTeamId: editHomeTeamId || null,
-                awayTeamId: editAwayTeamId || null
-            });
-            await mutate();
-            setShowSettings(false);
-        } catch (err) {
-            console.error("Failed to save settings:", err);
-        } finally {
-            setIsSavingSettings(false);
-        }
     };
 
     const handleSaveEvent = async (updatedEvent: Partial<GameEvent>) => {
@@ -181,185 +143,174 @@ function AnalysisPage() {
         return (
             <div className="p-12 text-center">
                 <h1 className="text-xl font-semibold mb-4">Error Loading Video Intelligence</h1>
-                <button onClick={() => router.push('/games')} className="px-6 py-2 bg-white text-black rounded-lg text-sm font-bold hover:bg-tx-secondary transition-all">Back to List</button>
+                <Button onClick={() => router.push('/games')}>Back to List</Button>
             </div>
         );
     }
 
+    const homeStats = game.teamStats.find(ts => ts.teamId === game.homeTeamId);
+    const awayStats = game.teamStats.find(ts => ts.teamId === game.awayTeamId);
+
     return (
-        <div className="max-w-[1400px] mx-auto pb-20">
-            {/* Header Section */}
-            <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-bd-ghost pb-8">
-                <div>
-                    <button onClick={() => router.push('/games')} className="text-tx-secondary font-semibold text-xs mb-4 flex items-center gap-2 hover:text-white transition-colors">
-                        <span className="material-symbols-outlined text-sm">arrow_back</span>
-                        Back to Video List
-                    </button>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-3xl font-bold tracking-tight">{game.name}</h1>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            game.status === 'COMPLETED' ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-container-high border-bd-ghost text-tx-dim'
-                        }`}>
-                            {game.status}
-                        </span>
-                    </div>
-                    <p className="text-xs font-medium text-tx-dim mt-2">
-                        {game.homeTeam?.name || 'Home'} vs {game.awayTeam?.name || 'Away'} • {game.location || 'Unknown Location'} • {game.gameDate ? new Date(game.gameDate).toLocaleDateString() : 'Date Pending'}
-                    </p>
-                </div>
-                
-                <div className="flex gap-3">
-                    <button onClick={() => setShowSettings(!showSettings)} className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${showSettings ? 'bg-electric text-black' : 'bg-container-high border border-bd-ghost text-white hover:bg-container-highest'}`}>
-                        <span className="material-symbols-outlined text-sm">settings</span>
-                        {showSettings ? 'Close Settings' : 'Edit Game Info'}
-                    </button>
-                    {game.status === 'ANALYZED' && (
-                        <button onClick={() => setShowAssignmentModal(true)} className="px-4 py-2 bg-white text-black rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-tx-secondary transition-all">
-                            <span className="material-symbols-outlined text-sm">assignment_ind</span>
-                            Finalize Roster
-                        </button>
-                    )}
-                    <button onClick={() => setShowDeleteConfirm(true)} className="w-10 h-10 rounded-lg bg-container-high border border-bd-ghost flex items-center justify-center text-tx-dim hover:text-red-400 transition-all">
-                        <span className="material-symbols-outlined text-lg">delete</span>
-                    </button>
-                </div>
-            </header>
-
-            {/* Game Settings Panel (Collapsible) */}
-            {showSettings && (
-                <div className="mb-12 p-8 bg-container-high rounded-xl border border-bd-ghost animate-in slide-in-from-top-4 duration-300">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-tx-secondary mb-6">Game Logistics</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <md-filled-text-field
-                            label="Game Title"
-                            value={editName}
-                            onInput={(e: any) => setEditName(e.target.value)}
-                        ></md-filled-text-field>
-                        <md-filled-text-field
-                            label="Date"
-                            type="date"
-                            value={editDate}
-                            onInput={(e: any) => setEditDate(e.target.value)}
-                        ></md-filled-text-field>
-                        <md-filled-text-field
-                            label="Location"
-                            value={editLocation}
-                            onInput={(e: any) => setEditLocation(e.target.value)}
-                        ></md-filled-text-field>
+        <div className="flex flex-col gap-6 pb-20">
+            
+            {/* Professional Scoreboard Header */}
+            <header className="bg-surface border border-border-main rounded-md overflow-hidden">
+                <div className="flex flex-col md:flex-row items-stretch">
+                    {/* Teams & Score */}
+                    <div className="flex-1 flex items-center justify-center gap-8 py-8 px-10 border-b md:border-b-0 md:border-r border-border-main bg-primary-bg/50">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-2xl font-black">
+                                {game.homeTeam?.name?.charAt(0).toUpperCase() || 'H'}
+                            </div>
+                            <span className="text-xs font-bold text-tx-secondary uppercase tracking-widest">{game.homeTeam?.name || 'HOME'}</span>
+                        </div>
                         
-                        <md-filled-select
-                            label="Home Team"
-                            value={editHomeTeamId}
-                            onchange={(e: any) => setEditHomeTeamId(e.target.value)}
-                        >
-                            <md-select-option value=""><span>Select Team</span></md-select-option>
-                            {teams?.map(t => (
-                                <md-select-option key={t.id} value={t.id}><span>{t.name}</span></md-select-option>
-                            ))}
-                        </md-filled-select>
+                        <div className="flex items-center gap-6">
+                            <span className="text-5xl font-black text-tx-primary mono-stat">{homeStats?.points || 0}</span>
+                            <div className="flex flex-col items-center">
+                                <span className="text-[10px] font-black text-tx-dim uppercase tracking-tighter">FINAL</span>
+                                <div className="h-px w-8 bg-border-main my-1"></div>
+                                <span className="text-[10px] font-bold text-accent uppercase tracking-widest italic">{game.gameType.replace(/_/g, ' ')}</span>
+                            </div>
+                            <span className="text-5xl font-black text-tx-primary mono-stat">{awayStats?.points || 0}</span>
+                        </div>
 
-                        <md-filled-select
-                            label="Away Team"
-                            value={editAwayTeamId}
-                            onchange={(e: any) => setEditAwayTeamId(e.target.value)}
-                        >
-                            <md-select-option value=""><span>Select Team</span></md-select-option>
-                            {teams?.map(t => (
-                                <md-select-option key={t.id} value={t.id}><span>{t.name}</span></md-select-option>
-                            ))}
-                        </md-filled-select>
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-16 h-16 rounded-full bg-warning/10 border border-warning/20 flex items-center justify-center text-warning text-2xl font-black">
+                                {game.awayTeam?.name?.charAt(0).toUpperCase() || 'A'}
+                            </div>
+                            <span className="text-xs font-bold text-tx-secondary uppercase tracking-widest">{game.awayTeam?.name || 'AWAY'}</span>
+                        </div>
+                    </div>
 
-                        <div className="flex items-end">
-                            <button 
-                                onClick={handleSaveSettings}
-                                disabled={isSavingSettings}
-                                className="w-full h-12 bg-white text-black rounded-lg text-xs font-bold hover:bg-electric transition-all disabled:opacity-50"
-                            >
-                                {isSavingSettings ? 'Saving...' : 'Apply Changes'}
-                            </button>
+                    {/* Metadata & Actions */}
+                    <div className="w-full md:w-80 p-6 flex flex-col justify-between bg-surface gap-6">
+                        <div>
+                            <h1 className="text-sm font-bold text-tx-primary mb-1 uppercase tracking-tight truncate">{game.name}</h1>
+                            <p className="text-[11px] text-tx-dim font-medium uppercase tracking-wider flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[14px]">location_on</span>
+                                {game.location || 'Stadium Vision Arena'}
+                            </p>
+                            <p className="text-[11px] text-tx-dim font-medium uppercase tracking-wider flex items-center gap-2 mt-1">
+                                <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                                {game.gameDate ? new Date(game.gameDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Unknown Date'}
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" icon="assignment_ind" fullWidth onClick={() => setShowAssignmentModal(true)}>
+                                Roster
+                            </Button>
+                            <Button variant="ghost" size="sm" icon="delete" onClick={() => setShowDeleteConfirm(true)} className="!text-error hover:!bg-error/10" />
                         </div>
                     </div>
                 </div>
-            )}
+            </header>
 
-            {/* Main Content: Vertical Stack */}
-            <div className="space-y-12">
+            {/* Analysis Workspace */}
+            <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
-                {/* Section 1: Video Context */}
-                <section className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-tx-dim">Contextual Footage</h2>
-                    </div>
-                    <div className="bg-black border border-bd-ghost rounded-xl overflow-hidden shadow-2xl">
+                {/* Video & Controls (Primary Column) */}
+                <div className="lg:col-span-8 space-y-6">
+                    <div className="bg-black border border-border-main rounded-md overflow-hidden aspect-video relative group shadow-2xl">
                         <VideoPlayer 
                             videoUrl={game.videoUrl} 
                             playerRef={playerRef} 
                             onProgress={handleProgress}
                             onDuration={handleDuration}
                         />
-                        {duration > 0 && (
-                            <div className="p-4 border-t border-bd-ghost">
-                                <TimelineReview 
-                                    events={game.events || []}
-                                    duration={duration}
-                                    currentTime={currentTime}
-                                    onEventClick={handleEventClick}
-                                    onTimelineClick={handleSeek}
-                                />
-                            </div>
-                        )}
+                        <div className="absolute top-4 left-4 z-20">
+                             <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded border border-white/10 flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-error animate-pulse"></div>
+                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Live Analysis Feed</span>
+                             </div>
+                        </div>
                     </div>
+
+                    {duration > 0 && (
+                        <div className="bg-surface border border-border-main rounded-md p-2">
+                            <TimelineReview 
+                                events={game.events || []}
+                                duration={duration}
+                                currentTime={currentTime}
+                                onEventClick={handleEventClick}
+                                onTimelineClick={handleSeek}
+                            />
+                        </div>
+                    )}
 
                     {game.status === 'PROCESSING' && (
                         <JobProgressBar gameId={game.id} />
                     )}
-                </section>
 
-                {/* Section 2: Data Intelligence */}
-                <section className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    
-                    {/* Left: Box Score & Entities */}
-                    <div className="lg:col-span-7 space-y-10">
-                        <BoxScoreTable game={game} visibleStats={visibleStats} />
-                        <div className="space-y-4">
-                            <h2 className="text-sm font-semibold tracking-tight text-tx-secondary uppercase px-1">Detected Personnel</h2>
-                            <IdentifiedEntitiesTable gameId={game.id} />
+                    {/* Desktop Content Tabs */}
+                    <div className="hidden lg:flex flex-col gap-4">
+                        {/* @ts-ignore */}
+                        <md-tabs 
+                            onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}
+                            active-tab-index={activeTab}
+                        >
+                            {/* @ts-ignore */}
+                            <md-primary-tab>
+                                <md-icon slot="icon">analytics</md-icon>
+                                <span>Box Score</span>
+                            </md-primary-tab>
+                            {/* @ts-ignore */}
+                            <md-primary-tab>
+                                <md-icon slot="icon">group</md-icon>
+                                <span>Identified Personnel</span>
+                            </md-primary-tab>
+                        </md-tabs>
+
+                        <div className="mt-2">
+                            {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} onEditPlayer={(id) => console.log('Edit player', id)} />}
+                            {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
                         </div>
                     </div>
+                </div>
 
-                    {/* Right: Play-by-Play / Editor */}
-                    <div className="lg:col-span-5">
-                        {selectedEvent ? (
-                            <div className="sticky top-8">
-                                <EventEditor 
-                                    event={selectedEvent}
-                                    allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
-                                    allPlayers={allPlayers}
-                                    onSave={handleSaveEvent}
-                                    onCancel={() => setSelectedEvent(null)}
-                                />
-                            </div>
-                        ) : (
-                            <div className="flex flex-col h-full space-y-4">
-                                <div className="flex items-center justify-between px-1">
-                                    <h2 className="text-sm font-semibold tracking-tight text-tx-secondary uppercase">Play-by-Play</h2>
-                                    <span className="text-[10px] font-bold text-tx-dim uppercase">Log</span>
-                                </div>
-                                <div className="flex-1 overflow-y-auto max-h-[800px] no-scrollbar">
-                                    <PlayByPlayFeed 
-                                        events={game.events || []} 
-                                        onRowClick={handleSeek} 
-                                        allPlayers={allPlayers} 
-                                        onAssignPlayer={handleAssignPlayer}
-                                        onEditEvent={setSelectedEvent}
-                                        onDeleteEvent={handleDeleteEvent}
-                                    />
-                                </div>
-                            </div>
-                        )}
+                {/* Play-by-Play (Secondary Column) */}
+                <div className="lg:col-span-4 flex flex-col h-[calc(100vh-160px)] lg:sticky lg:top-6">
+                    {selectedEvent ? (
+                        <div className="flex-1">
+                            <EventEditor 
+                                event={selectedEvent}
+                                allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
+                                allPlayers={allPlayers}
+                                onSave={handleSaveEvent}
+                                onCancel={() => setSelectedEvent(null)}
+                            />
+                        </div>
+                    ) : (
+                        <PlayByPlayFeed 
+                            events={game.events || []} 
+                            onRowClick={handleSeek} 
+                            allPlayers={allPlayers} 
+                            onAssignPlayer={handleAssignPlayer}
+                            onEditEvent={setSelectedEvent}
+                            onDeleteEvent={handleDeleteEvent}
+                            homeTeamId={game.homeTeamId}
+                        />
+                    )}
+                </div>
+
+                {/* Mobile Tabs (Fallback) */}
+                <div className="lg:hidden col-span-1 space-y-6">
+                     <div className="flex flex-col gap-4">
+                        {/* @ts-ignore */}
+                        <md-tabs onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}>
+                            {/* @ts-ignore */}
+                            <md-primary-tab>Box Score</md-primary-tab>
+                            {/* @ts-ignore */}
+                            <md-primary-tab>Personnel</md-primary-tab>
+                        </md-tabs>
+                        <div>
+                            {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} />}
+                            {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                        </div>
                     </div>
-                </section>
-            </div>
+                </div>
+            </main>
 
             {/* Modals */}
             <EntityAssignmentModal

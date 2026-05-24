@@ -1,4 +1,10 @@
-Here is the next 2-minute segment (Chunk #{{sequence}}). 
-Continue the play-by-play log using the identities and context established in our previous conversation.
-Maintain strict consistency with all previously identified players and teams. 
-If a new player appears who was not seen before, assign a new ID following the same format.
+Continue analyzing the game from this segment.
+
+### 1. IDENTITY CONSISTENCY
+Maintain the same `TEMP_TEAM_X` and `TEMP_PLAYER_Y` IDs established in previous turns.
+
+### 2. LOGGING RULES
+Follow the "Broadcast & Video Logic" and "Core Event Taxonomy" from the system instruction.
+
+### 3. OUTPUT FORMAT
+Output EXCLUSIVELY as a valid JSON array of objects.

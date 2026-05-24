@@ -1,5 +1,22 @@
 # Job Log - StatVision
 
+## [2026-05-24] AI: Olympic-Level Statistician Logic Upgrade
+**Objective:** Enhance AI detection precision by integrating professional NBA/Olympic-level statistician logic into the Gemini system instructions.
+
+### Major Changes:
+- **System Persona:** Transitioned the AI persona to an expert "Caller & Inputter" agent focused on absolute precision and objective tracking.
+- **Broadcast Intelligence:**
+    - Implemented strict logic to **ignore replays** (recognizing camera cuts/graphics) and **dead time** (commercials/stoppages).
+    - Integrated dual-timestamping: Every event now tracks both `video_timestamp` and `game_clock` (anchored to the scorebug).
+- **Event Taxonomy & Chaining:**
+    - Expanded taxonomy for SHOTs (2PT/3PT/FT, Jump/Layup/Dunk), TURNOVERs (Violations/Bad Pass), and FOULs.
+    - Enforced strict chronological chaining: REBOUNDs must follow MISSED shots; ASSISTs must precede MADE shots.
+- **Infrastructure Alignment:**
+    - Unified the professional logic with StatVision's 2-minute segment processing and 10-second overlap handling.
+    - Hardened the JSON output schema to include detailed event metadata, coordinates (100x100 grid), and confidence scores.
+
+**Status:** AI Intelligence core upgraded. Existing backend deduplication logic preserved. Ready for higher-precision game analysis.
+
 ## [2026-05-24] UI/UX: Professional Game Page Redesign
 **Objective:** Redesign the Game Page to match professional basketball analytics standards (NBA.com/EuroLeague style) with read-only defaults and granular editing.
 

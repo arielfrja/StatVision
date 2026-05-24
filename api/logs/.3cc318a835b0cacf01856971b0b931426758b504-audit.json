@@ -34,6 +34,11 @@
             "date": 1778995646805,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-17.log",
             "hash": "2925fb63960c06f80d70eb02bd7440e77a8c3e8decfcdc5d0b0cbb7bb2295b41"
+        },
+        {
+            "date": 1779362503858,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-chunk-2026-05-21.log",
+            "hash": "cd27133e8aa5a77d9fa393fabb8df032810fcab700eeb301ee512c6066f69edb"
         }
     ],
     "hashType": "sha256"
