@@ -26,7 +26,7 @@ export default function Button({
   className = '',
   disabled,
   onClick,
-  ...props
+  ..._props
 }: ButtonProps) {
   
   // Mapping our variants to Material Web components

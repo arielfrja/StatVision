@@ -1,14 +1,14 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { PlayerTeamHistory } from '@/types/player';
 
 interface PlayByPlayFeedProps {
     events: any[];
     onRowClick: (time: number) => void;
     allPlayers: PlayerTeamHistory[];
-    onAssignPlayer: (gameEventId: string, playerId: string | null) => void;
+    _onAssignPlayer: (gameEventId: string, playerId: string | null) => void;
     onEditEvent?: (event: any) => void;
-    onDeleteEvent?: (eventId: string) => void;
+    _onDeleteEvent?: (eventId: string) => void;
     homeTeamId: string | null;
 }
 
@@ -16,9 +16,9 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
     events, 
     onRowClick, 
     allPlayers, 
-    onAssignPlayer,
+    _onAssignPlayer,
     onEditEvent,
-    onDeleteEvent,
+    _onDeleteEvent,
     homeTeamId
 }) => {
     if (!events || events.length === 0) {
@@ -81,7 +81,7 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                                     </td>
                                     <td className="text-right">
                                         <button 
-                                            onClick={(e) => { e.stopPropagation(); onEditEvent && onEditEvent(event); }}
+                                            onClick={(e) => { e.stopPropagation(); if (onEditEvent) onEditEvent(event); }}
                                             className="p-1.5 rounded text-tx-dim hover:text-accent hover:bg-accent/10 transition-colors"
                                             title="Edit Event"
                                         >

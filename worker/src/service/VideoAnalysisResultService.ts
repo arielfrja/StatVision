@@ -188,7 +188,7 @@ export class VideoAnalysisResultService {
                 } else {
                     try {
                         const teamName = `${color} Team`;
-                        const teamRepo = this.teamRepository['teamRepository'];
+                        const teamRepo = this.teamRepository['teamBaseRepository'];
                         let team = await teamRepo.findOne({ where: { name: teamName, isTemp: true, userId } });
                         
                         if (!team) {

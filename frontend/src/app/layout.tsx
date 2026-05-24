@@ -26,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
       <head>
+        {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/material-symbols.css" />
       </head>
       <body className="antialiased">
