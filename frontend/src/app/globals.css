@@ -5,33 +5,61 @@
 @import "./analysis-table.css";
 
 @theme {
-  --color-electric: #00D1FF;
-  --color-action: #FF6B00;
-  --color-gold: #D4AF37;
-  --color-stadium: #0a0c0e;
-  --color-container: #121417;
-  --color-container-high: #1a1d21;
-  --color-container-highest: #24292f;
-  --color-container-low: #0f1113;
-  --color-container-lowest: #0a0c0e;
-  
-  --color-tx-primary: #f8fafc;
-  --color-tx-secondary: #94a3b8;
-  --color-tx-dim: #64748b;
-  
-  --color-bd-main: rgba(255, 255, 255, 0.1);
-  --color-bd-ghost: rgba(255, 255, 255, 0.05);
-  
+  /* Minimalist Utility Palette */
+  --color-primary-bg: #0A0A0B;
+  --color-surface: #161618;
+  --color-surface-high: #1c1c1e;
+  --color-border-main: #27272a;
+  --color-border-ghost: #1e1e20;
+
+  --color-accent: #3B82F6; /* Surgical Blue */
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  --color-tx-primary: #FAFAFA;
+  --color-tx-secondary: #A1A1AA;
+  --color-tx-dim: #71717a;
+
+  /* Standardized Typography */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+
+  /* Sharp Roundness */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
 }
 
 :root {
-  --bg-main: #0a0c0e;
-  --bg-card: #121417;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent: #00D1FF;
+  --bg-main: #0A0A0B;
+  --bg-card: #161618;
+  --border-main: #27272a;
+  --text-main: #FAFAFA;
+  --text-muted: #A1A1AA;
+  --accent: #3B82F6;
+
+  /* Material 3 Design Token Overrides */
+  --md-sys-color-primary: #3B82F6;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-surface: #161618;
+  --md-sys-color-on-surface: #FAFAFA;
+  --md-sys-color-on-surface-variant: #A1A1AA;
+  --md-sys-color-outline: #27272a;
+  --md-sys-color-surface-container: #161618;
+  --md-sys-color-surface-container-high: #1c1c1e;
+  --md-sys-color-error: #EF4444;
+  --md-sys-color-tertiary: #10B981; /* Used for success */
+
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 4px;
+  --md-sys-shape-corner-medium: 4px;
+  --md-sys-shape-corner-large: 4px;
+  --md-sys-shape-corner-extra-large: 4px;
+  --md-sys-shape-corner-full: 4px;
+
+  --md-sys-typescale-body-large-font: var(--font-inter);
+  --md-sys-typescale-label-large-font: var(--font-inter);
 }
 
 /* CSS Reset */
@@ -47,10 +75,10 @@ html, body {
   color: var(--text-main);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.6;
+  line-height: 1.5; /* Tightened for density */
 }
 
-/* Clean Layout */
+/* Professional Layout */
 .main-content-wrapper {
   display: flex;
   flex-direction: column;
@@ -65,54 +93,58 @@ html, body {
 }
 
 .main-content-container {
-  padding: 2rem;
+  padding: 1.5rem; /* Reduced from 2rem for density */
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   flex: 1;
 }
 
-/* Minimalist Cards */
+/* Minimalist Utility Cards */
 .utility-card {
   background: var(--bg-card);
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px; /* Reduced from 12px */
+  padding: 1.25rem;
+  border: 1px solid var(--border-main);
 }
 
-/* Buttons */
+/* Professional Buttons */
 button {
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   outline: none;
+  font-weight: 500;
 }
 
-button:active {
-  transform: translateY(1px);
-}
-
-/* Scrollbar */
+/* Scrollbar - Surgical & Discrete */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 10px;
+  background: #27272a;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
 
-/* Utility Classes */
+/* High-Density Typography */
 .mono-stat {
   font-family: var(--font-mono);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+}
+
+.label-caps {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-

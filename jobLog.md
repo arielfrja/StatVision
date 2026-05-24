@@ -1,5 +1,39 @@
 # Job Log - StatVision
 
+## [2026-05-24] UI/UX: Foundational Design Blueprint & Material Web Integration
+**Objective:** Establish a comprehensive DESIGN.md and refactor the frontend to align with the "Minimalist Utility" vision, officially based on the **Material Web (Material 3)** design system.
+
+### Major Changes:
+- **Design System Definition:**
+    - Established the **"Material Utility"** aesthetic: A professional, high-density language built on official Material 3 components.
+    - Defined a core **Color Palette** focused on neutral foundations (`#0A0A0B`, `#161618`) with a surgical **Electric Blue** (`#3B82F6`) primary accent.
+    - Standardized **Typography** using "Inter" for UI and "JetBrains Mono" for technical data.
+    - Standardized **Shapes** with a sharp 4px (`ROUND_FOUR`) roundness across all M3 components.
+- **Frontend Refactor (Material-First):**
+    - **Global M3 Tokens:** Added comprehensive Material 3 token overrides to `globals.css` to ensure all components automatically inherit the "StatVision" look.
+    - **Core Components:** Refactored `Button.tsx` and `JobProgressBar.tsx` to wrap official `@material/web` components.
+    - **Tables & Data:** Updated `IdentifiedEntitiesTable.tsx` and `UploadForm.tsx` to use M3-aligned typography, spacing, and progress indicators.
+    - **Layout:** Standardized on a 4px/8px structural rhythm for maximum data density on desktop and usability on mobile.
+
+**Status:** DESIGN.md finalized and Frontend refactored to be Material-powered. The platform now combines the accessibility of Material 3 with the focused utility of a professional coaching tool.
+
+## [2026-05-21] Infrastructure: Refinements & Deployment
+**Objective:** Finalize the Cloud Tasks transition with enhanced observability and verify deployment to the `test` environment.
+
+### Major Changes:
+- **Data Integrity & Player Discovery:**
+    - **Explicit Mapping:** Replaced `Object.assign` with manual field mapping in `VideoAnalysisResultService` and `JobFinalizerService`. This prevents raw AI fields (like `absolute_timestamp` or `timestamp`) from polluting the `GameEvent` entity and causing database type errors.
+    - **Robust Time Parsing:** Hardened the `parseTime` utility to handle edge cases, whitespace, and invalid formats. It now guarantees a numeric output, eliminating `NaN` errors that were causing PostgreSQL rejections.
+    - **Player Discovery Hardening:** Ensured that `resolvePlayerIds` is called during both live streaming and final aggregation. This guarantees that every detected player—even those without jersey numbers—is assigned a unique `Temp Player` record in the database.
+    - **UUID Validation:** Implemented strict UUID checks (`isUuid`) to prevent temporary AI strings (like "TEMP_PLAYER_X") from being saved into UUID columns.
+- **Deployment:**
+    - Pushed the final data-integrity refactor to the `test` branch.
+
+### Status Update:
+- **Build:** ✅ Passing
+- **Deployment:** 🔄 In Progress (Final Data Hardening)
+- **Aggregation:** ⏳ Pending (Automatically retries on worker startup).
+
 ## [2026-05-20] Infrastructure: Cloud Tasks Refactor & Stability
 **Objective:** Transition the video processing pipeline to a "Controlled Fan-Out" architecture using Google Cloud Tasks to reduce costs and fix gRPC timeouts.
 

@@ -1,115 +1,124 @@
-/*
- * Landing Page Specific Styles
- *
- * This file contains styles for the new, joyful landing page.
- * It uses a combination of CSS variables for theming and Flexbox/Grid for layout.
- */
+/* Professional Minimalist Landing Page */
 
-/* Main container */
 .main {
-  font-family: var(--font-geist-sans);
-  background-color: var(--md-sys-color-surface);
-  color: var(--md-sys-color-on-surface);
+  background-color: var(--color-primary-bg);
+  color: var(--color-tx-primary);
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
+  min-height: 100vh;
 }
 
 /* Hero Section */
 .hero {
   width: 100%;
-  padding: 80px var(--spacing-lg);
+  padding: 100px 24px;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
-  background: linear-gradient(135deg, var(--md-sys-color-primary-container), var(--md-sys-color-tertiary-container));
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  border-bottom: 1px solid var(--color-border-main);
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.05), transparent);
 }
 
 .heroContent {
-  max-width: 800px;
+  max-width: 720px;
 }
 
 .heroTitle {
   font-size: 3.5rem;
-  font-weight: 700;
-  color: var(--md-sys-color-on-primary-container);
-  margin-bottom: var(--spacing-md);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--color-tx-primary);
+  margin-bottom: 1.5rem;
+  line-height: 1.1;
 }
 
 .heroSubtitle {
   font-size: 1.25rem;
-  color: var(--md-sys-color-on-primary-container);
-  margin-bottom: var(--spacing-xl);
-  line-height: 1.6;
+  color: var(--color-tx-secondary);
+  margin-bottom: 2.5rem;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
 .heroActions {
   display: flex;
   justify-content: center;
-  gap: var(--spacing-md);
+  gap: 1rem;
 }
 
 /* Features Section */
 .features {
   width: 100%;
   max-width: 1200px;
-  padding: 80px var(--spacing-lg);
+  padding: 80px 24px;
   text-align: center;
 }
 
 .sectionTitle {
-  font-size: 2.5rem;
-  font-weight: 600;
-  color: var(--md-sys-color-on-surface);
-  margin-bottom: var(--spacing-xl);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  margin-bottom: 3rem;
 }
 
 .featuresGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
 }
 
 .featureCard {
-  background-color: var(--md-sys-color-surface-container-low);
-  padding: var(--spacing-xl);
-  border-radius: var(--spacing-lg);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background-color: var(--color-surface);
+  padding: 2.5rem 2rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-main);
+  text-align: left;
+  transition: border-color 0.2s ease;
 }
 
 .featureCard:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  border-color: var(--color-accent);
 }
 
 .featureIcon {
-  font-size: 48px;
-  color: var(--md-sys-color-primary);
-  margin-bottom: var(--spacing-md);
+  font-size: 32px;
+  color: var(--color-accent);
+  margin-bottom: 1.5rem;
+  display: block;
 }
 
 .featureTitle {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: var(--spacing-sm);
-  color: var(--md-sys-color-on-surface-variant);
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--color-tx-primary);
 }
 
 .featureDescription {
-  color: var(--md-sys-color-on-surface-variant);
-  line-height: 1.5;
+  color: var(--color-tx-secondary);
+  line-height: 1.6;
+  font-size: 0.9375rem;
 }
 
 /* Footer */
 .footer {
   width: 100%;
   text-align: center;
-  padding: var(--spacing-lg);
-  background-color: var(--md-sys-color-surface-container);
-  border-top: 1px solid var(--md-sys-color-outline-variant);
+  padding: 2rem;
+  border-top: 1px solid var(--color-border-main);
   margin-top: auto;
+}
+
+@media (max-width: 640px) {
+  .heroTitle {
+    font-size: 2.5rem;
+  }
+  .heroActions {
+    flex-direction: column;
+  }
 }

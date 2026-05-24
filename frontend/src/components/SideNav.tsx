@@ -10,7 +10,7 @@ const SideNav = () => {
   const { logout } = useAuth0();
 
   const navItems = [
-    { label: 'Command Center', icon: 'dashboard', path: '/dashboard' },
+    { label: 'Performance', icon: 'dashboard', path: '/dashboard' },
     { label: 'Games', icon: 'sports_basketball', path: '/games' },
     { label: 'Teams', icon: 'groups', path: '/teams' },
     { label: 'Players', icon: 'person', path: '/players' },
@@ -18,43 +18,43 @@ const SideNav = () => {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-container-low border-r border-bd-ghost flex flex-col p-6 z-50 hidden md:flex">
-      <div className="mb-10 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-electric flex items-center justify-center shadow-[0_0_15px_var(--primary-glow)]">
-          <span className="material-symbols-outlined text-[#00373a] font-bold">query_stats</span>
+    <aside className="fixed left-0 top-0 h-full w-64 bg-surface border-r border-border-main flex flex-col p-5 z-50 hidden md:flex">
+      <div className="mb-10 flex items-center gap-3 px-2">
+        <div className="w-8 h-8 rounded-md bg-accent flex items-center justify-center">
+          <span className="material-symbols-outlined text-[#0A0A0B] font-bold text-xl">query_stats</span>
         </div>
-        <h1 className="text-xl font-bold tracking-tighter italic">STATVISION</h1>
+        <h1 className="text-lg font-bold tracking-tight text-tx-primary">StatVision</h1>
       </div>
 
-      <nav className="flex-1 flex flex-col gap-2">
+      <nav className="flex-1 flex flex-col gap-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           return (
             <Link
               key={item.path}
               href={item.path}
-              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-100 group active:scale-95 active:bg-container-highest click-flash ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-150 ${
                 isActive 
-                  ? 'bg-container-highest text-electric border border-bd-active shadow-[0_0_10px_rgba(0,209,255,0.1)]' 
-                  : 'text-tx-secondary hover:bg-container hover:text-tx-primary'
+                  ? 'bg-surface-high text-accent border border-border-main' 
+                  : 'text-tx-secondary hover:bg-surface-high hover:text-tx-primary'
               }`}
             >
-              <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:scale-110 transition-transform'}`}>
+              <span className={`material-symbols-outlined text-[20px] ${isActive ? 'fill-1' : ''}`}>
                 {item.icon}
               </span>
-              <span className="font-semibold text-sm">{item.label}</span>
+              <span className="font-medium text-sm">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t border-bd-ghost">
+      <div className="mt-auto pt-4 border-t border-border-main">
         <button
           onClick={() => logout({ logoutParams: { returnTo: typeof window !== 'undefined' ? window.location.origin : '' } })}
-          className="flex items-center gap-4 px-4 py-3 w-full text-tx-dim hover:text-action transition-colors duration-200"
+          className="flex items-center gap-3 px-3 py-2 w-full text-tx-dim hover:text-tx-primary transition-colors duration-150"
         >
-          <span className="material-symbols-outlined text-xl">logout</span>
-          <span className="font-semibold text-sm">Sign Out</span>
+          <span className="material-symbols-outlined text-[20px]">logout</span>
+          <span className="font-medium text-sm">Sign Out</span>
         </button>
       </div>
     </aside>

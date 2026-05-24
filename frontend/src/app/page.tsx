@@ -3,14 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth0 } from '@/app/user-provider';
-import '@material/web/button/filled-button.js';
-import '@material/web/button/outlined-button.js';
-import '@material/web/icon/icon.js';
+import Button from '@/components/Button';
 import styles from './page.module.css';
 
 const FeatureCard = ({ icon, title, description }: { icon: string, title: string, description: string }) => (
   <div className={styles.featureCard}>
-    <md-icon className={styles.featureIcon}>{icon}</md-icon>
+    <span className={`material-symbols-outlined ${styles.featureIcon}`}>{icon}</span>
     <h3 className={styles.featureTitle}>{title}</h3>
     <p className={styles.featureDescription}>{description}</p>
   </div>
@@ -34,10 +32,8 @@ export default function LandingPage() {
 
   if (!mounted) {
     return (
-      <main className={styles.main}>
-        <div className="flex items-center justify-center h-screen bg-stadium">
-          <div className="w-12 h-12 border-4 border-electric/20 border-t-electric rounded-full animate-spin" />
-        </div>
+      <main className="flex items-center justify-center h-screen bg-primary-bg">
+        <div className="w-8 h-8 border-2 border-accent/20 border-t-accent rounded-full animate-spin" />
       </main>
     );
   }
@@ -46,44 +42,50 @@ export default function LandingPage() {
     <main className={styles.main}>
       <header className={styles.hero}>
         <div className={styles.heroContent}>
-          <h1 className={styles.heroTitle}>Welcome to StatVision</h1>
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-md bg-accent flex items-center justify-center">
+              <span className="material-symbols-outlined text-[#0A0A0B] font-bold text-2xl">query_stats</span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-tx-primary">StatVision</h2>
+          </div>
+          <h1 className={styles.heroTitle}>Professional Basketball Analytics</h1>
           <p className={styles.heroSubtitle}>
-            AI-powered basketball analytics. Transform your game footage into professional statistics instantly.
+            Transform game footage into elite data. High-precision event detection and advanced player insights.
           </p>
           <div className={styles.heroActions}>
-            <md-filled-button onClick={() => router.push('/login?screen_hint=signup')}>
-              Get Started for Free
-            </md-filled-button>
-            <md-outlined-button onClick={() => router.push('/login')}>
+            <Button size="lg" onClick={() => router.push('/login?screen_hint=signup')}>
+              Get Started
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => router.push('/login')}>
               Sign In
-            </md-outlined-button>
+            </Button>
           </div>
         </div>
       </header>
 
       <section className={styles.features}>
-        <h2 className={styles.sectionTitle}>Why StatVision?</h2>
+        <h2 className={styles.sectionTitle}>Precision Intelligence</h2>
         <div className={styles.featuresGrid}>
           <FeatureCard 
-            icon="smart_display"
-            title="Automated Stat Tracking"
-            description="Our AI analyzes every play, detecting shots, rebounds, assists, and more with pinpoint accuracy."
+            icon="biotech"
+            title="Automated Event Detection"
+            description="AI-powered tracking of shots, rebounds, and assists with professional accuracy."
           />
           <FeatureCard 
-            icon="insights"
-            title="Deep Insights"
-            description="Go beyond basic box scores with advanced performance metrics and player efficiency ratings."
+            icon="analytics"
+            title="Surgical Insights"
+            description="Elite efficiency metrics including eFG%, TS%, and interactive court mapping."
           />
           <FeatureCard 
-            icon="groups"
-            title="Team Collaboration"
-            description="Share insights with your entire roster and coaching staff to prepare for your next big game."
+            icon="history"
+            title="Historical Tracking"
+            description="Manage rosters and track player development across multiple seasons and games."
           />
         </div>
       </section>
 
       <footer className={styles.footer}>
-        <p>&copy; {new Date().getFullYear()} StatVision. All rights reserved.</p>
+        <p className="text-tx-dim text-xs">© {new Date().getFullYear()} StatVision AI. All rights reserved.</p>
       </footer>
     </main>
   );
