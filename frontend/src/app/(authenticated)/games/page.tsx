@@ -31,19 +31,19 @@ const GamesPage = () => {
     switch (status) {
       case GameStatus.COMPLETED:
       case GameStatus.ANALYZED:
-        return { icon: 'check_circle', color: 'var(--accent-gold)', label: 'READY' };
+        return { icon: 'check_circle', color: 'var(--color-success)', label: 'READY' };
       case GameStatus.PROCESSING:
-        return { icon: 'sync', color: 'var(--primary-electric)', label: 'ANALYZING', spin: true };
+        return { icon: 'sync', color: 'var(--accent)', label: 'ANALYZING', spin: true };
       case GameStatus.FAILED:
-        return { icon: 'error', color: '#ff6e84', label: 'FAILED' };
+        return { icon: 'error', color: 'var(--color-error)', label: 'FAILED' };
       case GameStatus.UPLOADED:
-        return { icon: 'cloud_done', color: 'var(--text-secondary)', label: 'UPLOADED' };
+        return { icon: 'cloud_done', color: 'var(--text-muted)', label: 'UPLOADED' };
       case GameStatus.ASSIGNMENT_PENDING:
-        return { icon: 'person_search', color: 'var(--primary-electric)', label: 'ASSIGNMENT' };
+        return { icon: 'person_search', color: 'var(--accent)', label: 'IDENTITY' };
       case GameStatus.PENDING:
-        return { icon: 'upload_file', color: 'var(--primary-electric)', label: 'UNFINISHED' };
+        return { icon: 'upload_file', color: 'var(--accent)', label: 'DRAFT' };
       default:
-        return { icon: 'pending', color: 'var(--text-dim)', label: status };
+        return { icon: 'pending', color: 'var(--text-muted)', label: status };
     }
   };
 
@@ -55,23 +55,23 @@ const GamesPage = () => {
 
   if (isUploadMode) return (
     <div className="max-w-4xl mx-auto pb-24">
-      <header className="mb-10">
+      <header className="mb-10 flex flex-col gap-4">
         <button 
           onClick={() => {
             setIsUploadMode(false);
             setResumeGameId(null);
-            router.replace('/games'); // Clear query param
+            router.replace('/games');
           }} 
-          className="text-electric font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2 outline-none group"
+          className="text-accent font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:text-tx-primary transition-colors"
         >
-          <span className="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform">arrow_back</span>
-          Back to Gallery
+          <span className="material-symbols-outlined text-sm">arrow_back</span>
+          Return to Vault
         </button>
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase">
-          {resumeGameId ? 'Resume Analysis' : 'Analyze New Game'}
+        <h1 className="text-3xl font-bold tracking-tight text-tx-primary">
+          {resumeGameId ? 'Resume Ingestion' : 'Initialize New Analysis'}
         </h1>
       </header>
-      <div className="stadium-card">
+      <div className="bg-surface border border-border-main rounded-md p-1">
         <UploadForm 
           initialGameId={resumeGameId || undefined}
           onUploadComplete={() => {
@@ -91,40 +91,38 @@ const GamesPage = () => {
   );
 
   return (
-    <div className="pb-16">
-      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <p className="text-electric font-bold text-xs uppercase tracking-[0.2em] mb-1">Film Room</p>
-          <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase">Stadium Gallery</h1>
+    <div className="pb-16 flex flex-col gap-10">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-tx-primary">Film Room</h1>
+          <p className="text-xs text-tx-secondary font-medium uppercase tracking-widest">Storage & Analysis Hub</p>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            onClick={() => setIsUploadMode(true)}
-            icon="add"
-          >
-            New Analysis
-          </Button>
-          </div>
-          </header>
+        <Button 
+          onClick={() => setIsUploadMode(true)}
+          icon="add_box"
+          size="lg"
+        >
+          New Ingestion
+        </Button>
+      </header>
 
-          {!games || games.length === 0 ? (
-          <section className="stadium-card py-24 flex flex-col items-center justify-center text-center border-dashed border-2 border-bd-ghost bg-transparent">
-          <div className="w-20 h-20 rounded-full bg-container-low flex items-center justify-center mb-6">
-            <span className="material-symbols-outlined text-4xl text-tx-dim">sports_basketball</span>
-          </div>
-          <h2 className="text-2xl font-bold uppercase mb-2">No Tape in the Vault</h2>
-          <p className="text-tx-secondary font-medium max-w-md mx-auto mb-10">Upload your first game to start seeing AI performance analytics.</p>
-          <Button 
-            onClick={() => setIsUploadMode(true)}
-            variant="secondary"
-            size="lg"
-            className="min-w-[240px]"
-          >
-            Start Analysis
-          </Button>
+      {!games || games.length === 0 ? (
+          <section className="bg-primary-bg/50 py-32 flex flex-col items-center justify-center text-center border-dashed border border-border-main rounded-md">
+            <div className="w-16 h-16 rounded-md bg-surface border border-border-main flex items-center justify-center mb-6 text-tx-dim">
+              <span className="material-symbols-outlined text-3xl">videocam_off</span>
+            </div>
+            <h2 className="text-lg font-bold text-tx-primary mb-2">The Vault is Empty</h2>
+            <p className="text-sm text-tx-secondary max-w-xs mx-auto mb-10">Initialize your first game ingestion to begin automated performance tracking.</p>
+            <Button 
+              onClick={() => setIsUploadMode(true)}
+              variant="outline"
+              size="lg"
+            >
+              Start Analysis
+            </Button>
           </section>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {games.map((game) => {
             const status = getStatusDisplay(game.status);
             const date = new Date(game.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -133,36 +131,59 @@ const GamesPage = () => {
               <div 
                 key={game.id}
                 onClick={() => router.push(`/games/${game.id}`)}
-                className="stadium-card group cursor-pointer border border-bd-ghost hover:border-electric/30 transition-all duration-300 relative overflow-hidden"
+                className="bg-surface border border-border-main rounded-md group cursor-pointer hover:border-accent transition-all duration-200 overflow-hidden flex flex-col"
               >
-                <div className="flex justify-between items-start mb-6">
-                  <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-widest border transition-all ${
-                    game.status === GameStatus.PROCESSING ? 'bg-electric/10 border-electric/30 text-electric' : 'bg-container-low border-bd-ghost text-tx-dim'
-                  }`} style={{ color: status.color, borderColor: `${status.color}33` }}>
-                    <span className={`material-symbols-outlined text-sm ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
+                {/* Scoreboard-style Header */}
+                <div className="p-5 border-b border-border-main bg-primary-bg/30 flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">{date}</span>
+                    <span className="text-[10px] font-bold text-accent uppercase tracking-tighter italic">{game.gameType.replace(/_/g, ' ')}</span>
+                  </div>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wider" 
+                    style={{ color: status.color, borderColor: `${status.color}33`, background: `${status.color}0D` }}>
+                    <span className={`material-symbols-outlined text-[12px] ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
                     {status.label}
                   </span>
-                  
+                </div>
+
+                {/* Matchup Content */}
+                <div className="p-6 flex-1 flex flex-col gap-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col items-center gap-1 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-sm font-black">
+                        {game.homeTeam?.name?.charAt(0).toUpperCase() || 'H'}
+                      </div>
+                      <span className="text-[10px] font-bold text-tx-secondary uppercase truncate max-w-[80px]">{game.homeTeam?.name || 'HOME'}</span>
+                    </div>
+                    
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-xs font-black text-tx-dim uppercase tracking-tighter">VS</span>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-warning/10 border border-warning/20 flex items-center justify-center text-warning text-sm font-black">
+                        {game.awayTeam?.name?.charAt(0).toUpperCase() || 'A'}
+                      </div>
+                      <span className="text-[10px] font-bold text-tx-secondary uppercase truncate max-w-[80px]">{game.awayTeam?.name || 'AWAY'}</span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-tx-primary text-center truncate group-hover:text-accent transition-colors">{game.name}</h3>
+                </div>
+
+                {/* Footer Stats */}
+                <div className="px-5 py-3 border-t border-border-main bg-primary-bg/20 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black uppercase text-tx-dim">{date}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px] text-tx-dim">analytics</span>
+                      <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.events?.length || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px] text-tx-dim">person</span>
+                      <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.playerStats?.length || 0}</span>
+                    </div>
                   </div>
-                </div>
-
-                <h3 className="text-xl font-black italic tracking-tighter uppercase mb-1 group-hover:text-electric transition-colors">{game.name}</h3>
-                <div className="flex items-center gap-2 mb-6">
-                  <span className="text-xs font-bold text-tx-secondary uppercase">{game.homeTeam?.name || 'Home'}</span>
-                  <span className="text-[10px] font-black text-tx-dim">VS</span>
-                  <span className="text-xs font-bold text-tx-secondary uppercase">{game.awayTeam?.name || 'Away'}</span>
-                </div>
-
-                <div className="flex items-center justify-between pt-6 border-t border-bd-ghost">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-tx-dim">analytics</span>
-                    <span className="text-[10px] font-black uppercase text-tx-dim tracking-widest">
-                        {game.events?.length || 0} Events Logged
-                    </span>
-                  </div>
-                  <span className="material-symbols-outlined text-tx-dim group-hover:translate-x-1 transition-transform group-hover:text-electric">arrow_forward</span>
+                  <span className="material-symbols-outlined text-tx-dim group-hover:text-accent transition-all text-base">chevron_right</span>
                 </div>
               </div>
             );
