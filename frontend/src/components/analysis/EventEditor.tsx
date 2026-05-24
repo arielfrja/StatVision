@@ -56,90 +56,98 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
     };
 
     return (
-        <div className="stadium-card frosted-glass min-w-[320px] max-w-lg border-2 border-bd-ghost shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="text-xl font-black italic tracking-tighter uppercase text-white font-display">Edit Event</h3>
-                    <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Moment: {event.absoluteTimestamp.toFixed(1)}s</p>
+        <div className="bg-surface border border-border-main rounded-md p-6 flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex justify-between items-start">
+                <div className="flex flex-col gap-1">
+                    <h3 className="text-lg font-bold text-tx-primary tracking-tight uppercase">Edit Analytics Event</h3>
+                    <p className="text-[10px] font-bold text-accent uppercase tracking-widest mono-stat">
+                        TIMESTAMP: {event.absoluteTimestamp.toFixed(2)}s
+                    </p>
                 </div>
                 {onDelete && (
                     <Button 
-                        variant="danger" 
+                        variant="ghost" 
                         size="sm" 
                         icon="delete" 
                         onClick={handleDelete}
                         isLoading={isDeleting}
-                        className="w-10 h-10 p-0"
+                        className="!text-error hover:!bg-error/10"
                     />
                 )}
             </div>
 
-            {/* Tactile Event Type Grid */}
-            <div className="mb-6">
-                <p className="text-[10px] font-black text-tx-dim uppercase tracking-widest mb-3">Event Classification</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {ALLOWED_EVENT_TYPES.map(type => (
-                        <button
-                            key={type}
-                            onClick={() => setEventType(type as any)}
-                            className={`py-2.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border ${
-                                eventType === type 
-                                    ? 'bg-electric text-[#00373a] border-electric shadow-[0_0_10px_rgba(0,243,255,0.2)]' 
-                                    : 'bg-container-low text-tx-dim border-bd-ghost hover:border-tx-dim'
-                            }`}
+            <div className="space-y-6">
+                {/* Event Type Selection */}
+                <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Classification</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        {ALLOWED_EVENT_TYPES.map(type => (
+                            <button
+                                key={type}
+                                onClick={() => setEventType(type as any)}
+                                className={`py-2 px-3 rounded border text-[10px] font-bold uppercase tracking-tight transition-all text-left flex items-center justify-between group ${
+                                    eventType === type 
+                                        ? 'bg-accent/10 border-accent text-accent' 
+                                        : 'bg-primary-bg border-border-main text-tx-secondary hover:border-tx-dim'
+                                }`}
+                            >
+                                {type.replace('_', ' ')}
+                                {eventType === type && <span className="material-symbols-outlined text-xs">check_circle</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Team & Player Assignment */}
+                <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Target Team</label>
+                        {/* @ts-ignore */}
+                        <md-filled-select
+                            value={assignedTeamId}
+                            onchange={(e: any) => {
+                                setAssignedTeamId(e.target.value);
+                                setAssignedPlayerId(''); 
+                            }}
+                            className="w-full"
                         >
-                            {type.replace('_', ' ')}
-                        </button>
-                    ))}
+                            <md-select-option value=""><span>Unassigned</span></md-select-option>
+                            {allTeams.map(team => (
+                                <md-select-option key={team.id} value={team.id}><span>{team.name}</span></md-select-option>
+                            ))}
+                        </md-filled-select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Assigned Personnel</label>
+                        {/* @ts-ignore */}
+                        <md-filled-select
+                            value={assignedPlayerId}
+                            onchange={(e: any) => setAssignedPlayerId(e.target.value)}
+                            disabled={!assignedTeamId}
+                            className="w-full"
+                        >
+                            <md-select-option value=""><span>Unassigned</span></md-select-option>
+                            {allPlayers
+                                .filter(ph => !assignedTeamId || ph.teamId === assignedTeamId)
+                                .map(ph => (
+                                <md-select-option key={ph.playerId} value={ph.playerId}>
+                                    <span>{ph.player.name} {ph.jerseyNumber ? `(#${ph.jerseyNumber})` : ''}</span>
+                                </md-select-option>
+                            ))}
+                        </md-filled-select>
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4 mb-8">
-                <div>
-                    <p className="text-[10px] font-black text-tx-dim uppercase tracking-widest mb-2">Team Assignment</p>
-                    <md-filled-select
-                        className="w-full"
-                        value={assignedTeamId}
-                        onchange={(e: any) => {
-                            setAssignedTeamId(e.target.value);
-                            setAssignedPlayerId(''); 
-                        }}
-                    >
-                        <md-select-option value=""><span>Unassigned</span></md-select-option>
-                        {allTeams.map(team => (
-                            <md-select-option key={team.id} value={team.id}><span>{team.name}</span></md-select-option>
-                        ))}
-                    </md-filled-select>
-                </div>
-
-                <div>
-                    <p className="text-[10px] font-black text-tx-dim uppercase tracking-widest mb-2">Player Assignment</p>
-                    <md-filled-select
-                        className="w-full"
-                        value={assignedPlayerId}
-                        onchange={(e: any) => setAssignedPlayerId(e.target.value)}
-                        disabled={!assignedTeamId}
-                    >
-                        <md-select-option value=""><span>Unassigned</span></md-select-option>
-                        {allPlayers
-                            .filter(ph => !assignedTeamId || ph.teamId === assignedTeamId)
-                            .map(ph => (
-                            <md-select-option key={ph.playerId} value={ph.playerId}>
-                                <span>{ph.player.name} {ph.jerseyNumber ? `(#${ph.jerseyNumber})` : ''}</span>
-                            </md-select-option>
-                        ))}
-                    </md-filled-select>
-                </div>
-            </div>
-
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-6 border-t border-border-main">
                 <Button 
                     variant="ghost"
                     onClick={onCancel} 
                     fullWidth
                     disabled={isSaving}
                 >
-                    Cancel
+                    Discard
                 </Button>
                 <Button 
                     onClick={handleSave} 
@@ -147,7 +155,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     fullWidth
                     className="flex-[2]"
                 >
-                    Save Changes
+                    Update Analytics
                 </Button>
             </div>
         </div>

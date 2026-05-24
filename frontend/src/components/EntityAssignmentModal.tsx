@@ -33,6 +33,9 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
     const [teamMappings, setTeamMappings] = useState<{ [tempId: string]: string }>({});
     const [playerMappings, setPlayerMappings] = useState<{ [tempId: string]: string }>({});
 
+    // Track which rows are in "edit" mode
+    const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+
     useEffect(() => {
         if (isOpen && gameId) {
             fetchInitialData();
@@ -80,10 +83,12 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
 
     const handleTeamMappingChange = (tempId: string, officialId: string) => {
         setTeamMappings(prev => ({ ...prev, [tempId]: officialId }));
+        setEditingEntityId(null);
     };
 
     const handlePlayerMappingChange = (tempId: string, officialId: string) => {
         setPlayerMappings(prev => ({ ...prev, [tempId]: officialId }));
+        setEditingEntityId(null);
     };
 
     const handleSubmit = async () => {
@@ -115,74 +120,100 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
     if (!isOpen) return null;
 
     return (
-        <md-dialog open={isOpen} onclose={onClose} style={{ maxWidth: '800px', width: '90vw' }} className="rounded-[32px] overflow-hidden">
-            <div slot="headline" className="font-black italic uppercase tracking-tight text-xl p-6 border-b border-bd-ghost bg-container-low text-electric">
-                Finalize Roster Assignments
+        <md-dialog open={isOpen} onclose={onClose} style={{ maxWidth: '800px', width: '95vw' }} className="rounded-md overflow-hidden">
+            <div slot="headline" className="font-bold text-lg p-6 border-b border-border-main bg-surface-high text-tx-primary uppercase tracking-tight">
+                Personnel & Roster Synchronization
             </div>
-            <div slot="content" className="p-8 flex flex-col gap-8 bg-container overflow-y-auto max-h-[60vh]">
+            <div slot="content" className="p-8 flex flex-col gap-10 bg-primary-bg overflow-y-auto max-h-[60vh] no-scrollbar">
                 {isLoading ? (
-                    <div className="py-12">
-                        <Loader size="large" label="Retrieving Entities" />
-                    </div>
+                    <div className="py-20 flex justify-center"><Loader /></div>
                 ) : identifiedEntities.length === 0 ? (
                     <div className="py-16 text-center">
-                        <span className="material-symbols-outlined text-5xl text-tx-dim mb-4">person_off</span>
-                        <p className="text-tx-dim font-black uppercase tracking-widest text-[10px]">No temporary entities to assign</p>
+                        <span className="material-symbols-outlined text-4xl text-tx-dim mb-4">person_off</span>
+                        <p className="text-tx-secondary font-bold uppercase tracking-widest text-[10px]">No temporary detections requiring assignment</p>
                     </div>
                 ) : (
                     identifiedEntities.map(tempTeam => (
-                        <div key={tempTeam.id} className="p-8 border border-bd-ghost rounded-[24px] bg-container-low relative overflow-hidden group">
-                            {/* Accent line */}
-                            <div className="absolute top-0 left-0 w-1 h-full bg-electric/20 group-hover:bg-electric transition-colors"></div>
-                            
-                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-                                <div>
-                                    <h3 className="font-black italic uppercase text-xl text-white mb-1">{tempTeam.name}</h3>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-tx-dim">Temporary Identification</p>
+                        <div key={tempTeam.id} className="space-y-4">
+                            {/* Team Assignment Header (Read-Only first) */}
+                            <div className="p-5 border border-border-main rounded-md bg-surface flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <h3 className="font-bold text-sm text-tx-primary uppercase">{tempTeam.name}</h3>
+                                    <p className="text-[10px] font-bold text-accent uppercase tracking-widest">TEMPORARY GROUP DETECTION</p>
                                 </div>
-                                <md-filled-select
-                                    label="Assign to Official Team"
-                                    value={tempTeam.id ? (teamMappings[tempTeam.id] || '') : ''}
-                                    onchange={(e: any) => tempTeam.id && handleTeamMappingChange(tempTeam.id, e.target.value)}
-                                    className="min-w-[280px]"
-                                >
-                                    <md-select-option value=""><span>Select Team...</span></md-select-option>
-                                    {officialTeams.map(team => (
-                                        <md-select-option key={team.id} value={team.id}>
-                                            <span>{team.name}</span>
-                                        </md-select-option>
-                                    ))}
-                                </md-filled-select>
+                                
+                                {editingEntityId === tempTeam.id ? (
+                                    <md-filled-select
+                                        label="Official Team"
+                                        value={tempTeam.id ? (teamMappings[tempTeam.id] || '') : ''}
+                                        onchange={(e: any) => tempTeam.id && handleTeamMappingChange(tempTeam.id, e.target.value)}
+                                        className="min-w-[280px]"
+                                    >
+                                        <md-select-option value=""><span>Unassigned</span></md-select-option>
+                                        {officialTeams.map(team => (
+                                            <md-select-option key={team.id} value={team.id}><span>{team.name}</span></md-select-option>
+                                        ))}
+                                    </md-filled-select>
+                                ) : (
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-xs font-bold text-tx-secondary">
+                                            {tempTeam.id && teamMappings[tempTeam.id] 
+                                                ? officialTeams.find(t => t.id === teamMappings[tempTeam.id])?.name 
+                                                : 'NO OFFICIAL TEAM ASSIGNED'}
+                                        </span>
+                                        <Button variant="outline" size="sm" icon="edit" onClick={() => setEditingEntityId(tempTeam.id || null)}>
+                                            Assign
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="flex flex-col gap-6 pl-8 border-l border-bd-ghost ml-2">
+                            {/* Player Assignments */}
+                            <div className="flex flex-col gap-2 pl-6 border-l border-border-main">
                                 {tempTeam.players.map(tempPlayer => {
                                     const currentTeamId = tempTeam.id ? teamMappings[tempTeam.id] : '';
+                                    const isEditing = editingEntityId === tempPlayer.id;
+                                    const assignedOfficialPlayer = officialPlayers.find(ph => ph.player.id === playerMappings[tempPlayer.id || '']);
+
                                     return (
-                                        <div key={tempPlayer.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-container-high border border-transparent hover:border-bd-ghost transition-all">
+                                        <div key={tempPlayer.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-md bg-surface-high border border-border-main">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-container-highest flex items-center justify-center text-[10px] font-black text-electric border border-bd-ghost">
+                                                <div className="w-8 h-8 rounded bg-primary-bg border border-border-main flex items-center justify-center text-[10px] font-black text-accent mono-stat">
                                                     {tempPlayer.jerseyNumber || '?'}
                                                 </div>
-                                                <span className="text-sm font-bold text-tx-secondary uppercase tracking-tight group-hover:text-white transition-colors">
-                                                    {tempPlayer.name || 'Unknown'}
+                                                <span className="text-xs font-bold text-tx-primary uppercase tracking-tight">
+                                                    {tempPlayer.name || 'Identified Player'}
                                                 </span>
                                             </div>
-                                            <md-filled-select
-                                                label="Assign to Official Player"
-                                                value={tempPlayer.id ? (playerMappings[tempPlayer.id] || '') : ''}
-                                                onchange={(e: any) => tempPlayer.id && handlePlayerMappingChange(tempPlayer.id, e.target.value)}
-                                                className="min-w-[240px]"
-                                            >
-                                                <md-select-option value=""><span>Select Player...</span></md-select-option>
-                                                {officialPlayers
-                                                    .filter(ph => !currentTeamId || ph.teamId === currentTeamId)
-                                                    .map(ph => (
-                                                    <md-select-option key={ph.player.id} value={ph.player.id}>
-                                                        <span>{ph.player.name || 'Unknown'} (#{ph.jerseyNumber || '??'})</span>
-                                                    </md-select-option>
-                                                ))}
-                                            </md-filled-select>
+
+                                            {isEditing ? (
+                                                <md-filled-select
+                                                    label="Official Roster"
+                                                    value={tempPlayer.id ? (playerMappings[tempPlayer.id] || '') : ''}
+                                                    onchange={(e: any) => tempPlayer.id && handlePlayerMappingChange(tempPlayer.id, e.target.value)}
+                                                    className="min-w-[240px]"
+                                                >
+                                                    <md-select-option value=""><span>Unassigned</span></md-select-option>
+                                                    {officialPlayers
+                                                        .filter(ph => !currentTeamId || ph.teamId === currentTeamId)
+                                                        .map(ph => (
+                                                        <md-select-option key={ph.player.id} value={ph.player.id}>
+                                                            <span>{ph.player.name} (#{ph.jerseyNumber})</span>
+                                                        </md-select-option>
+                                                    ))}
+                                                </md-filled-select>
+                                            ) : (
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-[11px] font-bold text-tx-secondary uppercase">
+                                                        {assignedOfficialPlayer 
+                                                            ? `${assignedOfficialPlayer.player.name} (#${assignedOfficialPlayer.jerseyNumber})` 
+                                                            : 'PENDING ASSIGNMENT'}
+                                                    </span>
+                                                    <Button variant="ghost" size="sm" icon="edit_square" onClick={() => setEditingEntityId(tempPlayer.id || null)}>
+                                                        Assign
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -191,10 +222,10 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                     ))
                 )}
             </div>
-            <div slot="actions" className="p-6 border-t border-bd-ghost bg-container-low flex gap-4 w-full">
+            <div slot="actions" className="p-6 border-t border-border-main bg-surface-high flex gap-4 w-full">
                 <Button variant="ghost" onClick={onClose} className="flex-1" disabled={isSubmitting}>Cancel</Button>
                 <Button onClick={handleSubmit} isLoading={isSubmitting} className="flex-[2]" icon="verified">
-                    Confirm Assignments
+                    Synchronize Roster
                 </Button>
             </div>
         </md-dialog>
