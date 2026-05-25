@@ -61,5 +61,5 @@ We provide master scripts in the `scripts/` directory for unified control:
 
 ## ☁️ Deployment
 Automated via GitHub Actions to:
-- **Firebase Hosting** (Frontend)
+- **Vercel** (Frontend)
 - **Google Cloud Run** (Backend API & Worker)

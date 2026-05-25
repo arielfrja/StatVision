@@ -53,6 +53,14 @@ const GamesPage = () => {
     </div>
   );
 
+  const handleRetry = (e: React.MouseEvent, gameId: string) => {
+    e.stopPropagation(); // Prevent navigating to game page
+    setResumeGameId(gameId);
+    setIsUploadMode(true);
+    // Update URL without full refresh to maintain state
+    router.replace(`/games?resume=${gameId}`);
+  };
+
   if (isUploadMode) return (
     <div className="max-w-4xl mx-auto pb-24">
       <header className="mb-10 flex flex-col gap-4">
@@ -68,7 +76,7 @@ const GamesPage = () => {
           Return to Vault
         </button>
         <h1 className="text-3xl font-bold tracking-tight text-tx-primary">
-          {resumeGameId ? 'Resume Ingestion' : 'Initialize New Analysis'}
+          {resumeGameId ? 'Recover Ingestion' : 'Initialize New Analysis'}
         </h1>
       </header>
       <div className="bg-surface border border-border-main rounded-md p-1">
@@ -126,12 +134,13 @@ const GamesPage = () => {
           {games.map((game) => {
             const status = getStatusDisplay(game.status);
             const date = new Date(game.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const canRetry = game.status === GameStatus.FAILED || game.status === GameStatus.PENDING;
             
             return (
               <div 
                 key={game.id}
-                onClick={() => router.push(`/games/${game.id}`)}
-                className="bg-surface border border-border-main rounded-md group cursor-pointer hover:border-accent transition-all duration-200 overflow-hidden flex flex-col"
+                onClick={() => !canRetry && router.push(`/games/${game.id}`)}
+                className={`bg-surface border border-border-main rounded-md group overflow-hidden flex flex-col transition-all duration-200 ${canRetry ? 'opacity-80' : 'cursor-pointer hover:border-accent'}`}
               >
                 {/* Scoreboard-style Header */}
                 <div className="p-5 border-b border-border-main bg-primary-bg/30 flex items-center justify-between">
@@ -171,19 +180,33 @@ const GamesPage = () => {
                   <h3 className="text-sm font-bold text-tx-primary text-center truncate group-hover:text-accent transition-colors">{game.name}</h3>
                 </div>
 
-                {/* Footer Stats */}
-                <div className="px-5 py-3 border-t border-border-main bg-primary-bg/20 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px] text-tx-dim">analytics</span>
-                      <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.events?.length || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px] text-tx-dim">person</span>
-                      <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.playerStats?.length || 0}</span>
-                    </div>
-                  </div>
-                  <span className="material-symbols-outlined text-tx-dim group-hover:text-accent transition-all text-base">chevron_right</span>
+                {/* Footer Stats / Actions */}
+                <div className="px-5 py-3 border-t border-border-main bg-primary-bg/20 flex items-center justify-between min-h-[44px]">
+                  {canRetry ? (
+                    <Button 
+                        variant="primary" 
+                        size="sm" 
+                        fullWidth 
+                        icon="refresh"
+                        onClick={(e) => handleRetry(e, game.id)}
+                    >
+                        Retry Ingestion
+                    </Button>
+                  ) : (
+                    <>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-tx-dim">analytics</span>
+                            <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.events?.length || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px] text-tx-dim">person</span>
+                            <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.playerStats?.length || 0}</span>
+                            </div>
+                        </div>
+                        <span className="material-symbols-outlined text-tx-dim group-hover:text-accent transition-all text-base">chevron_right</span>
+                    </>
+                  )}
                 </div>
               </div>
             );

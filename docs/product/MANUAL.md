@@ -69,4 +69,16 @@ This manual documents the functional features of the StatVision platform that ha
 - **Mobile-Responsive UI:** Full management capabilities from phone or tablet while at the gym.
 
 ---
-*Next Chapter: [6. Multi-Tenant Workspaces] (In Development)*
+
+## 6. Full-Stack Observability
+**Status:** 🟢 Production Ready
+**Description:** Centralized monitoring and error tracing system for production stability and rapid debugging.
+
+### Features:
+- **Centralized Client Logs:** Browser-side errors (crashes, hydration issues, network failures) are automatically forwarded to the API.
+- **Surgical Trace Correlation:** Every system error generates a unique **Error ID (UUID)** which is returned to the user and logged on the server.
+- **Full Stack Tracing:** API logs now capture complete execution paths, pinpointing the exact line of code for every failure.
+- **Metadata Context:** Every log entry includes technical context: IP address, User Agent, active URL, and the User ID of the affected account.
+
+---
+*Next Chapter: [7. Multi-Tenant Workspaces] (In Development)*

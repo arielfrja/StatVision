@@ -67,10 +67,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                         return;
                     }
 
-                    setStatus('ERROR');
-                    setError('Previous upload was interrupted. Please re-select the file to resume.');
+                    setStatus('READY');
+                    setError('Previous ingestion attempt was incomplete. Please re-select the game footage to continue.');
                 } catch (err) {
-                    console.error('Failed to restore upload session:', err);
+                    console.error('Failed to restore ingestion session:', err);
                 }
             }
         };
@@ -84,15 +84,9 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
-            
-            if (!activeGameId) {
-                setError(null);
-                setStatus('READY');
-                setProgress(0);
-            } else {
-                setStatus('ERROR');
-                setError(null);
-            }
+            setError(null);
+            setStatus('READY');
+            setProgress(0);
 
             if (!gameName) {
                 setGameName(selectedFile.name.split('.')[0].replace(/[-_]/g, ' '));
@@ -291,7 +285,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             <div className="flex justify-end gap-3 pt-6 border-t border-border-main">
                 <Button variant="ghost" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
                 <Button onClick={handleFastUpload} isLoading={isProcessing} disabled={!file} size="lg">
-                    {status === 'ERROR' ? 'Retry Ingestion' : 'Begin Analysis'}
+                    {activeGameId ? 'Resume Ingestion' : 'Begin Analysis'}
                 </Button>
             </div>
         </div>

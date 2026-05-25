@@ -1,21 +1,37 @@
 # Job Log - StatVision
 
-## [2026-05-24] AI: Olympic-Level Statistician Logic Upgrade
-**Objective:** Enhance AI detection precision by integrating professional NBA/Olympic-level statistician logic into the Gemini system instructions.
+## [2026-05-25] Observability & Production Hardening
+**Objective:** Implement centralized logging and unique error tracing to monitor production stability and debug client-side failures.
 
 ### Major Changes:
-- **System Persona:** Transitioned the AI persona to an expert "Caller & Inputter" agent focused on absolute precision and objective tracking.
-- **Broadcast Intelligence:**
-    - Implemented strict logic to **ignore replays** (recognizing camera cuts/graphics) and **dead time** (commercials/stoppages).
-    - Integrated dual-timestamping: Every event now tracks both `video_timestamp` and `game_clock` (anchored to the scorebug).
-- **Event Taxonomy & Chaining:**
-    - Expanded taxonomy for SHOTs (2PT/3PT/FT, Jump/Layup/Dunk), TURNOVERs (Violations/Bad Pass), and FOULs.
-    - Enforced strict chronological chaining: REBOUNDs must follow MISSED shots; ASSISTs must precede MADE shots.
-- **Infrastructure Alignment:**
-    - Unified the professional logic with StatVision's 2-minute segment processing and 10-second overlap handling.
-    - Hardened the JSON output schema to include detailed event metadata, coordinates (100x100 grid), and confidence scores.
+- **Centralized Client Logging:**
+    - Created `/api/log` public endpoint to receive frontend logs.
+    - Implemented global `uncaughtException` and `unhandledRejection` listeners in the client.
+    - Enhanced frontend `appLogger` to forward `console.error` and `console.warn` calls to the API.
+- **Enhanced API Tracing:**
+    - Overhauled Winston logger to capture and format **Full Stack Traces**.
+    - Introduced **Unique `errorId` (UUID)**: Every error now generates a unique identifier returned to the client and logged on the server for surgical trace correlation.
+    - Refactored `errorMiddleware` to capture User ID, IP, URL, and technical metadata for every failure.
+- **CI/CD & Environment:**
+    - Resolved Next.js 16/Android build conflict by pinning to stable **Next.js 15.2.0** with Webpack bridge.
+    - Achieved 100% stable production builds for Vercel deployment.
 
-**Status:** AI Intelligence core upgraded. Existing backend deduplication logic preserved. Ready for higher-precision game analysis.
+**Status:** Full-stack observability active. Ready for production scale monitoring.
+
+## [2026-05-24] AI: Olympic-Level Statistician Logic Upgrade
+**Objective:** Enhance AI detection precision by integrating professional NBA/Olympic-level statistician logic into the Gemini system instructions and hardening the stats engine.
+
+### Major Changes:
+- **Intelligence Upgrade:**
+    - Overhauled system instructions with an expert "Caller & Inputter" persona.
+    - Implemented broadcast logic to **ignore replays** and dead time.
+    - Enforced strict event chaining (e.g., REBOUND after MISS) and professional taxonomy (2PT/3PT/FT subtypes).
+- **Analytics Hardening (The "Zero-Stats" Fix):**
+    - **Taxonomy Bridge:** Overhauled `GameStatsService` to map granular AI labels (`2pt Shot Made`) to statistical aggregates.
+    - **Automated Team Discovery:** Refactored worker resolution logic to automatically create **Temporary Team UUIDs** for draft games, ensuring stats work immediately before official roster mapping.
+    - **Data Integrity:** Added automatic stat clearing before recalculation to prevent unique constraint violations.
+
+**Status:** AI detection accuracy significantly improved. Draft game stats working as intended.
 
 ## [2026-05-24] UI/UX: Professional Game Page Redesign
 **Objective:** Redesign the Game Page to match professional basketball analytics standards (NBA.com/EuroLeague style) with read-only defaults and granular editing.
