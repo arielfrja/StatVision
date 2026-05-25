@@ -16,7 +16,7 @@
     "@material/web": "^2.4.0",
     "axios": "^1.12.2",
     "eruda": "^3.4.3",
-    "next": "15.1.0",
+    "next": "15.2.0",
     "puppeteer-core": "^24.40.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
