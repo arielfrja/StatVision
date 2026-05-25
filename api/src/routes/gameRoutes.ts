@@ -240,6 +240,19 @@ export const gameRoutes = (
                 return res.status(404).json({ message: "Game not found or access denied." });
             }
 
+            // --- Robust Verification ---
+            // Extract the path from the URI (gs://bucket/path)
+            const remotePath = gcsUri.replace(/^gs:\/\/[^\/]+\//, '');
+            const fileExists = await storageProvider.exists(remotePath);
+
+            if (!fileExists) {
+                logger.warn(`Upload confirmation received for ${gameId}, but file is not yet visible in GCS: ${remotePath}`);
+                return res.status(202).json({ 
+                    status: 'PENDING_STORAGE', 
+                    message: "Cloud Storage is still finalizing the video. Please wait a moment..." 
+                });
+            }
+
             // Update game status and file path
             game.status = GameStatus.UPLOADED;
             game.filePath = gcsUri;
@@ -249,13 +262,16 @@ export const gameRoutes = (
             await queueOrchestrationTask(game.id, gcsUri, req.user.id);
 
             logger.info(`Video upload confirmed and Cloud Task created for game ${gameId}: ${gcsUri}`);
-            res.status(200).json({ message: "Upload confirmed. Analysis started.", game });
+            res.status(200).json({ 
+                status: 'SUCCESS',
+                message: "Upload confirmed. Analysis started.", 
+                game 
+            });
         } catch (error) {
             logger.error(`Error confirming upload for game ${gameId}:`, error);
             res.status(500).json({ message: "Internal server error." });
         }
     });
-
     router.get("/upload/status/:gameId", async (req, res) => {
         if (!req.user || !req.user.id) {
             return res.status(401).send("Unauthorized");

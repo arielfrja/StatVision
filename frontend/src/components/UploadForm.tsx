@@ -31,24 +31,21 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
     const [error, setError] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
     const [progressLabel, setProgressLabel] = useState('Initializing...');
-    const [status, setStatus] = useState<'READY' | 'UPLOADING' | 'ERROR' | 'COMPLETE'>('READY');
+    const [status, setStatus] = useState<'READY' | 'UPLOADING' | 'FINALIZING' | 'ERROR' | 'COMPLETE'>('READY');
     
-    // Persistence state to allow retries without creating new games
+    // Persistence state
     const [activeGameId, setActiveGameId] = useState<string | null>(initialGameId || null);
     const [activeUploadUrl, setActiveUploadUrl] = useState<string | null>(null);
     const [activeGcsUri, setActiveGcsUri] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
-        
-        // Auto-load from localStorage if we are in a session
         if (!activeGameId) {
             const savedId = localStorage.getItem('statvision_active_upload_id');
             if (savedId) setActiveGameId(savedId);
         }
     }, []);
 
-    // Effect to fetch details if we have an activeGameId but no URL
     useEffect(() => {
         const fetchExistingUpload = async () => {
             if (activeGameId && !activeUploadUrl && mounted) {
@@ -61,7 +58,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     const game: Game = gameResponse.data;
                     setGameName(game.name);
                     
-                    // If it was already finished, just complete it
                     if (game.status !== GameStatus.PENDING) {
                         setStatus('COMPLETE');
                         return;
@@ -91,6 +87,40 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             if (!gameName) {
                 setGameName(selectedFile.name.split('.')[0].replace(/[-_]/g, ' '));
             }
+        }
+    };
+
+    /**
+     * Intelligent Handshake: Polls the backend until GCS finalization is confirmed.
+     */
+    const finalizeIngestion = async (gameId: string, gcsUri: string, attempt = 1): Promise<boolean> => {
+        if (attempt > 10) return false;
+
+        try {
+            const token = await getAccessTokenSilently();
+            const response = await apiClient.post(`/${gameId}/upload-complete`, { gcsUri }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data.status === 'SUCCESS') {
+                return true;
+            }
+
+            // If pending storage, wait and retry
+            if (response.data.status === 'PENDING_STORAGE') {
+                setProgressLabel(`Cloud Finalization (Attempt ${attempt}/10)...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                return await finalizeIngestion(gameId, gcsUri, attempt + 1);
+            }
+
+            return false;
+        } catch (err) {
+            console.warn(`Finalization attempt ${attempt} failed:`, err);
+            if (attempt < 5) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return await finalizeIngestion(gameId, gcsUri, attempt + 1);
+            }
+            return false;
         }
     };
 
@@ -167,40 +197,32 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 } catch (e) {}
 
                 const chunkToUpload = file.slice(startByte);
-                try {
-                    await axios.put(uploadUrl!, chunkToUpload, {
-                        headers: { 
-                            'Content-Type': file.type || 'video/mp4',
-                            'Content-Range': `bytes ${startByte}-${file.size - 1}/${file.size}`
-                        },
-                        onUploadProgress: (p) => {
-                            if (p.total) {
-                                const totalUploaded = startByte + p.loaded;
-                                setProgress(Math.round((totalUploaded * 100) / file.size));
-                            }
+                await axios.put(uploadUrl!, chunkToUpload, {
+                    headers: { 
+                        'Content-Type': file.type || 'video/mp4',
+                        'Content-Range': `bytes ${startByte}-${file.size - 1}/${file.size}`
+                    },
+                    onUploadProgress: (p) => {
+                        if (p.total) {
+                            const totalUploaded = startByte + p.loaded;
+                            setProgress(Math.round((totalUploaded * 100) / file.size));
                         }
-                    });
-                } catch (putErr: any) {
-                    if (progress < 99) throw putErr;
-                }
+                    }
+                });
             }
 
-            // Step 4: Confirm Upload
-            setProgressLabel('Initializing AI analysis...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Step 4: Robust Confirm Handshake
+            setStatus('FINALIZING');
+            setProgressLabel('Confirming cloud persistence...');
+            
+            const success = await finalizeIngestion(gameId!, gcsUri!);
 
-            try {
-                await apiClient.post(`/games/${gameId}/upload-complete`, {
-                    gcsUri
-                }, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
+            if (success) {
                 localStorage.removeItem('statvision_active_upload_id');
                 setStatus('COMPLETE');
                 onUploadComplete();
-            } catch (confirmErr: any) {
-                setError('Verification failed. AI analysis may still start in the background.');
+            } else {
+                setError('Cloud finalization taking longer than expected. The analysis may still start shortly. Please check the dashboard in a moment.');
                 setStatus('ERROR');
             }
         } catch (err: any) {
@@ -232,7 +254,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             </div>
 
             <div className="space-y-6">
-                {/* File Picker */}
                 <div className={`relative border border-dashed rounded-md p-12 text-center transition-colors group ${file ? 'border-accent bg-accent/5' : 'border-border-main bg-primary-bg hover:border-tx-dim'}`}>
                     <input
                         type="file"
@@ -252,7 +273,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     </div>
                 </div>
 
-                {/* Optional Name */}
                 {/* @ts-ignore */}
                 <md-filled-text-field
                     label="Game Title"
@@ -264,7 +284,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 />
             </div>
 
-            {isProcessing && (
+            {(isProcessing || status === 'FINALIZING') && (
                 <div className="p-4 bg-surface-high rounded-md border border-border-main space-y-3">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-accent">{progressLabel}</span>
