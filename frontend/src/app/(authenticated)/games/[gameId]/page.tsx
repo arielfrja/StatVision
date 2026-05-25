@@ -286,9 +286,9 @@ function AnalysisPage() {
                             events={game.events || []} 
                             onRowClick={handleSeek} 
                             allPlayers={allPlayers} 
-                            onAssignPlayer={handleAssignPlayer}
+                            _onAssignPlayer={handleAssignPlayer}
                             onEditEvent={setSelectedEvent}
-                            onDeleteEvent={handleDeleteEvent}
+                            _onDeleteEvent={handleDeleteEvent}
                             homeTeamId={game.homeTeamId}
                         />
                     )}

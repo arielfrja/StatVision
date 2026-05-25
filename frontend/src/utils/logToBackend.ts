@@ -27,13 +27,12 @@ export const logToBackend = async (
     const context = getClientContext();
     const payload = {
         level,
-        message,
         url: context.url,
         timestamp: context.timestamp,
         userAgent: context.userAgent,
         ...(errorData instanceof Error 
-            ? { stack: errorData.stack, message: errorData.message } 
-            : { meta: errorData })
+            ? { stack: errorData.stack, message: errorData.message || message } 
+            : { message, meta: errorData })
     };
 
     try {
