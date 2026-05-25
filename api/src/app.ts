@@ -40,6 +40,8 @@ declare global {
     }
 }
 
+import logRoutes from './routes/logRoutes';
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -57,6 +59,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(loggingMiddleware);
+
+// Public route for client logs (must be before auth)
+app.use("/api/log", logRoutes);
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
