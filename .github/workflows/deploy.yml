@@ -12,7 +12,7 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/statsvision-477017/statvision-repo
   API_SERVICE: statvision-api
   WORKER_SERVICE: statvision-worker
-  GEMINI_MODEL_NAME: gemini-3-flash-preview
+  GEMINI_MODEL_NAME: ${{ vars.GEMINI_MODEL_NAME }}
   VIDEO_UPLOAD_TOPIC_NAME: video-upload-events
   CHUNK_ANALYSIS_TOPIC_NAME: chunk-analysis
   VIDEO_ANALYSIS_RESULTS_TOPIC_NAME: video-analysis-results
