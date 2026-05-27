@@ -12,7 +12,8 @@ import {
     Chunk, ChunkStatus, VideoAnalysisJobStatus, 
     IdentifiedPlayer, IdentifiedTeam, 
     IEventBus, IVideoAnalysisProvider,
-    Game, VideoAnalysisJob, IStorageProvider
+    Game, VideoAnalysisJob, IStorageProvider,
+    AiUsageService
 } from '@statvision/common';
 
 import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
@@ -32,6 +33,7 @@ export class ChunkProcessorWorker {
     private analysisProvider: IVideoAnalysisProvider;
     private eventProcessorService: EventProcessorService;
     private jobFinalizerService: JobFinalizerService;
+    private aiUsageService: AiUsageService;
     private logger = chunkLogger;
     private processingMode: string;
 
@@ -46,6 +48,7 @@ export class ChunkProcessorWorker {
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
         this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
+        this.aiUsageService = new AiUsageService(dataSource);
         this.processingMode = workerConfig.processingMode;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -184,6 +187,24 @@ export class ChunkProcessorWorker {
                 game.identityMode,
                 chatHistory
             );
+
+            // Record AI Usage
+            if (analysisResult.usageMetadata) {
+                await this.aiUsageService.recordTokenUsage(
+                    job.userId, 
+                    analysisResult.usageMetadata.totalTokenCount,
+                    workerConfig.geminiModelName, // Fixed property name
+                    chunk.id
+                ).catch(err => this.logger.warn(`Failed to record token usage: ${err.message}`));
+            }
+
+            // Record Video Usage (always record if analysis was attempted/successful)
+            // Assuming chunkDurationSeconds is the duration of the processed video
+            await this.aiUsageService.recordVideoUsage(
+                job.userId,
+                workerConfig.chunkDurationSeconds,
+                chunk.id
+            ).catch(err => this.logger.warn(`Failed to record video usage: ${err.message}`));
 
             const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(
                 analysisResult.events,

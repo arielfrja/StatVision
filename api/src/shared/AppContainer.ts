@@ -7,7 +7,8 @@ import {
     GamePlayerStatsRepository, UserRepository,
     AppError, User, Team, ILogger,
     PubSubEventBus, IEventBus,
-    GCSStorageProvider, LocalStorageProvider, IStorageProvider
+    GCSStorageProvider, LocalStorageProvider, IStorageProvider,
+    AiUsageService
 } from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
@@ -71,6 +72,7 @@ export class AppContainer {
         // Services
         const teamService = new TeamService(this.dataSource, commonLogger);
         const gameService = new GameService(this.dataSource, storageProvider);
+        const aiUsageService = new AiUsageService(this.dataSource);
         
         const gameStatsService = new GameStatsService(
             gameRepository,
@@ -92,6 +94,7 @@ export class AppContainer {
         this.services.set(GameStatsService.name, gameStatsService);
         this.services.set(GameAssignmentService.name, gameAssignmentService);
         this.services.set(GameAnalysisService.name, gameAnalysisService);
+        this.services.set(AiUsageService.name, aiUsageService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
 
         if (this.io) {

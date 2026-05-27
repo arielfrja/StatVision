@@ -8,3 +8,4 @@ export * from './PlayerTeamHistory';
 export * from './Team';
 export * from './User';
 export * from './VideoAnalysisJob';
+export * from './AiUsageRecord';

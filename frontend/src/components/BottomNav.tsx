@@ -12,6 +12,7 @@ const BottomNav = () => {
     { label: 'Games', icon: 'sports_basketball', path: '/games' },
     { label: 'Teams', icon: 'groups', path: '/teams' },
     { label: 'Stats', icon: 'leaderboard', path: '/stats' },
+    { label: 'Usage', icon: 'data_usage', path: '/usage' },
   ];
 
   return (

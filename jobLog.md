@@ -1,5 +1,29 @@
 # Job Log - StatVision
 
+## [2026-05-27] AI Usage Tracking & Resource Monitoring
+**Objective:** Implement a comprehensive system to track AI resource consumption (tokens and video duration) and visualize it for the user via a new dashboard.
+
+### Major Changes:
+- **Backend Usage Tracking:**
+    - Created `AiUsageRecord` entity and implemented a migration for the `ai_usage_records` table.
+    - Developed `AiUsageService` in `@statvision/common` to handle recording of tokens and video processing duration.
+    - Updated `GeminiProvider` to extract real-time usage metadata (prompt/candidate tokens) from the Gemini API response.
+    - Integrated tracking into `ChunkProcessorWorker`: Every analyzed chunk now automatically records token usage and video throughput seconds.
+- **API Layer Expansion:**
+    - Implemented `usageRoutes.ts` with `/usage/summary` and `/usage/daily` endpoints.
+    - Registered `AiUsageService` in the `AppContainer` for dependency-injected usage throughout the API.
+- **Frontend Dashboard:**
+    - Created a new **Usage Dashboard** (`/usage`) using `recharts` for interactive data visualization.
+    - Implemented **Area Charts** for daily token consumption and **Bar Charts** for video throughput.
+    - Integrated time period filtering (7d, 30d, 90d) and professional resource-monitoring UI.
+    - Updated `SideNav` and `BottomNav` with a new "Usage" entry using the `data_usage` icon.
+- **Validation:**
+    - Verified all services (`api`, `worker`, `common`, `frontend`) build successfully.
+    - Resolved React 19/Recharts SSR hydration conflicts using `isClient` checks.
+    - Confirmed 100% TypeScript compliance across the monorepo.
+
+**Status:** Implementation complete. All CI checks passing locally. Ready for deployment to the `test` branch.
+
 ## [2026-05-27] AI: Enforcing Environment-Driven Model Selection
 **Objective:** Hardening the AI configuration by removing hardcoded model defaults and enforcing strict environment variable usage.
 

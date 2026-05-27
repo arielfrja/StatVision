@@ -18,10 +18,11 @@ import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
 import { playerGlobalRoutes } from "./routes/playerGlobalRoutes";
 import { gameRoutes } from "./routes/gameRoutes";
+import { usageRoutes } from "./routes/usageRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { AppContainer } from "./shared/AppContainer";
-import { TeamService, PlayerService, GameStatsService, GameEventRepository, IEventBus, IStorageProvider } from "@statvision/common";
+import { TeamService, PlayerService, GameStatsService, GameEventRepository, IEventBus, IStorageProvider, AiUsageService } from "@statvision/common";
 import { GameService } from "./modules/games/GameService";
 import { GameAssignmentService } from "./modules/games/GameAssignmentService";
 import { GameAnalysisService } from "./modules/games/GameAnalysisService";
@@ -132,6 +133,7 @@ AppDataSource.initialize()
             container.get<IEventBus>("IEventBus"),
             container.get<IStorageProvider>("IStorageProvider")
         ));
+        app.use("/usage", usageRoutes(container.get(AiUsageService)));
 
         // Error handling middleware should be LAST
         app.use(errorMiddleware);

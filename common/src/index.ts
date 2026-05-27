@@ -8,6 +8,7 @@ export * from './core/entities/PlayerTeamHistory';
 export * from './core/entities/Team';
 export * from './core/entities/User';
 export * from './core/entities/VideoAnalysisJob';
+export * from './core/entities/AiUsageRecord';
 
 export * from './core/interfaces/ILogger';
 export * from './core/interfaces/IEventBus';
@@ -27,6 +28,7 @@ export * from './core/repositories/UserRepository';
 export * from './core/services/GameStatsService';
 export * from './core/services/PlayerService';
 export * from './core/services/TeamService';
+export * from './core/services/AiUsageService';
 
 export * from './infrastructure/GeminiProvider';
 export * from './infrastructure/PromptLoader';

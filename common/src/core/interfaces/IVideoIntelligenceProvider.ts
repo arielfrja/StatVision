@@ -7,9 +7,16 @@ export interface VideoChunkInfo {
     sequence: number;
 }
 
+export interface UsageMetadata {
+    promptTokenCount: number;
+    candidatesTokenCount: number;
+    totalTokenCount: number;
+}
+
 export interface AnalysisResult {
     events: any[];
     rawResponse: string;
+    usageMetadata?: UsageMetadata;
     updatedHistory?: any[];
     status?: 'fulfilled' | 'rejected';
     error?: any;

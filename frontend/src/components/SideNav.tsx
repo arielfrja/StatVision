@@ -15,6 +15,7 @@ const SideNav = () => {
     { label: 'Teams', icon: 'groups', path: '/teams' },
     { label: 'Players', icon: 'person', path: '/players' },
     { label: 'Analytics', icon: 'leaderboard', path: '/stats' },
+    { label: 'Usage', icon: 'data_usage', path: '/usage' },
   ];
 
   return (

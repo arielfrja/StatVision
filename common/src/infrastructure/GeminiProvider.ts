@@ -105,8 +105,14 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
 
             const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            const usageMetadata = result.usageMetadata ? {
+                promptTokenCount: result.usageMetadata.promptTokenCount || 0,
+                candidatesTokenCount: result.usageMetadata.candidatesTokenCount || 0,
+                totalTokenCount: result.usageMetadata.totalTokenCount || 0
+            } : undefined;
+
             if (!responseText) {
-                return { events: [], rawResponse: '', updatedHistory: contents };
+                return { events: [], rawResponse: '', updatedHistory: contents, usageMetadata };
             }
 
             const parsedResponse = JSON.parse(responseText.trim());
@@ -123,7 +129,8 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
             return {
                 events: parsedResponse.events || [],
                 rawResponse: responseText,
-                updatedHistory: updatedHistory
+                updatedHistory: updatedHistory,
+                usageMetadata
             };
 
         } finally {
