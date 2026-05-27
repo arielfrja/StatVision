@@ -1,5 +1,39 @@
 # Job Log - StatVision
 
+## [2026-05-27] AI: Enforcing Environment-Driven Model Selection
+**Objective:** Hardening the AI configuration by removing hardcoded model defaults and enforcing strict environment variable usage.
+
+### Major Changes:
+- **Configuration Hardening:**
+    - Updated `workerConfig.ts` to throw an explicit `MISSING_CONFIG` exception if the `GEMINI_MODEL_NAME` environment variable is not defined.
+    - Removed the fallback default (`gemini-3-flash-preview`) to ensure production environments always use intentionally selected models.
+- **Provider Refactoring:**
+    - Modified `GeminiProvider` in `@statvision/common` to remove the hardcoded default model name from the constructor.
+    - The `modelName` parameter is now mandatory, forcing all consumers to explicitly provide a model identifier.
+- **Validation:**
+    - Verified that `AnalysisProviderFactory` correctly passes the model name from the configuration.
+    - Successfully completed a full project build (`npm run master:build`) to ensure type safety and architectural consistency.
+
+**Status:** AI configuration is now fully environment-driven and robust against accidental fallback usage.
+
+## [2026-05-25] Ingestion Hardening & CI/CD Stability
+**Objective:** Resolve the 100% ingestion failure race condition and stabilize the CI/CD pipeline with strict TypeScript/Linting parity.
+
+### Major Changes:
+- **Robust Ingestion Handshake:**
+    - **Backend physical verification:** Overhauled `/:gameId/upload-complete` to verify file existence in GCS before finalizing. Added `PENDING_STORAGE` status for finalization latency.
+    - **Intelligent Polling:** Implemented a recursive retry loop in `UploadForm.tsx` that waits for cloud persistence with real-time user feedback ("Cloud Finalization (Attempt X/10)").
+- **Per-Game Recovery Logic:**
+    - **Surgical Retry:** Moved the ingestion retry action from a general UI to the individual game cards in the **Film Room**.
+    - **Resume Mode:** The `UploadForm` now supports a professional "Recovery Mode" that skips game creation and picks up strictly from the video streaming phase.
+- **CI/CD Stabilization:**
+    - **TypeScript Synchronization:** Fixed `AnalysisPage` vs `PlayByPlayFeed` prop mismatches (TS2322) and duplicate key errors in observability (TS2783).
+    - **Environment Parity:** Achieved 100% build pass by aligning local `npm run build` behavior with strict GitHub Actions linting/type-check rules.
+- **Observability Hardening:**
+    - Integrated unique **Error IDs** (UUIDs) across all middleware and client loggers for surgical trace correlation.
+
+**Status:** Ingestion engine 100% resilient. CI/CD workflows Green. Deployed to Vercel.
+
 ## [2026-05-25] Observability & Production Hardening
 **Objective:** Implement centralized logging and unique error tracing to monitor production stability and debug client-side failures.
 
