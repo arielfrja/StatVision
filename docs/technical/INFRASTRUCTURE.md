@@ -8,7 +8,7 @@ StatVision is an AI-powered basketball analytics platform currently transitionin
 - **Backend API:** Node.js/Express (TypeORM/PostgreSQL) on **Google Cloud Run**.
 - **Processing Worker:** Decoupled Node.js service on **Google Cloud Run** using FFmpeg.
 - **Messaging:** **GCP Pub/Sub** for asynchronous communication between API and Worker.
-- **AI Core:** **Google Gemini 3.1 Flash** (Vertex AI / Generative AI SDK) for video analysis.
+- **AI Core:** **Google Gemini 3 Flash** (gemini-3-flash-preview) for video analysis.
 - **Database:** **PostgreSQL** (Supabase).
 - **CI/CD:** **GitHub Actions** deploying on push to `main`.
 

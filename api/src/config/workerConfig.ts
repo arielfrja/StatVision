@@ -38,7 +38,13 @@ export const workerConfig = {
     ffmpegCrf: process.env.FFMPEG_CRF || '23',
 
     // Gemini API settings
-    geminiModelName: process.env.GEMINI_MODEL_NAME || 'gemini-3-flash-preview',
+    geminiModelName: (() => {
+        const name = process.env.GEMINI_MODEL_NAME;
+        if (!name) {
+            throw new Error('MISSING_CONFIG: GEMINI_MODEL_NAME environment variable is required.');
+        }
+        return name;
+    })(),
     geminiFilePollIntervalMs: parseInt(process.env.GEMINI_POLL_INTERVAL_MS || '5000', 10),
     geminiFilePollMaxRetries: parseInt(process.env.GEMINI_POLL_MAX_RETRIES || '200', 10), 
 

@@ -28,7 +28,7 @@ StatVision transforms raw game footage into professional-grade box scores and pl
 - **Frontend:** Next.js 15, TypeScript, Tailwind CSS, Material Web.
 - **Backend:** Node.js, Express, TypeORM, PostgreSQL (Supabase).
 - **Worker:** Node.js, FFmpeg, Google Cloud Pub/Sub.
-- **AI:** Google Gemini 3 (gemini-3.1-flash).
+- **AI:** Google Gemini 3 (gemini-3-flash-preview).
 
 ---
 

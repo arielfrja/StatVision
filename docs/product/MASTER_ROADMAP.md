@@ -11,7 +11,7 @@ This document tracks the high-level progress of the StatVision platform. It comb
 - [x] **Monorepo Consolidation:** Established `@statvision/common` library for shared logic between API and Worker.
 
 ## 🤖 Phase 2: AI Intelligence & Worker Resilience
-- [x] **Gemini 3 Integration:** Switched to `gemini-2.5-flash` for faster, more accurate analysis.
+- [x] **Gemini 3 Integration:** Switched to `gemini-3-flash-preview` for faster, more accurate analysis.
 - [x] **Chat-Based Sequential Analysis:** Implemented stateful chat sessions to maintain context across video chunks.
 - [x] **Atomic Chunk Results:** Moved results to temporary tables to prevent race conditions.
 - [x] **Authoritative Deduplication:** Transactional logic to ensure no duplicate events during chunk merging.
