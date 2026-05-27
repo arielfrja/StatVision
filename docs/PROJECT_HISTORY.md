@@ -80,10 +80,21 @@ This document provides a chronological record of every major step, decision, and
     - Implemented **Intelligent Recovery** with per-game retry actions and automated ingestion resumption.
 - **CI/CD Stabilization:**
     - Achieved 100% Green status on GitHub Actions by hardening type safety and aligning environment constraints.
-- **Data Integrity:**
-    - Resolved the critical "Zero-Stats" bug by implementing **Automated Team Discovery** for draft games.
+- **Data Integrity:** Resolved the critical "Zero-Stats" bug by implementing **Automated Team Discovery** for draft games.
+
+---
+
+## 🪙 PHASE 6: Expansion & Monetization
+### **Milestone: Resource Transparency (2026-05-27)**
+- **AI Infrastructure Tracking:** 
+    - Implemented real-time token tracking (prompt/candidate) for Gemini API calls.
+    - Automated recording of video processing duration (throughput).
+- **Transparency Dashboard:**
+    - Developed a dedicated **Usage Dashboard** with interactive charts.
+    - Integrated cost estimation to provide users with direct insights into AI infrastructure value.
 
 ---
 
 ## 🚀 CONTINUOUS LEDGER
-*For day-to-day updates and active sprint progress, refer to the root [jobLog.md](../jobLog.md).*
+    *For day-to-day updates and active sprint progress, refer to the root [jobLog.md](../jobLog.md).*
+

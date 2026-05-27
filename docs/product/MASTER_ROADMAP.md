@@ -39,10 +39,11 @@ This document tracks the high-level progress of the StatVision platform. It comb
 - [x] **Olympic-Level Intelligence:** Overhauled AI prompts to filter replays and use professional taxonomy.
 - [ ] **Automated Highlight Generator:** AI-powered "mixtape" creation from event timestamps.
 
-## 📈 Phase 6: Expansion & Monetization (FUTURE)
+## 📈 Phase 6: Expansion & Monetization (ACTIVE)
+- [x] **AI Resource Monitoring:** Tracking of tokens and video minutes with user-facing dashboard.
 - [ ] **Usage-Based Tiering:** Implement Free/Pro/Org subscription logic.
 - [ ] **"Park Legends" Leaderboard:** Community-wide stats and ELO-based rankings.
 - [ ] **Recruitment Marketplace:** Secure data sharing with scouts and coaches.
 
 ---
-*Last Updated: 2026-05-25*
+*Last Updated: 2026-05-27*

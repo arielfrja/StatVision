@@ -81,4 +81,17 @@ This manual documents the functional features of the StatVision platform that ha
 - **Metadata Context:** Every log entry includes technical context: IP address, User Agent, active URL, and the User ID of the affected account.
 
 ---
-*Next Chapter: [7. Multi-Tenant Workspaces] (In Development)*
+
+## 7. AI Resource Monitoring
+**Status:** 🟢 Production Ready
+**Description:** A transparent system for tracking and visualizing AI infrastructure consumption.
+
+### Features:
+- **Real-Time Token Tracking:** The system captures exact prompt and candidate token counts from the Gemini API for every video chunk analyzed.
+- **Throughput Visualization:** Interactive Area and Bar charts allow users to see their daily usage trends.
+- **Usage Summaries:** Global aggregates for tokens and total video minutes processed.
+- **Cost Estimation:** Real-time dollar estimates based on current AI model pricing to provide transparency on infrastructure costs.
+- **Flexible Time Ranges:** View usage data over 7-day, 30-day, or 90-day periods.
+
+---
+*Next Chapter: [8. Multi-Tenant Workspaces] (In Development)*
