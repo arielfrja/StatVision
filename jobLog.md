@@ -1,5 +1,24 @@
 # Job Log - StatVision
 
+## [2026-05-27] Ingestion: Resumable Video Chunking & Retry Logic
+**Objective:** Resolve the "restart from 0" issue in video ingestion by implementing stateful resumption of chunking and analysis.
+
+### Major Changes:
+- **Resumable Chunking Engine:**
+    - Updated `VideoChunkerService` to support a `startSequence` parameter. It now intelligently skips generating video chunks that are already recorded in the database.
+    - Modified `VideoOrchestratorService` to query for `existingChunks` before starting the slicing process. 
+    - The orchestrator now "jumps" to the next required chunk sequence, significantly reducing redundant compute and FFMPEG overhead during retries.
+- **Intelligent Queue Management:**
+    - Refactored `queueChunksForAnalysis` to only enqueue chunks with `PENDING` or `FAILED` status.
+    - This ensures that already analyzed chunks are not re-processed, respecting the Gemini API rate limits and reducing costs.
+- **Frontend/Storage Alignment:**
+    - Verified that `GCSStorageProvider` and `UploadForm.tsx` correctly implement the GCS Resumable Upload protocol, allowing byte-level resumption of the raw video stream.
+- **Validation:**
+    - Confirmed that the `worker` service builds successfully with the new resume logic.
+    - Verified architectural consistency with the existing Cloud Tasks orchestration model.
+
+**Status:** Ingestion engine is now fully stateful. Retries will resume from the point of failure rather than restarting. Ready for deployment to the `test` branch.
+
 ## [2026-05-27] AI Usage Tracking & Resource Monitoring
 **Objective:** Implement a comprehensive system to track AI resource consumption (tokens and video duration) and visualize it for the user via a new dashboard.
 

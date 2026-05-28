@@ -15,6 +15,11 @@ import * as fs from 'fs';
 import { DataSource, Repository } from 'typeorm';
 import { ChunkRepository } from './ChunkRepository';
 
+import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
+import { JobFinalizerService } from './JobFinalizerService';
+
+import { GameStatsService, GameRepository, GameTeamStatsRepository, GamePlayerStatsRepository } from '@statvision/common';
+
 const VIDEO_UPLOAD_SUBSCRIPTION_NAME = process.env.VIDEO_UPLOAD_SUBSCRIPTION_NAME || 'video-upload-events-sub';
 const CHUNK_ANALYSIS_TOPIC_NAME = process.env.CHUNK_ANALYSIS_TOPIC_NAME || 'chunk-analysis';
 
@@ -29,6 +34,8 @@ export class VideoOrchestratorService {
     private gameRepository: Repository<Game>;
     private chunkRepository: ChunkRepository;
     private videoChunkerService: VideoChunkerService;
+    private jobFinalizerService: JobFinalizerService;
+    private videoAnalysisResultService: VideoAnalysisResultService;
     private tasksClient: CloudTasksClient;
     private jobLogger = jobLogger;
     private chunkLogger = chunkLogger;
@@ -44,6 +51,26 @@ export class VideoOrchestratorService {
         this.gameRepository = dataSource.getRepository(Game);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.videoChunkerService = new VideoChunkerService();
+        
+        const gRepo = new GameRepository(dataSource, jobLogger);
+        const tsRepo = new GameTeamStatsRepository(dataSource);
+        const psRepo = new GamePlayerStatsRepository(dataSource);
+        const gameStatsService = new GameStatsService(gRepo, tsRepo, psRepo, jobLogger);
+
+        this.videoAnalysisResultService = new VideoAnalysisResultService(
+            dataSource, 
+            jobLogger, 
+            gameStatsService, 
+            eventBus
+        );
+
+        this.jobFinalizerService = new JobFinalizerService(
+            dataSource, 
+            eventBus, 
+            progressManager, 
+            storageProvider,
+            this.videoAnalysisResultService
+        );
         this.tasksClient = new CloudTasksClient();
         this.processingMode = workerConfig.processingMode;
     }
@@ -135,23 +162,31 @@ export class VideoOrchestratorService {
             await this.progressManager.addJob(savedJob.id, 100, gameId);
             await this.progressManager.updateDetails(savedJob.id, 'Initializing chunking...', 'CHUNKING');
 
+            const existingChunks = await this.chunkRepository.findByJobId(savedJob.id);
+            const startSequence = existingChunks.length;
+            if (startSequence > 0) {
+                this.jobLogger.info(`[ORCHESTRATOR] Resuming chunking for job ${savedJob.id} from sequence ${startSequence}`, { phase: 'orchestration' });
+            }
+
             const tempDir = path.dirname(localVideoPath);
-            const chunks = await this.videoChunkerService.chunkVideo(
+            const { chunks, totalChunks } = await this.videoChunkerService.chunkVideo(
                 localVideoPath, 
                 tempDir, 
                 workerConfig.chunkDurationSeconds, 
                 workerConfig.chunkOverlapSeconds, 
                 savedJob.id,
-                this.progressManager
+                this.progressManager,
+                startSequence
             );
-            this.jobLogger.info(`[SLICER_SUCCESS] 📁 Video sliced into ${chunks.length} chunks | Job: ${savedJob.id}`, { 
+            this.jobLogger.info(`[SLICER_SUCCESS] 📁 Video sliced into ${chunks.length} new chunks | Total: ${totalChunks} | Job: ${savedJob.id}`, { 
                 phase: 'orchestration',
-                chunksCount: chunks.length
+                newChunksCount: chunks.length,
+                totalChunks
             });
 
-            await this.progressManager.setTotalChunks(savedJob.id, chunks.length);
+            await this.progressManager.setTotalChunks(savedJob.id, totalChunks);
 
-            const savedChunks = [];
+            const newlySavedChunks = [];
             for (const chunkData of chunks) {
                 const fileName = path.basename(chunkData.chunkPath);
                 const destinationPath = `chunks/${savedJob.id}/${fileName}`;
@@ -165,7 +200,7 @@ export class VideoOrchestratorService {
                 chunk.startTime = chunkData.startTime;
                 chunk.sequence = chunkData.sequence;
                 chunk.status = ChunkStatus.PENDING;
-                savedChunks.push(await this.chunkRepository.create(chunk));
+                newlySavedChunks.push(await this.chunkRepository.create(chunk));
 
                 // Cleanup local chunk file
                 try {
@@ -176,12 +211,24 @@ export class VideoOrchestratorService {
             }
 
             // Update with actual chunk count
-            await this.jobRepository.update(savedJob.id, { totalChunks: chunks.length });
-            await this.gameRepository.update(gameId, { totalChunks: chunks.length });
+            await this.jobRepository.update(savedJob.id, { totalChunks });
+            await this.gameRepository.update(gameId, { totalChunks });
             
-            await this.progressManager.updateJob(savedJob.id, 0, 'Chunking complete. Starting analysis.', 'ANALYZING');
+            await this.progressManager.updateJob(savedJob.id, startSequence + chunks.length, 'Chunking complete. Starting analysis.', 'ANALYZING');
 
-            await this.queueChunksForAnalysis(savedJob.id, savedChunks.map(c => c.id));
+            // Queue all chunks that need analysis (including those that were already there)
+            const allChunksForJob = await this.chunkRepository.findByJobId(savedJob.id);
+            const chunkIdsToAnalyze = allChunksForJob
+                .filter(c => c.status === ChunkStatus.PENDING || c.status === ChunkStatus.FAILED)
+                .map(c => c.id);
+
+            if (chunkIdsToAnalyze.length > 0) {
+                await this.queueChunksForAnalysis(savedJob.id, chunkIdsToAnalyze);
+            } else {
+                // If all chunks are already completed or being processed, try to finalize the job
+                this.jobLogger.info(`[ORCHESTRATOR] All chunks for job ${savedJob.id} are already being handled. Triggering finalization check.`, { phase: 'orchestration' });
+                await this.jobFinalizerService.finalizeJob(savedJob.id);
+            }
 
             // Cleanup local source video if it was downloaded
             if (filePath.startsWith('gs://') && fs.existsSync(localVideoPath)) {

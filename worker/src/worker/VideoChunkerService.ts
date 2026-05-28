@@ -17,6 +17,11 @@ export interface VideoMetadata {
     frameRate: number;
 }
 
+export interface VideoChunkerResult {
+    chunks: VideoChunk[];
+    totalChunks: number;
+}
+
 export class VideoChunkerService {
 
     public async getVideoMetadata(filePath: string): Promise<VideoMetadata> {
@@ -94,9 +99,10 @@ export class VideoChunkerService {
         chunkDuration: number,
         overlap: number,
         jobId: string,
-        progressManager: ProgressManager
-    ): Promise<VideoChunk[]> {
-        chunkLogger.info(`[VideoChunkerService] Starting to chunk video: ${filePath}`, { phase: 'chunking' });
+        progressManager: ProgressManager,
+        startSequence: number = 0
+    ): Promise<VideoChunkerResult> {
+        chunkLogger.info(`[VideoChunkerService] Starting to chunk video: ${filePath} from sequence ${startSequence}`, { phase: 'chunking' });
         const metadata = await this.getVideoMetadata(filePath);
         const totalDuration = metadata.duration;
         const frameRate = metadata.frameRate;
@@ -120,6 +126,13 @@ export class VideoChunkerService {
                  break;
             }
             
+            if (sequence < startSequence) {
+                chunkLogger.debug(`[VideoChunkerService] Skipping chunk ${sequence + 1} (already processed)`, { phase: 'chunking' });
+                startTime += step;
+                sequence++;
+                continue;
+            }
+
             chunkLogger.info(`[VideoChunkerService] Creating chunk ${sequence + 1} of approx ${totalChunks}`, { phase: 'chunking' });
 
             const chunkPath = await this.createSingleChunk(
@@ -144,8 +157,8 @@ export class VideoChunkerService {
             sequence++;
         }
 
-        chunkLogger.info(`[VideoChunkerService] Finished chunking video. Created ${chunks.length} chunks.`, { phase: 'chunking' });
-        return chunks;
+        chunkLogger.info(`[VideoChunkerService] Finished chunking video. Created ${chunks.length} new chunks out of ${totalChunks} total.`, { phase: 'chunking' });
+        return { chunks, totalChunks };
     }
 
     public async createSingleChunk(
