@@ -43,7 +43,8 @@ jobs:
           else
             echo "ENV_SUFFIX=" >> $GITHUB_ENV
             echo "MAX_INSTANCES=10" >> $GITHUB_ENV
-            echo "DB_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+            # Use same DB as dev for now
+            echo "DB_URL=${{ secrets.TEST_DATABASE_URL }}" >> $GITHUB_ENV
           fi
 
       - name: Google Auth
