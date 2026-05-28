@@ -58,6 +58,7 @@ jobs:
         run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
       - name: Run Database Migrations
+        if: github.ref == 'refs/heads/test'
         run: npm run migrate:run
         env:
           DATABASE_URL: ${{ env.DB_URL }}
