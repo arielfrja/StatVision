@@ -241,13 +241,25 @@ export class JobFinalizerService {
 
             // 1. Calculate Total AI Usage
             const usageRecords = await this.dataSource.query(
-                `SELECT SUM(amount) as total FROM ai_usage_records WHERE resource_id IN 
+                `SELECT amount, created_at FROM ai_usage_records WHERE resource_id IN 
                 (SELECT id::text FROM worker_video_analysis_chunks WHERE job_id = $1)
                 AND type = 'TOKEN'`, 
                 [jobId]
             );
-            const totalTokens = parseInt(usageRecords[0]?.total || '0', 10);
-            this.logger.info(`[JOB_FINAL] Total AI Tokens consumed for entire game: ${totalTokens}`, { phase: 'finalizing', totalTokens });
+            
+            const totalTokens = usageRecords.reduce((sum: number, r: any) => sum + r.amount, 0);
+            
+            // Calculate rate (demo video is ~15 mins, but let's be precise if we have metadata)
+            const metadata = await this.videoChunkerService.getVideoMetadata(job.filePath).catch(() => ({ duration: 900 }));
+            const durationMins = metadata.duration / 60;
+            const tokensPerMin = totalTokens / durationMins;
+
+            this.logger.info(`[JOB_FINAL] 📊 AI USAGE SUMMARY for Job ${jobId}:`, {
+                totalTokens,
+                videoDuration: `${metadata.duration.toFixed(2)}s`,
+                tokensPerMinute: tokensPerMin.toFixed(2),
+                phase: 'finalizing'
+            });
 
             // 2. Update Game Status
             const gameRepository = this.dataSource.getRepository(Game);
