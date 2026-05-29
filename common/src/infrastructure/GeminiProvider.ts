@@ -167,8 +167,8 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
     }
 
     private async waitForFileActive(name: string): Promise<void> {
-        const pollInterval = 5000; // 5 seconds
-        const maxRetries = 30; // 2.5 minutes
+        const pollInterval = 10000; // 10 seconds
+        const maxRetries = 60; // 10 minutes
         
         for (let i = 0; i < maxRetries; i++) {
             const file = await this.genAI.files.get({ name });
