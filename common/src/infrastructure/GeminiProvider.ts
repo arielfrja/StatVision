@@ -88,14 +88,19 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 
             // --- USE VIDEOMETADATA OFFSETS ---
             const videoFps = parseInt(process.env.ANALYSIS_FPS || '1', 10);
+            
+            // Fallback for endTime if not provided (assume 120s chunk if missing)
+            const finalEndTime = endTime || (startTime + 120);
+
             const currentTurn = {
                 role: "user",
                 parts: [
                     { 
                         fileData: { mimeType: 'video/mp4', fileUri: finalFileUri },
                         videoMetadata: {
-                            startOffset: `${startTime}s`,
-                            endOffset: `${endTime}s`,
+                            // Using numbers instead of strings to avoid Protobuf parsing issues
+                            startOffset: startTime, 
+                            endOffset: finalEndTime,
                             fps: videoFps
                         }
                     } as any,
