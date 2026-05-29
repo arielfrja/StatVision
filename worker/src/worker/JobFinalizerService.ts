@@ -1,6 +1,10 @@
 import { ProgressManager } from './ProgressManager';
 import { DataSource } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus, IStorageProvider, IVideoIntelligenceProvider } from "@statvision/common";
+import { 
+    VideoAnalysisJob, VideoAnalysisJobStatus, 
+    IStorageProvider, IVideoIntelligenceProvider,
+    Game, GameStatus 
+} from "@statvision/common";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { ChunkRepository } from "./ChunkRepository";
 import { ChunkStatus } from "@statvision/common";
@@ -216,53 +220,74 @@ export class JobFinalizerService {
                 });
             }
 
-            // Clean up only the chunk files that were successfully processed
-            const completedChunksList = chunks.filter(c => c.status === ChunkStatus.COMPLETED);
-            const chunkPathsToClean = completedChunksList.map(c => c.chunkPath);
-            this.logger.info(`[JobFinalizerService] Cleaning up ${chunkPathsToClean.length} completed chunk files for job ${jobId}.`, { phase: 'finalizing' });
-            
-            for (const chunkPath of chunkPathsToClean) {
-                try {
-                    // Only delete if it's NOT the main video file (starts with /videos/)
-                    // In VIRTUAL mode, many chunks point to the same main video.
-                    // We only want to delete the main video once.
-                    if (chunkPath.startsWith('gs://')) {
-                        if (this.storageProvider && !chunkPath.includes('/videos/')) {
-                            const uriParts = chunkPath.split('/');
-                            const remotePath = uriParts.slice(3).join('/');
-                            await this.storageProvider.deleteFile(remotePath);
-                        }
-                    } else if (fs.existsSync(chunkPath) && !chunkPath.includes(jobId)) {
-                        // Avoid deleting the local cache video here, we do it below
-                        await fs.promises.unlink(chunkPath);
-                    }
-                } catch (err) {
-                    this.logger.warn(`[JobFinalizerService] Failed to cleanup chunk ${chunkPath}`, { error: err });
-                }
-            }
+            // --- EXECUTE FINAL LIFECYCLE EVENT ---
+            await this.onJobFinal(jobId, finalStatus);
 
-            // --- NEW: Cleanup Gemini File ---
+        } else {
+            this.logger.info(`[JobFinalizerService] Job ${jobId} is not yet in a terminal state. Waiting for more chunks to complete.`, { phase: 'finalizing' });
+        }
+    }
+
+    /**
+     * The absolute final step of the job lifecycle.
+     * Called only once when all chunks are verified as terminal.
+     */
+    private async onJobFinal(jobId: string, status: VideoAnalysisJobStatus): Promise<void> {
+        this.logger.info(`[JOB_FINAL] 🏁 Starting total finalization for job ${jobId} with status ${status}`, { phase: 'finalizing' });
+
+        try {
+            const job = await this.jobRepository.findOneById(jobId);
+            if (!job) return;
+
+            // 1. Calculate Total AI Usage
+            const usageRecords = await this.dataSource.query(
+                `SELECT SUM(amount) as total FROM ai_usage_records WHERE resource_id IN 
+                (SELECT id::text FROM worker_video_analysis_chunks WHERE job_id = $1)
+                AND type = 'TOKEN'`, 
+                [jobId]
+            );
+            const totalTokens = parseInt(usageRecords[0]?.total || '0', 10);
+            this.logger.info(`[JOB_FINAL] Total AI Tokens consumed for entire game: ${totalTokens}`, { phase: 'finalizing', totalTokens });
+
+            // 2. Update Game Status
+            const gameRepository = this.dataSource.getRepository(Game);
+            await gameRepository.update(job.gameId, { 
+                status: status === VideoAnalysisJobStatus.COMPLETED ? GameStatus.COMPLETED : GameStatus.FAILED 
+            });
+
+            // 3. Resource Cleanup (Sanitization Phase)
+            this.logger.info(`[JOB_FINAL] Starting resource sanitization...`, { phase: 'finalizing' });
+
+            // Cleanup Gemini File API session
             if (job.geminiFileName && this.analysisProvider) {
-                this.logger.info(`[JobFinalizerService] Cleaning up Gemini File: ${job.geminiFileName}`, { phase: 'finalizing' });
+                this.logger.info(`[JOB_FINAL] Deleting Gemini File session: ${job.geminiFileName}`, { phase: 'finalizing' });
                 await this.analysisProvider.deleteFile(job.geminiFileName).catch(err => 
-                    this.logger.warn(`Failed to cleanup Gemini file ${job.geminiFileName}`, { error: err })
+                    this.logger.warn(`Failed to cleanup Gemini file session ${job.geminiFileName}`, { error: err })
                 );
             }
 
-            // --- NEW: Cleanup Local Job Cache ---
+            // Cleanup Cloud Storage (GCS) - Main Video (Final step, once everything is analyzed)
+            if (this.storageProvider && job.filePath.startsWith('gs://')) {
+                const uriParts = job.filePath.split('/');
+                const remotePath = uriParts.slice(3).join('/');
+                this.logger.info(`[JOB_FINAL] Deleting source video from GCS: ${remotePath}`, { phase: 'finalizing' });
+                await this.storageProvider.deleteFile(remotePath).catch(err =>
+                    this.logger.warn(`Failed to delete source video ${remotePath}`, { error: err })
+                );
+            }
+
+            // Cleanup Local Worker Cache
             const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
             const workerJobDir = path.join(tempBaseDir, jobId);
             if (fs.existsSync(workerJobDir)) {
-                this.logger.info(`[JobFinalizerService] Cleaning up local job directory: ${workerJobDir}`, { phase: 'finalizing' });
-                try {
-                    // Use recursive rm
-                    fs.rmSync(workerJobDir, { recursive: true, force: true });
-                } catch (err) {
-                    this.logger.warn(`Failed to cleanup local job directory ${workerJobDir}`, { error: err });
-                }
+                this.logger.info(`[JOB_FINAL] Purging local job cache directory: ${workerJobDir}`, { phase: 'finalizing' });
+                fs.rmSync(workerJobDir, { recursive: true, force: true });
             }
-        } else {
-            this.logger.info(`[JobFinalizerService] Job ${jobId} is not yet in a terminal state. Waiting for more chunks to complete.`, { phase: 'finalizing' });
+
+            this.logger.info(`[JOB_FINAL] ✅ Finalization complete for job ${jobId}. User updated and resources purged.`, { phase: 'finalizing' });
+
+        } catch (error: any) {
+            this.logger.error(`[JOB_FINAL] ❌ Critical error during finalization: ${error.message}`, { error, phase: 'finalizing' });
         }
     }
 
