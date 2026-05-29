@@ -8,6 +8,7 @@ import { chunkLogger } from '../config/loggers';
 export interface VideoChunk {
     chunkPath: string;
     startTime: number;
+    endTime: number;
     sequence: number;
     totalChunks?: number;
 }
@@ -93,6 +94,47 @@ export class VideoChunkerService {
         });
     }
 
+    public async generateVirtualChunks(
+        filePath: string,
+        chunkDuration: number,
+        overlap: number,
+        startSequence: number = 0
+    ): Promise<VideoChunkerResult> {
+        chunkLogger.info(`[VideoChunkerService] Generating virtual chunks for: ${filePath} from sequence ${startSequence}`, { phase: 'chunking' });
+        const metadata = await this.getVideoMetadata(filePath);
+        const totalDuration = metadata.duration;
+
+        const chunks: VideoChunk[] = [];
+        let startTime = 0;
+        let sequence = 0;
+
+        const step = chunkDuration - overlap;
+        const totalChunks = Math.ceil((totalDuration > overlap ? totalDuration - overlap : totalDuration) / step);
+
+        while (startTime < totalDuration) {
+            const currentChunkDuration = Math.min(chunkDuration, totalDuration - startTime);
+            const endTime = startTime + currentChunkDuration;
+
+            if (currentChunkDuration < overlap && sequence > 0) {
+                 break;
+            }
+            
+            if (sequence >= startSequence) {
+                chunks.push({
+                    chunkPath: filePath, // Use original file path
+                    startTime,
+                    endTime,
+                    sequence,
+                });
+            }
+
+            startTime += step;
+            sequence++;
+        }
+
+        return { chunks, totalChunks };
+    }
+
     public async chunkVideo(
         filePath: string,
         tempDir: string,
@@ -166,16 +208,17 @@ export class VideoChunkerService {
                     return {
                         chunkPath,
                         startTime: def.startTime,
+                        endTime: def.startTime + def.duration,
                         sequence: def.sequence,
                     };
-                }));
+                    }));
 
-                chunks.push(...results);
-            }
-        } else {
-            chunkLogger.info(`[VideoChunkerService] Slicing in SEQUENTIAL mode`, { phase: 'chunking' });
-            for (const def of chunkDefinitions) {
-                const chunkPath = await this.createSingleChunk(
+                    chunks.push(...results);
+                    }
+                    } else {
+                    chunkLogger.info(`[VideoChunkerService] Slicing in SEQUENTIAL mode`, { phase: 'chunking' });
+                    for (const def of chunkDefinitions) {
+                    const chunkPath = await this.createSingleChunk(
                     filePath,
                     tempDir,
                     def.startTime,
@@ -185,16 +228,16 @@ export class VideoChunkerService {
                     frameRate,
                     jobId,
                     progressManager
-                );
+                    );
 
-                chunks.push({
+                    chunks.push({
                     chunkPath,
                     startTime: def.startTime,
+                    endTime: def.startTime + def.duration,
                     sequence: def.sequence,
-                });
-            }
-        }
-
+                    });
+                    }
+                    }
         chunkLogger.info(`[VideoChunkerService] Finished chunking video. Created ${chunks.length} new chunks out of ${totalChunks} total.`, { phase: 'chunking' });
         return { chunks, totalChunks };
     }

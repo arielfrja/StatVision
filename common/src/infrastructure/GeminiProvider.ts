@@ -26,8 +26,8 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
         identityMode: IdentityMode = IdentityMode.JERSEY_COLORS,
         chatHistory: any[] = []
     ): Promise<AnalysisResult> {
-        const { chunkPath } = chunk;
-        this.logger?.info(`[GeminiProvider] Starting chat-mode analysis for ${chunkPath}`, { 
+        const { chunkPath, startTime, endTime, fileUri, fileName: existingFileName } = chunk;
+        this.logger?.info(`[GeminiProvider] Starting analysis for ${chunkPath} (Offset: ${startTime}s - ${endTime}s)`, { 
             phase: 'analyzing', 
             gameType, 
             identityMode,
@@ -35,23 +35,27 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
         });
 
         let uploadedFileName: string | null = null;
+        let finalFileUri = fileUri;
 
         try {
-            // 1. Upload File
-            const uploadResponse = await this.genAI.files.upload({
-                file: chunkPath,
-                config: { mimeType: 'video/mp4' }
-            });
-            const fileName = uploadResponse.name;
-            if (!fileName) {
-                throw new Error("File upload failed: No filename returned from Gemini API");
-            }
-            uploadedFileName = fileName;
+            // 1. Upload File (if not already provided)
+            if (!finalFileUri) {
+                const uploadResponse = await this.genAI.files.upload({
+                    file: chunkPath,
+                    config: { mimeType: 'video/mp4' }
+                });
+                const fileName = uploadResponse.name;
+                if (!fileName) {
+                    throw new Error("File upload failed: No filename returned from Gemini API");
+                }
+                uploadedFileName = fileName;
 
-            // 2. Poll for ACTIVE state
-            await this.waitForFileActive(fileName);
-            
-            const file = await this.genAI.files.get({ name: fileName });
+                // 2. Poll for ACTIVE state
+                await this.waitForFileActive(fileName);
+                
+                const file = await this.genAI.files.get({ name: fileName });
+                finalFileUri = file.uri;
+            }
 
             // 3. Build Multi-turn Conversation using PromptLoader
             const formatInstructions = PromptLoader.getRulesetInstruction(gameType);
@@ -82,10 +86,19 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
                 userPrompt += `\n\n### KNOWN PLAYERS:\n${JSON.stringify(knownPlayers, null, 2)}`;
             }
 
+            // --- USE VIDEOMETADATA OFFSETS ---
+            const videoFps = parseInt(process.env.ANALYSIS_FPS || '1', 10);
             const currentTurn = {
                 role: "user",
                 parts: [
-                    { fileData: { mimeType: file.mimeType, fileUri: file.uri } },
+                    { 
+                        fileData: { mimeType: 'video/mp4', fileUri: finalFileUri },
+                        videoMetadata: {
+                            startOffset: `${startTime}s`,
+                            endOffset: `${endTime}s`,
+                            fps: videoFps
+                        }
+                    } as any,
                     { text: userPrompt }
                 ]
             };
@@ -130,16 +143,22 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
                 events: parsedResponse.events || [],
                 rawResponse: responseText,
                 updatedHistory: updatedHistory,
-                usageMetadata
+                usageMetadata,
+                fileUri: finalFileUri,
+                fileName: uploadedFileName || existingFileName
             };
 
-        } finally {
-            if (uploadedFileName) {
-                await this.genAI.files.delete({ name: uploadedFileName }).catch((err: any) => 
-                    this.logger?.error(`[GeminiProvider] Failed to delete file ${uploadedFileName}`, { err })
-                );
-            }
+        } catch (error: any) {
+            this.logger?.error(`[GeminiProvider] Analysis failed: ${error.message}`, { error });
+            throw error;
         }
+    }
+
+    public async deleteFile(fileName: string): Promise<void> {
+        this.logger?.info(`[GeminiProvider] Deleting file ${fileName}`, { phase: 'cleanup' });
+        await this.genAI.files.delete({ name: fileName }).catch((err: any) => 
+            this.logger?.error(`[GeminiProvider] Failed to delete file ${fileName}`, { err })
+        );
     }
 
     private async waitForFileActive(name: string): Promise<void> {

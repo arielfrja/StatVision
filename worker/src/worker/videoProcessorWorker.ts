@@ -3,9 +3,10 @@ import { CloudTasksClient } from '@google-cloud/tasks';
 import { workerConfig } from '../config/workerConfig';
 import { 
     VideoAnalysisJob, VideoAnalysisJobStatus, 
-    Chunk, ChunkStatus, IEventBus, IStorageProvider,
-    Game
-} from '@statvision/common';
+    Chunk, ChunkStatus, Game,
+    IEventBus, IStorageProvider, IVideoIntelligenceProvider
+} from "@statvision/common";
+
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
 import { VideoChunkerService, VideoChunk } from './VideoChunkerService';
 import { ProgressManager } from './ProgressManager';
@@ -45,7 +46,8 @@ export class VideoOrchestratorService {
         private dataSource: DataSource, 
         private eventBus: IEventBus,
         private progressManager: ProgressManager,
-        private storageProvider: IStorageProvider
+        private storageProvider: IStorageProvider,
+        private analysisProvider?: IVideoIntelligenceProvider
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.gameRepository = dataSource.getRepository(Game);
@@ -69,7 +71,8 @@ export class VideoOrchestratorService {
             eventBus, 
             progressManager, 
             storageProvider,
-            this.videoAnalysisResultService
+            this.videoAnalysisResultService,
+            analysisProvider
         );
         this.tasksClient = new CloudTasksClient();
         this.processingMode = workerConfig.processingMode;
@@ -169,48 +172,74 @@ export class VideoOrchestratorService {
             }
 
             const tempDir = path.dirname(localVideoPath);
-            const chunkingMode = process.env.CHUNKING_MODE || 'SEQUENTIAL';
+            const chunkingMode = (process.env.CHUNKING_MODE || 'SEQUENTIAL').toUpperCase();
             this.jobLogger.info(`[ORCHESTRATOR] Starting chunking for job ${savedJob.id} in ${chunkingMode} mode`, { phase: 'orchestration' });
 
-            const { chunks, totalChunks } = await this.videoChunkerService.chunkVideo(
-                localVideoPath, 
-                tempDir, 
-                workerConfig.chunkDurationSeconds, 
-                workerConfig.chunkOverlapSeconds, 
-                savedJob.id,
-                this.progressManager,
-                startSequence
-            );
-            this.jobLogger.info(`[SLICER_SUCCESS] 📁 Video sliced into ${chunks.length} new chunks | Total: ${totalChunks} | Job: ${savedJob.id}`, { 
+            let chunks: VideoChunk[] = [];
+            let totalChunks = 0;
+
+            if (chunkingMode === 'VIRTUAL') {
+                const result = await this.videoChunkerService.generateVirtualChunks(
+                    localVideoPath,
+                    workerConfig.chunkDurationSeconds,
+                    workerConfig.chunkOverlapSeconds,
+                    startSequence
+                );
+                chunks = result.chunks;
+                totalChunks = result.totalChunks;
+            } else {
+                const result = await this.videoChunkerService.chunkVideo(
+                    localVideoPath, 
+                    tempDir, 
+                    workerConfig.chunkDurationSeconds, 
+                    workerConfig.chunkOverlapSeconds, 
+                    savedJob.id,
+                    this.progressManager,
+                    startSequence
+                );
+                chunks = result.chunks;
+                totalChunks = result.totalChunks;
+            }
+
+            this.jobLogger.info(`[SLICER_SUCCESS] 📁 Video segmented into ${chunks.length} new chunks | Total: ${totalChunks} | Job: ${savedJob.id} | Mode: ${chunkingMode}`, { 
                 phase: 'orchestration',
                 newChunksCount: chunks.length,
-                totalChunks
+                totalChunks,
+                mode: chunkingMode
             });
 
             await this.progressManager.setTotalChunks(savedJob.id, totalChunks);
 
-            const newlySavedChunks = [];
             for (const chunkData of chunks) {
-                const fileName = path.basename(chunkData.chunkPath);
-                const destinationPath = `chunks/${savedJob.id}/${fileName}`;
-                
-                this.jobLogger.info(`[ORCHESTRATOR] Uploading chunk ${chunkData.sequence} to storage...`, { phase: 'orchestration' });
-                const storageUri = await this.storageProvider.uploadFile(chunkData.chunkPath, destinationPath);
+                let storageUri = chunkData.chunkPath;
+
+                // Only upload if it's a physical local chunk (not VIRTUAL mode)
+                if (chunkingMode !== 'VIRTUAL') {
+                    const fileName = path.basename(chunkData.chunkPath);
+                    const destinationPath = `chunks/${savedJob.id}/${fileName}`;
+                    this.jobLogger.info(`[ORCHESTRATOR] Uploading chunk ${chunkData.sequence} to storage...`, { phase: 'orchestration' });
+                    storageUri = await this.storageProvider.uploadFile(chunkData.chunkPath, destinationPath);
+                    
+                    // Cleanup local physical chunk file
+                    try {
+                        fs.unlinkSync(chunkData.chunkPath);
+                    } catch (err) {
+                        this.jobLogger.warn(`[ORCHESTRATOR] Failed to cleanup local chunk ${chunkData.chunkPath}`, { error: err });
+                    }
+                } else {
+                    // In VIRTUAL mode, storageUri is already the source path (GCS or local)
+                    // We prefer the original GCS path if it was a GCS upload
+                    storageUri = filePath;
+                }
 
                 const chunk = new Chunk();
                 chunk.jobId = savedJob.id;
                 chunk.chunkPath = storageUri;
                 chunk.startTime = chunkData.startTime;
+                chunk.endTime = chunkData.endTime;
                 chunk.sequence = chunkData.sequence;
                 chunk.status = ChunkStatus.PENDING;
-                newlySavedChunks.push(await this.chunkRepository.create(chunk));
-
-                // Cleanup local chunk file
-                try {
-                    fs.unlinkSync(chunkData.chunkPath);
-                } catch (err) {
-                    this.jobLogger.warn(`[ORCHESTRATOR] Failed to cleanup local chunk ${chunkData.chunkPath}`, { error: err });
-                }
+                await this.chunkRepository.create(chunk);
             }
 
             // Update with actual chunk count

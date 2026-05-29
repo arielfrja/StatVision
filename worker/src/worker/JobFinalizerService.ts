@@ -1,6 +1,6 @@
 import { ProgressManager } from './ProgressManager';
 import { DataSource } from "typeorm";
-import { VideoAnalysisJob, VideoAnalysisJobStatus, IStorageProvider } from "@statvision/common";
+import { VideoAnalysisJob, VideoAnalysisJobStatus, IStorageProvider, IVideoIntelligenceProvider } from "@statvision/common";
 import { VideoAnalysisJobRepository } from "./VideoAnalysisJobRepository";
 import { ChunkRepository } from "./ChunkRepository";
 import { ChunkStatus } from "@statvision/common";
@@ -9,6 +9,7 @@ import { VideoChunkerService } from "./VideoChunkerService";
 import { GameEvent, GameEventStatus, IEventBus } from '@statvision/common';
 import { VideoAnalysisResultService } from '../service/VideoAnalysisResultService';
 import * as fs from 'fs';
+import * as path from 'path';
 
 const VIDEO_ANALYSIS_RESULTS_TOPIC_NAME = process.env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME || 'video-analysis-results';
 
@@ -23,7 +24,8 @@ export class JobFinalizerService {
         private eventBus: IEventBus,
         private progressManager: ProgressManager,
         private storageProvider?: IStorageProvider,
-        private videoAnalysisResultService?: VideoAnalysisResultService
+        private videoAnalysisResultService?: VideoAnalysisResultService,
+        private analysisProvider?: IVideoIntelligenceProvider
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
@@ -215,23 +217,48 @@ export class JobFinalizerService {
             }
 
             // Clean up only the chunk files that were successfully processed
-            const completedChunks = chunks.filter(c => c.status === ChunkStatus.COMPLETED);
-            const chunkPathsToClean = completedChunks.map(c => c.chunkPath);
+            const completedChunksList = chunks.filter(c => c.status === ChunkStatus.COMPLETED);
+            const chunkPathsToClean = completedChunksList.map(c => c.chunkPath);
             this.logger.info(`[JobFinalizerService] Cleaning up ${chunkPathsToClean.length} completed chunk files for job ${jobId}.`, { phase: 'finalizing' });
             
             for (const chunkPath of chunkPathsToClean) {
                 try {
+                    // Only delete if it's NOT the main video file (starts with /videos/)
+                    // In VIRTUAL mode, many chunks point to the same main video.
+                    // We only want to delete the main video once.
                     if (chunkPath.startsWith('gs://')) {
-                        if (this.storageProvider) {
+                        if (this.storageProvider && !chunkPath.includes('/videos/')) {
                             const uriParts = chunkPath.split('/');
                             const remotePath = uriParts.slice(3).join('/');
                             await this.storageProvider.deleteFile(remotePath);
                         }
-                    } else if (fs.existsSync(chunkPath)) {
+                    } else if (fs.existsSync(chunkPath) && !chunkPath.includes(jobId)) {
+                        // Avoid deleting the local cache video here, we do it below
                         await fs.promises.unlink(chunkPath);
                     }
                 } catch (err) {
                     this.logger.warn(`[JobFinalizerService] Failed to cleanup chunk ${chunkPath}`, { error: err });
+                }
+            }
+
+            // --- NEW: Cleanup Gemini File ---
+            if (job.geminiFileName && this.analysisProvider) {
+                this.logger.info(`[JobFinalizerService] Cleaning up Gemini File: ${job.geminiFileName}`, { phase: 'finalizing' });
+                await this.analysisProvider.deleteFile(job.geminiFileName).catch(err => 
+                    this.logger.warn(`Failed to cleanup Gemini file ${job.geminiFileName}`, { error: err })
+                );
+            }
+
+            // --- NEW: Cleanup Local Job Cache ---
+            const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
+            const workerJobDir = path.join(tempBaseDir, jobId);
+            if (fs.existsSync(workerJobDir)) {
+                this.logger.info(`[JobFinalizerService] Cleaning up local job directory: ${workerJobDir}`, { phase: 'finalizing' });
+                try {
+                    // Use recursive rm
+                    fs.rmSync(workerJobDir, { recursive: true, force: true });
+                } catch (err) {
+                    this.logger.warn(`Failed to cleanup local job directory ${workerJobDir}`, { error: err });
                 }
             }
         } else {

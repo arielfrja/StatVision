@@ -65,6 +65,12 @@ export class VideoAnalysisJob {
     @Column({ name: "completed_chunks", type: "integer", default: 0 })
     completedChunks: number;
 
+    @Column({ name: "gemini_file_uri", type: "varchar", nullable: true })
+    geminiFileUri: string | null;
+
+    @Column({ name: "gemini_file_name", type: "varchar", nullable: true })
+    geminiFileName: string | null;
+
     @Column({ name: "processing_heartbeat_at", type: "timestamp with time zone", nullable: true })
     processingHeartbeatAt: Date | null;
 

@@ -4,7 +4,10 @@ import { GameType, IdentityMode } from "../entities/Game";
 export interface VideoChunkInfo {
     chunkPath: string;
     startTime: number;
+    endTime: number;
     sequence: number;
+    fileUri?: string;
+    fileName?: string;
 }
 
 export interface UsageMetadata {
@@ -20,6 +23,8 @@ export interface AnalysisResult {
     updatedHistory?: any[];
     status?: 'fulfilled' | 'rejected';
     error?: any;
+    fileUri?: string;
+    fileName?: string;
 }
 
 export interface AnalysisProviderResponse extends AnalysisResult {}
@@ -34,6 +39,8 @@ export interface IVideoIntelligenceProvider {
         identityMode?: IdentityMode,
         chatHistory?: any[]
     ): Promise<AnalysisResult>;
+
+    deleteFile(fileName: string): Promise<void>;
 }
 
 export interface IVideoAnalysisProvider extends IVideoIntelligenceProvider {

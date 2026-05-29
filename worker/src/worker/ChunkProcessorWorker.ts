@@ -12,7 +12,7 @@ import { workerConfig } from '../config/workerConfig';
 import { 
     Chunk, ChunkStatus, VideoAnalysisJobStatus, 
     IdentifiedPlayer, IdentifiedTeam, 
-    IEventBus, IVideoAnalysisProvider,
+    IEventBus, IVideoAnalysisProvider, IVideoIntelligenceProvider,
     Game, VideoAnalysisJob, IStorageProvider,
     AiUsageService
 } from '@statvision/common';
@@ -31,7 +31,6 @@ interface ChunkMessage {
 export class ChunkProcessorWorker {
     private jobRepository: VideoAnalysisJobRepository;
     private chunkRepository: ChunkRepository;
-    private analysisProvider: IVideoAnalysisProvider;
     private eventProcessorService: EventProcessorService;
     private jobFinalizerService: JobFinalizerService;
     private aiUsageService: AiUsageService;
@@ -43,20 +42,22 @@ export class ChunkProcessorWorker {
         private eventBus: IEventBus,
         private progressManager: ProgressManager,
         private storageProvider: IStorageProvider,
-        private videoAnalysisResultService?: VideoAnalysisResultService
+        private videoAnalysisResultService: VideoAnalysisResultService,
+        private analysisProvider: IVideoIntelligenceProvider
     ) {
         this.jobRepository = new VideoAnalysisJobRepository(dataSource);
         this.chunkRepository = new ChunkRepository(dataSource);
         this.eventProcessorService = new EventProcessorService();
-        this.jobFinalizerService = new JobFinalizerService(dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
+        this.jobFinalizerService = new JobFinalizerService(
+            dataSource, 
+            eventBus, 
+            progressManager, 
+            storageProvider, 
+            videoAnalysisResultService,
+            analysisProvider
+        );
         this.aiUsageService = new AiUsageService(dataSource);
         this.processingMode = workerConfig.processingMode;
-
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY environment variable not set!");
-        }
-        this.analysisProvider = AnalysisProviderFactory.createProvider(GEMINI_API_KEY);
     }
 
     public async startConsumingMessages(): Promise<void> {
@@ -124,22 +125,27 @@ export class ChunkProcessorWorker {
 
         try {
             // 1. Download if remote (starts with gs://)
-            if (chunk.chunkPath.startsWith('gs://')) {
-                const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
-                const workerJobDir = path.join(tempBaseDir, jobId, 'chunks');
-                if (!fs.existsSync(workerJobDir)) {
-                    fs.mkdirSync(workerJobDir, { recursive: true });
-                }
+            // NEW: Use Job-level cache to avoid 9x download of same file
+            const tempBaseDir = process.env.WORKER_TEMP_DIR || '/tmp/statvision';
+            const workerJobDir = path.join(tempBaseDir, jobId);
+            if (!fs.existsSync(workerJobDir)) {
+                fs.mkdirSync(workerJobDir, { recursive: true });
+            }
 
+            if (chunk.chunkPath.startsWith('gs://')) {
                 const fileName = path.basename(chunk.chunkPath);
                 localChunkPath = path.join(workerJobDir, fileName);
 
-                const uriParts = chunk.chunkPath.split('/');
-                const remotePath = uriParts.slice(3).join('/');
+                if (!fs.existsSync(localChunkPath)) {
+                    const uriParts = chunk.chunkPath.split('/');
+                    const remotePath = uriParts.slice(3).join('/');
 
-                this.logger.info(`[CHUNK_PROCESSOR] Downloading chunk from ${chunk.chunkPath} to ${localChunkPath}`, { phase: 'analyzing' });
-                await this.storageProvider.downloadFile(remotePath, localChunkPath);
-                isDownloaded = true;
+                    this.logger.info(`[CHUNK_PROCESSOR] Downloading source video from ${chunk.chunkPath} to ${localChunkPath}`, { phase: 'analyzing' });
+                    await this.storageProvider.downloadFile(remotePath, localChunkPath);
+                    isDownloaded = true;
+                } else {
+                    this.logger.debug(`[CHUNK_PROCESSOR] Reusing cached source video at ${localChunkPath}`, { phase: 'analyzing' });
+                }
             }
 
             const gameRepository = this.dataSource.getRepository(Game);
@@ -155,6 +161,7 @@ export class ChunkProcessorWorker {
             // Get chat history from previous chunks if in sequential mode
             let chatHistory: any[] = [];
             if (this.processingMode === 'sequential' && chunk.sequence > 0) {
+                // We could also pull from job.chatHistory directly if we decide to store it there
                 const previousChunks = await this.chunkRepository.find({
                     where: { jobId, status: ChunkStatus.COMPLETED },
                     order: { sequence: 'ASC' }
@@ -179,7 +186,10 @@ export class ChunkProcessorWorker {
                 {
                     chunkPath: localChunkPath,
                     startTime: chunk.startTime,
-                    sequence: chunk.sequence
+                    endTime: chunk.endTime, // Use the new endTime from DB
+                    sequence: chunk.sequence,
+                    fileUri: job.geminiFileUri || undefined, // Reuse existing upload if available
+                    fileName: job.geminiFileName || undefined
                 },
                 identifiedPlayers,
                 identifiedTeams,
@@ -188,6 +198,15 @@ export class ChunkProcessorWorker {
                 game.identityMode,
                 chatHistory
             );
+
+            // NEW: If this was the first upload, save the URI back to the job for subsequent turns
+            if (!job.geminiFileUri && analysisResult.fileUri) {
+                this.logger.info(`[CHUNK_PROCESSOR] First upload complete. Persisting Gemini File URI: ${analysisResult.fileUri}`, { phase: 'analyzing' });
+                await this.jobRepository.update(jobId, {
+                    geminiFileUri: analysisResult.fileUri,
+                    geminiFileName: analysisResult.fileName
+                });
+            }
 
             // Record AI Usage
             if (analysisResult.usageMetadata) {

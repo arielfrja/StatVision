@@ -30,6 +30,9 @@ export class Chunk {
     @Column({ name: "start_time", type: "float" })
     startTime: number;
 
+    @Column({ name: "end_time", type: "float", nullable: true })
+    endTime: number;
+
     @Column({ type: "integer" })
     sequence: number;
 

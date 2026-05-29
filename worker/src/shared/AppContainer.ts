@@ -16,6 +16,7 @@ import { JobFinalizerService } from "../worker/JobFinalizerService";
 import { VideoOrchestratorService } from "../worker/videoProcessorWorker";
 import { ChunkProcessorWorker } from "../worker/ChunkProcessorWorker";
 import { ProgressManager } from "../worker/ProgressManager";
+import { AnalysisProviderFactory } from "../worker/providers/AnalysisProviderFactory";
 
 export class AppContainer {
     private static instance: AppContainer;
@@ -54,6 +55,7 @@ export class AppContainer {
             );
         }
         this.services.set("IStorageProvider", storageProvider);
+
         // Repositories (Common)
         const userRepository = new UserRepository(this.dataSource, commonLogger);
         const teamRepository = new TeamRepository(this.dataSource.getRepository(Team), commonLogger);
@@ -70,6 +72,9 @@ export class AppContainer {
         // Progress Manager
         const progressManager = new ProgressManager(eventBus, videoAnalysisJobRepository);
 
+        // AI Provider
+        const analysisProvider = AnalysisProviderFactory.createProvider(process.env.GEMINI_API_KEY || '');
+
         // Services
         const teamService = new TeamService(this.dataSource, commonLogger);
         
@@ -82,9 +87,32 @@ export class AppContainer {
         
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, jobLogger, gameStatsService, eventBus);
-        const jobFinalizerService = new JobFinalizerService(this.dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
-        const videoOrchestratorService = new VideoOrchestratorService(this.dataSource, eventBus, progressManager, storageProvider);
-        const chunkProcessorWorker = new ChunkProcessorWorker(this.dataSource, eventBus, progressManager, storageProvider, videoAnalysisResultService);
+        
+        const jobFinalizerService = new JobFinalizerService(
+            this.dataSource, 
+            eventBus, 
+            progressManager, 
+            storageProvider, 
+            videoAnalysisResultService,
+            analysisProvider
+        );
+
+        const videoOrchestratorService = new VideoOrchestratorService(
+            this.dataSource, 
+            eventBus, 
+            progressManager, 
+            storageProvider,
+            analysisProvider
+        );
+
+        const chunkProcessorWorker = new ChunkProcessorWorker(
+            this.dataSource, 
+            eventBus, 
+            progressManager, 
+            storageProvider, 
+            videoAnalysisResultService,
+            analysisProvider
+        );
 
         // Registering services
         this.services.set(TeamService.name, teamService);
