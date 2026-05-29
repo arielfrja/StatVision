@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/.c4934285949044f97a7429783aa0ad600bda65f5-audit.json",
+    "files": [
+        {
+            "date": 1779955155457,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/combined-2026-05-28.log",
+            "hash": "620207e17ef0c1dfd267c94e6b7ce702f746a204f5d8f8a966c3d835b02f567c"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -8,16 +8,20 @@
     - Updated `VideoChunkerService` to support a `startSequence` parameter. It now intelligently skips generating video chunks that are already recorded in the database.
     - Modified `VideoOrchestratorService` to query for `existingChunks` before starting the slicing process. 
     - The orchestrator now "jumps" to the next required chunk sequence, significantly reducing redundant compute and FFMPEG overhead during retries.
+- **Architectural Correction: Hybrid Pipeline:**
+    - **Parallel Video Slicing:** Video processing (FFMPEG) remains parallel (controlled by `CHUNKING_MODE=PARALLEL` in production) to ensure fast ingestion of large files.
+    - **Strictly Sequential AI Analysis:** Refactored the AI phase to process chunks one-by-one. Each chunk completion now triggers the next one via a Cloud Tasks chain. This ensures the Gemini API maintains a consistent **multi-turn context**, passing previous results (player identities, team assignments) to subsequent chunks.
 - **Intelligent Queue Management:**
-    - Refactored `queueChunksForAnalysis` to only enqueue chunks with `PENDING` or `FAILED` status.
-    - This ensures that already analyzed chunks are not re-processed, respecting the Gemini API rate limits and reducing costs.
+    - Refactored `queueChunksForAnalysis` to only initiate the first pending chunk in the sequence.
+    - This respects the stateful nature of basketball analytics where visual continuity is required for accurate tracking.
 - **Frontend/Storage Alignment:**
     - Verified that `GCSStorageProvider` and `UploadForm.tsx` correctly implement the GCS Resumable Upload protocol, allowing byte-level resumption of the raw video stream.
-- **Validation:**
-    - Confirmed that the `worker` service builds successfully with the new resume logic.
-    - Verified architectural consistency with the existing Cloud Tasks orchestration model.
+- **Production Hardening:**
+    - Increased worker resources to **2 vCPU / 4GiB RAM** to handle concurrent FFmpeg processes.
+    - Extended Cloud Run timeout to **1 hour** for long video processing.
+    - Fixed production Pub/Sub resource syncing.
 
-**Status:** Ingestion engine is now fully stateful. Retries will resume from the point of failure rather than restarting. Ready for deployment to the `test` branch.
+**Status:** Ingestion engine is now stateful, high-performance, and logically consistent. Ready for final production verification.
 
 ## [2026-05-27] AI Usage Tracking & Resource Monitoring
 **Objective:** Implement a comprehensive system to track AI resource consumption (tokens and video duration) and visualize it for the user via a new dashboard.

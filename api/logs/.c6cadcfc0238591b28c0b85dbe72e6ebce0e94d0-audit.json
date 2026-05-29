@@ -6,21 +6,6 @@
     "auditLog": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/.c6cadcfc0238591b28c0b85dbe72e6ebce0e94d0-audit.json",
     "files": [
         {
-            "date": 1778394515707,
-            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-10.log",
-            "hash": "c9ddc4bbb915408c9b5dcef87e54a25efa535f01635472e6b236a05ed7fa7309"
-        },
-        {
-            "date": 1778472366555,
-            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-11.log",
-            "hash": "90ebf608cf32b5182b458722fe7b539337f09ab59319e1ca904f565c60993b27"
-        },
-        {
-            "date": 1778558902963,
-            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-12.log",
-            "hash": "b0881dc6d270dfc2e270ca399e345b09e204e198351dd335c5e7bf3e0d70b408"
-        },
-        {
             "date": 1778754012329,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-14.log",
             "hash": "572e182725fe0e1724980abda04ab32b84fbb1d86bd4aa42a25b9c51d44b7a36"
@@ -119,6 +104,11 @@
             "date": 1779362503836,
             "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-21.log",
             "hash": "6f3175aa84108f7fae4394bfcd973d2f3ce59ce53566a0cf4f30c0770ca11391"
+        },
+        {
+            "date": 1779955157364,
+            "name": "/data/data/com.termux/files/home/data/development/StatVision/api/logs/worker-job-2026-05-28.log",
+            "hash": "b37132f2d7e535acdff5e0c5669336dbf8c7e831379fb17fb55f0e5fd2696212"
         }
     ],
     "hashType": "sha256"

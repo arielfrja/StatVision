@@ -169,6 +169,9 @@ export class VideoOrchestratorService {
             }
 
             const tempDir = path.dirname(localVideoPath);
+            const chunkingMode = process.env.CHUNKING_MODE || 'SEQUENTIAL';
+            this.jobLogger.info(`[ORCHESTRATOR] Starting chunking for job ${savedJob.id} in ${chunkingMode} mode`, { phase: 'orchestration' });
+
             const { chunks, totalChunks } = await this.videoChunkerService.chunkVideo(
                 localVideoPath, 
                 tempDir, 
@@ -249,36 +252,40 @@ export class VideoOrchestratorService {
     }
 
     private async queueChunksForAnalysis(jobId: string, chunkIds: string[]): Promise<void> {
+        if (chunkIds.length === 0) return;
+
+        // ANALYSIS IS ALWAYS SEQUENTIAL (Multi-turn requirement)
+        // We only queue the FIRST chunk. Subsequent chunks are triggered by the worker upon completion.
+        const firstChunkId = chunkIds[0];
+        
         const parent = this.tasksClient.queuePath(
             workerConfig.cloudTasksProjectId,
             workerConfig.cloudTasksLocation,
             workerConfig.cloudTasksQueueName
         );
 
-        this.jobLogger.info(`[ORCHESTRATOR] Queuing ${chunkIds.length} chunks for Job ${jobId} via Cloud Tasks`, { phase: 'orchestration' });
+        this.jobLogger.info(`[ORCHESTRATOR] Initiating SEQUENTIAL analysis chain for Job ${jobId}. Starting with chunk ${firstChunkId}`, { phase: 'orchestration' });
 
-        for (const chunkId of chunkIds) {
-            const payload = { jobId, chunkId };
-            const task = {
-                dispatchTimeout: { seconds: 600 },
-                httpRequest: {
-                    httpMethod: 'POST' as const,
-                    url: workerConfig.analyzerUrl,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-                    oidcToken: {
-                        serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
-                    },
+        const payload = { jobId, chunkId: firstChunkId };
+        const task = {
+            dispatchTimeout: { seconds: 600 },
+            httpRequest: {
+                httpMethod: 'POST' as const,
+                url: workerConfig.analyzerUrl,
+                headers: { 'Content-Type': 'application/json' },
+                body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                oidcToken: {
+                    serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
                 },
-            };
+            },
+        };
 
-            try {
-                await this.tasksClient.createTask({ parent, task });
-                this.jobLogger.debug(`[ORCHESTRATOR] Created Cloud Task for chunk ${chunkId}`, { phase: 'orchestration' });
-            } catch (error: any) {
-                this.jobLogger.error(`[ORCHESTRATOR] Failed to create Cloud Task for chunk ${chunkId}`, { error, phase: 'orchestration' });
-                throw error;
-            }
+        try {
+            await this.tasksClient.createTask({ parent, task });
+            this.jobLogger.debug(`[ORCHESTRATOR] Created first analysis task in chain for chunk ${firstChunkId}`, { phase: 'orchestration' });
+        } catch (error: any) {
+            this.jobLogger.error(`[ORCHESTRATOR] Failed to initiate analysis chain`, { error, phase: 'orchestration' });
+            throw error;
         }
     }
 
@@ -306,10 +313,12 @@ export class VideoOrchestratorService {
 
                 const pendingChunkIds = chunks
                     .filter(c => c.status === ChunkStatus.PENDING || c.status === ChunkStatus.FAILED)
+                    .sort((a, b) => a.sequence - b.sequence)
                     .map(c => c.id);
                 
                 if (pendingChunkIds.length > 0) {
-                    await this.queueChunksForAnalysis(job.id, pendingChunkIds);
+                    this.jobLogger.info(`[ORCHESTRATOR] Resuming SEQUENTIAL analysis chain for job ${job.id}.`, { phase: 'orchestration' });
+                    await this.queueChunksForAnalysis(job.id, [pendingChunkIds[0]]);
                 }
             }
         }

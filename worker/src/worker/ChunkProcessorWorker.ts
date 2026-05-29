@@ -1,5 +1,6 @@
 import { ProgressManager } from './ProgressManager';
 import { Message } from '@google-cloud/pubsub';
+import { CloudTasksClient } from '@google-cloud/tasks';
 import { DataSource } from 'typeorm';
 import { chunkLogger } from '../config/loggers';
 import { VideoAnalysisJobRepository } from './VideoAnalysisJobRepository';
@@ -275,6 +276,40 @@ export class ChunkProcessorWorker {
 
             // Trigger finalizer check
             await this.jobFinalizerService.finalizeJob(jobId);
+
+            // --- SEQUENTIAL ANALYSIS CHAIN: Trigger next chunk ---
+            const allChunks = await this.chunkRepository.findByJobId(jobId);
+            const nextChunk = allChunks
+                .filter(c => c.status === ChunkStatus.PENDING || c.status === ChunkStatus.FAILED)
+                .sort((a, b) => a.sequence - b.sequence)[0];
+
+            if (nextChunk) {
+                this.logger.info(`[CHAIN] Triggering next chunk in sequence: Chunk ${nextChunk.sequence} (ID: ${nextChunk.id})`, { phase: 'analyzing' });
+                
+                const tasksClient = new CloudTasksClient();
+                const parent = tasksClient.queuePath(
+                    workerConfig.cloudTasksProjectId,
+                    workerConfig.cloudTasksLocation,
+                    workerConfig.cloudTasksQueueName
+                );
+
+                const payload = { jobId, chunkId: nextChunk.id };
+                const task = {
+                    httpRequest: {
+                        httpMethod: 'POST' as const,
+                        url: workerConfig.analyzerUrl,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                        oidcToken: {
+                            serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
+                        },
+                    },
+                };
+
+                await tasksClient.createTask({ parent, task });
+            } else {
+                this.logger.info(`[CHAIN] Analysis chain complete for job ${jobId}. No more pending chunks.`, { phase: 'analyzing' });
+            }
 
         } catch (error: any) {
             const isRetryable = error.message?.includes('429') || 

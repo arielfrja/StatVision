@@ -140,13 +140,41 @@ export class VideoChunkerService {
         chunkLogger.info(`[VideoChunkerService] Prepared ${chunkDefinitions.length} chunks to process out of ${totalChunks} total.`, { phase: 'chunking' });
 
         const chunks: VideoChunk[] = [];
-        const concurrencyLimit = 3; // Process 3 chunks at a time to avoid OOM
-        
-        for (let i = 0; i < chunkDefinitions.length; i += concurrencyLimit) {
-            const batch = chunkDefinitions.slice(i, i + concurrencyLimit);
-            chunkLogger.info(`[VideoChunkerService] Processing batch ${Math.floor(i/concurrencyLimit) + 1} (${batch.length} chunks)`, { phase: 'chunking' });
+        const chunkingMode = (process.env.CHUNKING_MODE || 'SEQUENTIAL').toUpperCase();
+
+        if (chunkingMode === 'PARALLEL') {
+            const concurrencyLimit = 3; // Process 3 chunks at a time to avoid OOM
+            chunkLogger.info(`[VideoChunkerService] Slicing in PARALLEL (limit: ${concurrencyLimit})`, { phase: 'chunking' });
             
-            const results = await Promise.all(batch.map(async (def) => {
+            for (let i = 0; i < chunkDefinitions.length; i += concurrencyLimit) {
+                const batch = chunkDefinitions.slice(i, i + concurrencyLimit);
+                chunkLogger.info(`[VideoChunkerService] Processing batch ${Math.floor(i/concurrencyLimit) + 1} (${batch.length} chunks)`, { phase: 'chunking' });
+                
+                const results = await Promise.all(batch.map(async (def) => {
+                    const chunkPath = await this.createSingleChunk(
+                        filePath,
+                        tempDir,
+                        def.startTime,
+                        def.duration,
+                        def.sequence,
+                        totalChunks,
+                        frameRate,
+                        jobId,
+                        progressManager
+                    );
+
+                    return {
+                        chunkPath,
+                        startTime: def.startTime,
+                        sequence: def.sequence,
+                    };
+                }));
+
+                chunks.push(...results);
+            }
+        } else {
+            chunkLogger.info(`[VideoChunkerService] Slicing in SEQUENTIAL mode`, { phase: 'chunking' });
+            for (const def of chunkDefinitions) {
                 const chunkPath = await this.createSingleChunk(
                     filePath,
                     tempDir,
@@ -159,14 +187,12 @@ export class VideoChunkerService {
                     progressManager
                 );
 
-                return {
+                chunks.push({
                     chunkPath,
                     startTime: def.startTime,
                     sequence: def.sequence,
-                };
-            }));
-
-            chunks.push(...results);
+                });
+            }
         }
 
         chunkLogger.info(`[VideoChunkerService] Finished chunking video. Created ${chunks.length} new chunks out of ${totalChunks} total.`, { phase: 'chunking' });
