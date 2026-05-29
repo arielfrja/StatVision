@@ -107,54 +107,66 @@ export class VideoChunkerService {
         const totalDuration = metadata.duration;
         const frameRate = metadata.frameRate;
 
-        const chunks: VideoChunk[] = [];
-        let startTime = 0;
-        let sequence = 0;
-
         const step = chunkDuration - overlap;
         const totalChunks = Math.ceil((totalDuration > overlap ? totalDuration - overlap : totalDuration) / step);
         chunkLogger.info(`[VideoChunkerService] Total chunks to generate: ${totalChunks} from a duration of ${totalDuration}s`, { phase: 'chunking' });
 
+        const chunkDefinitions: { startTime: number, sequence: number, duration: number }[] = [];
+        let currentStartTime = 0;
+        let currentSequence = 0;
 
-        while (startTime < totalDuration) {
-            // Determine the duration for the current chunk
-            const currentChunkDuration = Math.min(chunkDuration, totalDuration - startTime);
+        while (currentStartTime < totalDuration) {
+            const currentChunkDuration = Math.min(chunkDuration, totalDuration - currentStartTime);
 
-            // If the last chunk is very small (e.g., just overlap), skip it.
-            if (currentChunkDuration < overlap && sequence > 0) {
-                 chunkLogger.info(`[VideoChunkerService] Skipping final chunk of ${currentChunkDuration.toFixed(2)}s as it is smaller than overlap ${overlap}s.`, { phase: 'chunking' });
+            if (currentChunkDuration < overlap && currentSequence > 0) {
+                 chunkLogger.info(`[VideoChunkerService] Skipping final chunk definition of ${currentChunkDuration.toFixed(2)}s as it is smaller than overlap ${overlap}s.`, { phase: 'chunking' });
                  break;
             }
             
-            if (sequence < startSequence) {
-                chunkLogger.debug(`[VideoChunkerService] Skipping chunk ${sequence + 1} (already processed)`, { phase: 'chunking' });
-                startTime += step;
-                sequence++;
-                continue;
+            if (currentSequence >= startSequence) {
+                chunkDefinitions.push({
+                    startTime: currentStartTime,
+                    sequence: currentSequence,
+                    duration: currentChunkDuration
+                });
+            } else {
+                chunkLogger.debug(`[VideoChunkerService] Skipping chunk definition ${currentSequence + 1} (already processed)`, { phase: 'chunking' });
             }
 
-            chunkLogger.info(`[VideoChunkerService] Creating chunk ${sequence + 1} of approx ${totalChunks}`, { phase: 'chunking' });
+            currentStartTime += step;
+            currentSequence++;
+        }
 
-            const chunkPath = await this.createSingleChunk(
-                filePath,
-                tempDir,
-                startTime,
-                currentChunkDuration,
-                sequence,
-                totalChunks,
-                frameRate,
-                jobId,
-                progressManager
-            );
+        chunkLogger.info(`[VideoChunkerService] Prepared ${chunkDefinitions.length} chunks to process out of ${totalChunks} total.`, { phase: 'chunking' });
 
-            chunks.push({
-                chunkPath,
-                startTime,
-                sequence,
-            });
+        const chunks: VideoChunk[] = [];
+        const concurrencyLimit = 3; // Process 3 chunks at a time to avoid OOM
+        
+        for (let i = 0; i < chunkDefinitions.length; i += concurrencyLimit) {
+            const batch = chunkDefinitions.slice(i, i + concurrencyLimit);
+            chunkLogger.info(`[VideoChunkerService] Processing batch ${Math.floor(i/concurrencyLimit) + 1} (${batch.length} chunks)`, { phase: 'chunking' });
+            
+            const results = await Promise.all(batch.map(async (def) => {
+                const chunkPath = await this.createSingleChunk(
+                    filePath,
+                    tempDir,
+                    def.startTime,
+                    def.duration,
+                    def.sequence,
+                    totalChunks,
+                    frameRate,
+                    jobId,
+                    progressManager
+                );
 
-            startTime += step;
-            sequence++;
+                return {
+                    chunkPath,
+                    startTime: def.startTime,
+                    sequence: def.sequence,
+                };
+            }));
+
+            chunks.push(...results);
         }
 
         chunkLogger.info(`[VideoChunkerService] Finished chunking video. Created ${chunks.length} new chunks out of ${totalChunks} total.`, { phase: 'chunking' });
