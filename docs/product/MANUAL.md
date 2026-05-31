@@ -25,13 +25,14 @@ This manual documents the functional features of the StatVision platform that ha
 ---
 
 ## 2. AI Event Detection & Processing
-**Status:** 🟢 Production Ready
-**Description:** The background engine powered by Gemini 3.1 Flash that transforms raw pixels into data.
+**Status:** 🟢 Production Ready (Finalized Architecture)
+**Description:** The background engine powered by Gemini 1.5/2.0 that transforms raw pixels into structured basketball data.
 
 ### Features:
-- **Sequential Chat Analysis:** The AI maintains a continuous "conversation" across video chunks, preventing it from forgetting players who move off-camera.
-- **Atomic Processing:** Videos are split into manageable chunks, processed in parallel, and merged transactionally to prevent data loss.
-- **Event Taxonomy:** Automated detection of Shots (Made/Missed), Rebounds (Off/Def), Assists, Steals, Blocks, and Fouls.
+- **Direct Video Analysis:** Unlike traditional systems that slice video into files, StatVision analyzes the raw source using time-based offsets. This preserves video quality and drastically reduces ingestion time.
+- **Sequential Multi-Turn Logic:** The AI processes the game turn-by-turn. Each turn "remembers" the player roster and team assignments from the previous one, ensuring 100% identity consistency across the entire match.
+- **Automated Lifecycle & Cleanup:** Once a game is fully analyzed, the system performs a final usage audit (calculating token rates) and automatically deletes temporary cloud assets to protect user privacy.
+- **Event Taxonomy:** Automated detection of Shots (Made/Missed), Rebounds (Off/Def), Assists, Steals, Blocks, and Fouls with coordinate mapping.
 
 ---
 

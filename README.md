@@ -27,16 +27,16 @@ StatVision transforms raw game footage into professional-grade box scores and pl
 ## 🛠 Technology Stack
 - **Frontend:** Next.js 15, TypeScript, Tailwind CSS, Material Web.
 - **Backend:** Node.js, Express, TypeORM, PostgreSQL (Supabase).
-- **Worker:** Node.js, FFmpeg, Google Cloud Pub/Sub.
-- **AI:** Google Gemini 3 (gemini-3-flash-preview).
+- **Worker:** Node.js, FFmpeg, Google Cloud Pub/Sub, Cloud Tasks.
+- **AI:** Google Gemini 3.5 (Flash/Pro) via Direct Video Analysis.
 
 ---
 
 ## 📖 Documentation Structure
 We maintain a clean documentation hierarchy in the `docs/` directory:
-- **`docs/product/`**: Strategy, roadmaps, and requirements.
-- **`docs/technical/`**: Architecture, database schema, and infrastructure.
-- **`docs/archive/`**: Historical notes and briefs.
+- **`docs/product/`**: Strategy, roadmaps, and [Production Manual](docs/product/MANUAL.md).
+- **`docs/technical/`**: [Architecture (SAD)](docs/technical/SAD.md), [Gemini Video Guide](docs/technical/GEMINI_VIDEO_GUIDE.md).
+- **`sandbox/`**: [Temporary test scripts and debug logs](sandbox/README.md).
 
 ---
 
