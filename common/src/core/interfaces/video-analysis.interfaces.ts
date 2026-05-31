@@ -1,5 +1,6 @@
 export interface IdentifiedTeam {
     id: string; // The v5 UUID
+    name?: string | null;
     type: 'HOME' | 'AWAY';
     color: string | null;
     description: string | null;
@@ -8,8 +9,10 @@ export interface IdentifiedTeam {
 export interface IdentifiedPlayer {
     id:string; // The v5 UUID
     teamId: string | null; // Foreign key to IdentifiedTeam
+    name?: string | null;
     jerseyNumber: number | null;
     description: string | null; // e.g., "tall player with red shoes"
+    position?: string | null;
     teamAssignmentConfidence?: number; // 0-1 score based on interaction frequency
 }
 

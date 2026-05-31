@@ -78,6 +78,13 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
                 });
             }
 
+            // --- STRICT MULTI-TURN CONSISTENCY RULE ---
+            userPrompt += `\n\n### CRITICAL INSTRUCTIONS FOR CONSISTENCY:
+1. **Reuse Known Entities**: You MUST first look at the 'KNOWN TEAMS' and 'KNOWN PLAYERS' lists provided below. 
+2. **Event Attribution**: For every event you identify, try to attribute it to an existing ID from these lists (e.g., 'TEMP_PLAYER_5' or 'TEMP_TEAM_1').
+3. **Adding New Entities**: Only if you are 100% certain a player/team is NOT in the lists, add a NEW entry to the 'identifiedTeams' or 'players' array and generate a new TEMP ID.
+4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).`;
+
             // Inject known entities into user prompt for better consistency
             if (knownTeams.length > 0) {
                 userPrompt += `\n\n### KNOWN TEAMS:\n${JSON.stringify(knownTeams, null, 2)}`;

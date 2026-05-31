@@ -10,8 +10,38 @@ import { ALLOWED_EVENT_TYPES } from "./eventTypes";
 
 export const EVENT_SCHEMA = {
     type: "object",
-    description: "A list of basketball gameplay events identified from video analysis.",
+    description: "A list of basketball gameplay events and identified entities (teams/players) from video analysis.",
     properties: {
+        identifiedTeams: {
+            type: "array",
+            description: "A master list of all teams identified in the video so far.",
+            items: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "Internal temporary ID (e.g., 'TEMP_TEAM_1')." },
+                    name: { type: "string", description: "Team name if visible, otherwise null.", nullable: true },
+                    color: { type: "string", description: "Dominant jersey color." },
+                    type: { type: "string", enum: ["HOME", "AWAY"], description: "Assignment as home or away team." },
+                    description: { type: "string", description: "Physical description of the team's appearance.", nullable: true },
+                    players: {
+                        type: "array",
+                        description: "The roster of identified players for this team.",
+                        items: {
+                            type: "object",
+                            properties: {
+                                id: { type: "string", description: "Internal temporary ID (e.g., 'TEMP_PLAYER_5')." },
+                                number: { type: "number", description: "Jersey number." },
+                                name: { type: "string", description: "Player name if known, otherwise null.", nullable: true },
+                                description: { type: "string", description: "Brief physical description (e.g., 'Tall with headband').", nullable: true },
+                                position: { type: "string", description: "Estimated court position.", nullable: true }
+                            },
+                            required: ["id", "number"]
+                        }
+                    }
+                },
+                required: ["id", "color", "type", "players"]
+            }
+        },
         events: {
             type: "array",
             items: {
@@ -24,7 +54,7 @@ export const EVENT_SCHEMA = {
                     },
                     eventSubType: { 
                         type: "string", 
-                        description: "Specific detail about the event (e.g., 'Layup', 'Jump Shot', 'Cross-over').",
+                        description: "Specific detail about the event (e.g., 'Layup', 'Jump Shot').",
                         nullable: true 
                     },
                     timestamp: { 
@@ -33,74 +63,32 @@ export const EVENT_SCHEMA = {
                     },
                     isSuccessful: { 
                         type: "boolean", 
-                        description: "Whether the action (shot, pass, etc.) was successful.",
+                        description: "Whether the action was successful.",
                         nullable: true 
                     },
                     period: { 
                         type: "number", 
-                        description: "The current game period (1-4, or overtime).",
-                        nullable: true 
-                    },
-                    timeRemaining: { 
-                        type: "string", 
-                        description: "The clock time remaining in the period as seen on the scoreboard.",
+                        description: "The current game period (1-4).",
                         nullable: true 
                     },
                     xCoord: { 
                         type: "number", 
-                        description: "Normalized X coordinate of the action (0-100).",
+                        description: "Normalized X coordinate (0-100).",
                         nullable: true 
                     },
                     yCoord: { 
                         type: "number", 
-                        description: "Normalized Y coordinate of the action (0-100).",
+                        description: "Normalized Y coordinate (0-100).",
                         nullable: true 
                     },
                     assignedPlayerId: { 
                         type: "string", 
-                        description: "The ID of the player primarily responsible for the event.",
+                        description: "The ID of the player from the 'identifiedTeams' list above.",
                         nullable: true 
                     },
                     assignedTeamId: { 
                         type: "string", 
-                        description: "The ID of the team performing the action.",
-                        nullable: true 
-                    },
-                    relatedEventId: { 
-                        type: "string", 
-                        description: "The ID of a linked event (e.g., an Assist linked to a Shot).",
-                        nullable: true 
-                    },
-                    onCourtPlayerIds: { 
-                        type: "array", 
-                        description: "IDs of players visible on the court during this event.",
-                        items: { type: "string" }, 
-                        nullable: true 
-                    },
-                    identifiedTeamColor: { 
-                        type: "string", 
-                        description: "The dominant jersey color of the acting team (e.g., 'White', 'Blue').",
-                        nullable: true 
-                    },
-                    identifiedJerseyNumber: { 
-                        type: "number", 
-                        description: "The jersey number of the acting player.",
-                        nullable: true 
-                    },
-                    identifiedPlayerDescription: { 
-                        type: "string", 
-                        description: "A brief physical description of the player (e.g., 'Tall center with headband') if jersey number is not visible.",
-                        nullable: true 
-                    },
-                    identifiedTeamDescription: { 
-                        type: "string", 
-                        description: "A description of the team (e.g., 'Home team in white uniforms').",
-                        nullable: true 
-                    },
-                    assignedTeamType: { 
-                        type: "string", 
-                        description: "Whether the team is the HOME or AWAY team in the context of this game.",
-                        enum: ["HOME", "AWAY"], 
+                        description: "The ID of the team from the 'identifiedTeams' list above.",
                         nullable: true 
                     }
                 },
@@ -108,5 +96,5 @@ export const EVENT_SCHEMA = {
             }
         }
     },
-    required: ["events"]
+    required: ["events", "identifiedTeams"]
 };

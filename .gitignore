@@ -56,3 +56,8 @@ docs/assets/*.webm
 
 # Strategic Consultation Documents
 STADIUM_VISION_CONSULT/
+
+# Sandbox for temporary scripts
+sandbox/*
+!sandbox/.gitkeep
+!sandbox/README.md

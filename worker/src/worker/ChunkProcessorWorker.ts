@@ -226,8 +226,10 @@ export class ChunkProcessorWorker {
                 chunk.id
             ).catch(err => this.logger.warn(`Failed to record video usage: ${err.message}`));
 
+            const parsedResponse = JSON.parse(analysisResult.rawResponse.trim());
+
             const { finalEvents, updatedIdentifiedPlayers, updatedIdentifiedTeams } = this.eventProcessorService.processEvents(
-                analysisResult.events,
+                parsedResponse, // Passing the full parsed object containing events and identifiedTeams
                 job.gameId,
                 { startTime: chunk.startTime, sequence: chunk.sequence, id: chunk.id },
                 workerConfig.chunkDurationSeconds,
