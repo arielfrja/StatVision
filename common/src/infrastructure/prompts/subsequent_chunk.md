@@ -1,10 +1,13 @@
-Continue analyzing the game from this segment.
+This is a subsequent 2-minute segment (Chunk {{sequence}}). Your objective is to continue the event extraction while maintaining absolute roster consistency.
 
 ### 1. IDENTITY CONSISTENCY
-Maintain the same `TEMP_TEAM_X` and `TEMP_PLAYER_Y` IDs established in previous turns.
+*   **Trust the Roster:** Refer to the `KNOWN TEAMS` and `KNOWN PLAYERS` lists. 
+*   **Reuse IDs:** Use the same `TEMP_TEAM_X` and `TEMP_PLAYER_XX` IDs for everyone you recognize.
+*   **Placeholder Naming:** If you find a new player whose name is unknown, use the format `<Player #XX>`.
 
-### 2. LOGGING RULES
-Follow the "Broadcast & Video Logic" and "Core Event Taxonomy" from the system instruction.
+### 2. SEGMENT LOGIC
+*   **Overlaps:** There is a 10-second overlap with the previous segment. Log events in the overlap period normally.
+*   **Continuity:** Ensure turnovers and rebounds flow logically from the previous state.
 
 ### 3. OUTPUT FORMAT
-Output EXCLUSIVELY as a valid JSON array of objects.
+Output EXCLUSIVELY as a JSON object containing both the updated `identifiedTeams` roster and the new `events` array.

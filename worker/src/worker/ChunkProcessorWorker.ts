@@ -306,28 +306,7 @@ export class ChunkProcessorWorker {
 
             if (nextChunk) {
                 this.logger.info(`[CHAIN] Triggering next chunk in sequence: Chunk ${nextChunk.sequence} (ID: ${nextChunk.id})`, { phase: 'analyzing' });
-                
-                const tasksClient = new CloudTasksClient();
-                const parent = tasksClient.queuePath(
-                    workerConfig.cloudTasksProjectId,
-                    workerConfig.cloudTasksLocation,
-                    workerConfig.cloudTasksQueueName
-                );
-
-                const payload = { jobId, chunkId: nextChunk.id };
-                const task = {
-                    httpRequest: {
-                        httpMethod: 'POST' as const,
-                        url: workerConfig.analyzerUrl,
-                        headers: { 'Content-Type': 'application/json' },
-                        body: Buffer.from(JSON.stringify(payload)).toString('base64'),
-                        oidcToken: {
-                            serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
-                        },
-                    },
-                };
-
-                await tasksClient.createTask({ parent, task });
+                await this.triggerNextChunkTask(jobId, nextChunk.id);
             } else {
                 this.logger.info(`[CHAIN] Analysis chain complete for job ${jobId}. No more pending chunks.`, { phase: 'analyzing' });
             }
@@ -366,6 +345,62 @@ export class ChunkProcessorWorker {
                     this.logger.warn(`[CHUNK_PROCESSOR] Failed to cleanup local chunk ${localChunkPath}`, { error: err });
                 }
             }
+        }
+    }
+
+    private async triggerNextChunkTask(jobId: string, chunkId: string): Promise<void> {
+        const payload = { jobId, chunkId };
+
+        // 1. LOCAL DEVELOPMENT FALLBACK
+        if (process.env.NODE_ENV !== 'production' || !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            this.logger.info(`[LOCAL] Bypassing Cloud Tasks. Triggering next chunk via HTTP fallback.`);
+            try {
+                const fetch = (await import('node-fetch')).default;
+                const response = await fetch(workerConfig.analyzerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (response.ok) {
+                    this.logger.info(`Successfully triggered local analyzer for next chunk: ${chunkId}`);
+                    return;
+                } else {
+                    const text = await response.text();
+                    this.logger.warn(`Local analyzer trigger failed: ${text}`);
+                }
+            } catch (err) {
+                this.logger.error(`Failed to trigger next local analyzer directly:`, err);
+            }
+
+            if (process.env.NODE_ENV !== 'production') return;
+        }
+
+        // 2. PRODUCTION CLOUD TASKS
+        const tasksClient = new CloudTasksClient();
+        const parent = tasksClient.queuePath(
+            workerConfig.cloudTasksProjectId,
+            workerConfig.cloudTasksLocation,
+            workerConfig.cloudTasksQueueName
+        );
+
+        const task = {
+            httpRequest: {
+                httpMethod: 'POST' as const,
+                url: workerConfig.analyzerUrl,
+                headers: { 'Content-Type': 'application/json' },
+                body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+                oidcToken: {
+                    serviceAccountEmail: '515511056475-compute@developer.gserviceaccount.com',
+                },
+            },
+        };
+
+        try {
+            await tasksClient.createTask({ parent, task });
+            this.logger.debug(`[CHAIN] Created Cloud Task for next chunk: ${chunkId}`, { phase: 'analyzing' });
+        } catch (error: any) {
+            this.logger.error(`[CHAIN] Failed to create Cloud Task for next chunk`, { error, phase: 'analyzing' });
+            if (process.env.NODE_ENV === 'production') throw error;
         }
     }
 }

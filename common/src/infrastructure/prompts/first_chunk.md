@@ -1,32 +1,42 @@
-This is a 2-minute segment of the game. Your objective is to extract all on-court events.
+This is the first segment of the game video. Your objective is to initialize the roster and extract all on-court events.
 
 ### 1. IDENTITY MAPPING
-*   **Team IDs:** Use `TEMP_TEAM_1` and `TEMP_TEAM_2` consistently based on the identity instructions.
-*   **Player IDs:** Use `TEMP_PLAYER_<jersey_number>` (e.g., `TEMP_PLAYER_23`). If the jersey is not visible, use "TEMP_TEAM_[COLOR]_UNKNOWN_1" consistently for that player.
+*   **Team IDs:** Use `TEMP_TEAM_1` and `TEMP_TEAM_2`. Assign them based on jersey color or position (e.g., TEAM_1 = Red, TEAM_2 = White).
+*   **Team Names:** If you cannot see a formal team name, use the placeholder format: `<Team 1>` or `<Team 2>`.
+*   **Player IDs:** Use `TEMP_PLAYER_<jersey_number>` (e.g., `TEMP_PLAYER_23`).
+*   **Player Names:** If name is unknown, use the format: `<Player #XX>`. Do not put physical traits in the name.
 
 ### 2. SEGMENT & OVERLAP LOGIC
-*   **Overlaps:** This segment overlaps with others. If an event occurs during the 10-second overlap at the start, log it completely anyway. Do not skip it.
-*   **Mid-play Cutoffs:** If the segment ends mid-play (e.g., a shot is in the air), log the `SHOT` with `result: null`. Do not guess or extrapolate.
+*   **Temporal Start:** This is the beginning of the video. Look for the Tip-off or initial possession.
+*   **Mid-play Cutoffs:** If the segment ends mid-play (e.g., a shot is in the air), log the `SHOT` with `isSuccessful: null`.
 
 ### 3. OUTPUT FORMAT
-Output EXCLUSIVELY as a valid JSON array of objects. No intro/outro.
+Output EXCLUSIVELY as a valid JSON object matching this structure:
 
-[
-  {
-    "video_timestamp": "HH:MM:SS",
-    "game_clock": "MM:SS",
-    "quarter": 1 | 2 | 3 | 4 | "OT",
-    "team": "TEMP_TEAM_1" | "TEMP_TEAM_2",
-    "player_jersey": "STRING",
-    "event_type": "SHOT | REBOUND | ASSIST | TURNOVER | STEAL | BLOCK | FOUL | SUB | TIMEOUT",
-    "details": {
-      "subtype": "STRING",
-      "execution": "STRING | null",
-      "result": "MADE | MISSED | null",
-      "associated_player_jersey": "STRING | null"
-    },
-    "xCoord": 0-100,
-    "yCoord": 0-100,
-    "confidence": "HIGH" | "MEDIUM"
-  }
-]
+{
+  "identifiedTeams": [
+    {
+      "id": "TEMP_TEAM_1",
+      "name": "<Team 1>",
+      "color": "COLOR",
+      "type": "HOME",
+      "description": "Short physical description",
+      "players": [
+        { "id": "TEMP_PLAYER_5", "number": 5, "name": "<Player #5>", "description": "Short trait" }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "eventType": "SHOT | REBOUND | ASSIST | TURNOVER | STEAL | BLOCK | FOUL | SUB | TIMEOUT",
+      "eventSubType": "STRING | null",
+      "timestamp": "MM:SS",
+      "isSuccessful": true | false | null,
+      "period": 1,
+      "assignedPlayerId": "TEMP_PLAYER_5",
+      "assignedTeamId": "TEMP_TEAM_1",
+      "xCoord": 0-100,
+      "yCoord": 0-100
+    }
+  ]
+}

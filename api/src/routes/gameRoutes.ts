@@ -50,13 +50,47 @@ export const gameRoutes = (
     const userRepository = AppDataSource.getRepository(User);
 
     const queueOrchestrationTask = async (gameId: string, filePath: string, userId: string) => {
+        const payload = { gameId, filePath, userId };
+
+        // 1. LOCAL DEVELOPMENT FALLBACK (Strict Bypass)
+        if (process.env.NODE_ENV !== 'production' || !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            logger.info(`[LOCAL] Bypassing Cloud Tasks. Triggering worker via HTTP fallback.`);
+            try {
+                const localWorkerUrl = process.env.LOCAL_WORKER_URL || 'http://localhost:8080/api/orchestrate-game';
+                const fetch = (await import('node-fetch')).default;
+                const response = await fetch(localWorkerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    logger.info(`Successfully triggered local worker for game: ${gameId}`);
+                    return; // EXIT: Do not proceed to Cloud Tasks
+                } else {
+                    const text = await response.text();
+                    logger.warn(`Local worker trigger failed: ${text}`);
+                }
+            } catch (err) {
+                logger.error(`Failed to trigger local worker directly:`, err);
+            }
+            
+            // In local dev, we stop here. In production (if credentials somehow missing), we might try to fall through
+            // but it will likely fail. For safety in Termux, we exit.
+            if (process.env.NODE_ENV !== 'production') {
+                logger.warn(`Skipping real Cloud Task creation in local environment.`);
+                return;
+            }
+        }
+
+        // 2. PRODUCTION CLOUD TASKS
+        logger.info(`Creating real Cloud Task for game: ${gameId}`);
         const projectId = process.env.CLOUD_TASKS_PROJECT_ID || process.env.GCP_PROJECT_ID || 'statsvision-477017';
         const location = process.env.CLOUD_TASKS_LOCATION || 'us-central1';
         const queue = process.env.ORCHESTRATOR_QUEUE_NAME || 'orchestrate-queue';
         const url = process.env.ORCHESTRATOR_URL || 'https://statvision-worker-test-chsbu3g4oa-uc.a.run.app/api/orchestrate-game';
 
         const parent = tasksClient.queuePath(projectId, location, queue);
-        const payload = { gameId, filePath, userId };
         const task = {
             dispatchTimeout: { seconds: 1800 },
             httpRequest: {

@@ -42,12 +42,20 @@ export class LocalStorageProvider implements IStorageProvider {
                 fs.mkdirSync(targetDir, { recursive: true });
             }
 
-            fs.copyFileSync(localPath, targetPath);
+            // OPTIMIZATION: Use hard link if possible to save space
+            try {
+                if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
+                fs.linkSync(localPath, targetPath);
+                this.logInfo(`[LocalStorageProvider] Created hard link from ${localPath} to ${targetPath}`);
+            } catch (linkErr) {
+                fs.copyFileSync(localPath, targetPath);
+                this.logInfo(`[LocalStorageProvider] Copied ${localPath} to ${targetPath} (hard link failed)`);
+            }
+
             const localUri = `gs://local-bucket/${destinationPath}`; // Mimic GCS URI
-            this.logInfo(`[LocalStorageProvider] Copied ${localPath} to ${targetPath}`);
             return localUri;
         } catch (error) {
-            this.logError(`[LocalStorageProvider] Error copying ${localPath} to ${destinationPath}:`, error);
+            this.logError(`[LocalStorageProvider] Error uploading ${localPath} to ${destinationPath}:`, error);
             throw error;
         }
     }
@@ -61,10 +69,17 @@ export class LocalStorageProvider implements IStorageProvider {
                 fs.mkdirSync(targetDir, { recursive: true });
             }
 
-            fs.copyFileSync(sourcePath, localPath);
-            this.logInfo(`[LocalStorageProvider] Copied ${sourcePath} to ${localPath}`);
+            // OPTIMIZATION: Use hard link if possible to save space
+            try {
+                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                fs.linkSync(sourcePath, localPath);
+                this.logInfo(`[LocalStorageProvider] Created hard link from ${sourcePath} to ${localPath}`);
+            } catch (linkErr) {
+                fs.copyFileSync(sourcePath, localPath);
+                this.logInfo(`[LocalStorageProvider] Copied ${sourcePath} to ${localPath} (hard link failed)`);
+            }
         } catch (error) {
-            this.logError(`[LocalStorageProvider] Error copying ${remotePath} to ${localPath}:`, error);
+            this.logError(`[LocalStorageProvider] Error downloading ${remotePath} to ${localPath}:`, error);
             throw error;
         }
     }

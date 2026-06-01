@@ -14,7 +14,8 @@ import { VideoOrchestratorService } from "./worker/videoProcessorWorker";
 import { ChunkProcessorWorker } from "./worker/ChunkProcessorWorker";
 import { VideoAnalysisResultService } from "./service/VideoAnalysisResultService";
 import { VideoAnalysisJobRepository } from './worker/VideoAnalysisJobRepository';
-import { VideoAnalysisJobStatus } from '@statvision/common';
+import { ChunkRepository } from './worker/ChunkRepository';
+import { VideoAnalysisJobStatus, ChunkStatus } from '@statvision/common';
 import { JobFinalizerService } from './worker/JobFinalizerService';
 import { workerConfig } from './config/workerConfig';
 
@@ -84,6 +85,12 @@ async function main() {
         console.log("Starting reconciliation...");
         const jobRepository = container.get<VideoAnalysisJobRepository>("VideoAnalysisJobRepository");
         const jobFinalizer = container.get<JobFinalizerService>(JobFinalizerService);
+        const chunkProcessor = container.get<ChunkProcessorWorker>(ChunkProcessorWorker);
+        const chunkRepository = container.get<ChunkRepository>("ChunkRepository");
+        const orchestrator = container.get<VideoOrchestratorService>(VideoOrchestratorService);
+
+        // Run high-level orchestrator check
+        await orchestrator.checkExistingJobsOnStartup();
 
         const jobsToReconcile = await jobRepository.find({
             where: {
@@ -94,7 +101,27 @@ async function main() {
         if (jobsToReconcile.length > 0) {
             console.log(`Found ${jobsToReconcile.length} jobs to reconcile.`);
             for (const job of jobsToReconcile) {
+                // 1. Check if job is actually finished
                 await jobFinalizer.finalizeJob(job.id);
+
+                // 2. If still processing, resume the chain
+                const refreshedJob = await jobRepository.findOneById(job.id);
+                if (refreshedJob && refreshedJob.status === VideoAnalysisJobStatus.PROCESSING) {
+                    const allChunks = await chunkRepository.findByJobId(job.id);
+                    const nextChunk = allChunks
+                        .filter((c: any) => c.status === ChunkStatus.PENDING || c.status === ChunkStatus.FAILED)
+                        .sort((a: any, b: any) => a.sequence - b.sequence)[0];
+                    
+                    if (nextChunk) {
+                        console.log(`[RECONCILE] Resuming chain for job ${job.id}. Triggering chunk ${nextChunk.sequence}`);
+                        // Use a short delay to ensure everything is initialized
+                        setTimeout(() => {
+                            chunkProcessor.analyzeChunk(job.id, nextChunk.id).catch(err => 
+                                console.error(`[RECONCILE] Failed to trigger chunk ${nextChunk.id}:`, err)
+                            );
+                        }, 5000);
+                    }
+                }
             }
             console.log(`Reconciliation complete.`);
         } else {
