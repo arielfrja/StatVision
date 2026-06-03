@@ -172,7 +172,7 @@ export class ChunkProcessorWorker {
                     if (prev.rawGeminiResponse) {
                         chatHistory.push({
                             role: "user",
-                            parts: [{ text: `Process chunk ${prev.sequence}` }]
+                            parts: [{ text: `Process analysis for video segment from ${prev.startTime}s to ${prev.endTime}s (Sequence: ${prev.sequence}).` }]
                         });
                         chatHistory.push({
                             role: "model",

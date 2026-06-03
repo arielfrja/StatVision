@@ -83,7 +83,8 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 1. **Reuse Known Entities**: You MUST first look at the 'KNOWN TEAMS' and 'KNOWN PLAYERS' lists provided below. 
 2. **Event Attribution**: For every event you identify, try to attribute it to an existing ID from these lists (e.g., 'TEMP_PLAYER_5' or 'TEMP_TEAM_1').
 3. **Adding New Entities**: Only if you are 100% certain a player/team is NOT in the lists, add a NEW entry to the 'identifiedTeams' or 'players' array and generate a new TEMP ID.
-4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).`;
+4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).
+5. **Context & Flow Awareness**: You have been provided with the history of previous analysis turns. Ensure your current detections (Score, Possession, Player Positions) flow logically from the state established in those turns.`;
 
             // Inject known entities into user prompt for better consistency
             if (knownTeams.length > 0) {

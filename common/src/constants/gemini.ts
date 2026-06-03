@@ -98,6 +98,12 @@ export const EVENT_SCHEMA = {
                         type: "string", 
                         description: "The ID of the team from the 'identifiedTeams' list above.",
                         nullable: true 
+                    },
+                    onCourtPlayerIds: {
+                        type: "array",
+                        description: "A list of IDs for all other players visible on the court during this event.",
+                        items: { type: "string" },
+                        nullable: true
                     }
                 },
                 required: ["eventType", "timestamp"]

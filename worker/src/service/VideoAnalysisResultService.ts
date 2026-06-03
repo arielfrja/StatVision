@@ -1,15 +1,19 @@
-import { DataSource } from "typeorm";
+import { DataSource, In } from "typeorm";
 import { Message } from "@google-cloud/pubsub";
 import { 
     GameRepository, GameEventRepository, GameStatsService, 
     TeamRepository, PlayerRepository, 
     GameStatus, GameEvent, Team, Player, GameTeamStats, GamePlayerStats, 
-    VideoAnalysisJobStatus, GameEventStatus, IEventBus
+    VideoAnalysisJobStatus, GameEventStatus, IEventBus, Game
 } from "@statvision/common";
 import * as winston from 'winston';
+import { v5 as uuidv5, validate as validateUuid } from 'uuid';
 
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
 const CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'chunk-analysis-results-sub';
+
+// Fixed namespace for deterministic UUID generation (v5)
+const STATVISION_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 interface VideoAnalysisJobResultMessage {
     jobId: string;
@@ -34,7 +38,7 @@ export class VideoAnalysisResultService {
     private playerRepository: PlayerRepository; 
 
     constructor(
-        dataSource: DataSource, 
+        private dataSource: DataSource, 
         logger: winston.Logger,
         gameStatsService: GameStatsService,
         eventBus: IEventBus
@@ -86,14 +90,22 @@ export class VideoAnalysisResultService {
 
     private async processChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
         this.logger.info(`Streaming draft results for Game ID: ${result.gameId}, Chunk: ${result.chunkId}`, { phase: 'results_processing' });
+        
+        // 1. Persist master lists (creates Temp Team/Player records)
         await this.persistIdentifiedEntities(result);
+
+        // 2. Map AI placeholders and generate deterministic UUIDs
         const resolvedEvents = await this.resolvePlayerIds(result.gameId, result.processedEvents, result.userId);
 
         if (resolvedEvents && resolvedEvents.length > 0) {
-            const gameEventsToInsert = resolvedEvents.map(eventData => {
+            const gameEventsToUpsert = resolvedEvents.map(eventData => {
                 const event = new GameEvent();
                 
-                // Explicit Mapping (No Object.assign to avoid data pollution)
+                // DETERMINISTIC ID: Hash of game + time + type + actor
+                // This ensures idempotency across retries.
+                const uniqueSeed = `${result.gameId}:${eventData.absoluteTimestamp}:${eventData.eventType}:${eventData.assignedPlayerId || 'TEAM'}`;
+                event.id = uuidv5(uniqueSeed, STATVISION_NAMESPACE);
+
                 event.gameId = result.gameId;
                 event.chunkId = result.chunkId || null;
                 event.status = GameEventStatus.DRAFT;
@@ -112,25 +124,45 @@ export class VideoAnalysisResultService {
                 event.xCoord = typeof eventData.xCoord === 'number' ? eventData.xCoord : 0;
                 event.yCoord = typeof eventData.yCoord === 'number' ? eventData.yCoord : 0;
 
-                // Validated IDs
+                // Resolved IDs (Guaranteed to be UUIDs now)
                 event.assignedTeamId = this.isUuid(eventData.assignedTeamId) ? eventData.assignedTeamId : null;
                 event.assignedPlayerId = this.isUuid(eventData.assignedPlayerId) ? eventData.assignedPlayerId : null;
+                event.relatedEventId = this.isUuid(eventData.relatedEventId) ? eventData.relatedEventId : null;
                 
+                // Capture the raw AI strings for the manual mapping UI
                 event.identifiedTeamColor = eventData.identifiedTeamColor;
                 event.identifiedJerseyNumber = typeof eventData.identifiedJerseyNumber === 'number' ? eventData.identifiedJerseyNumber : null;
                 
+                // Capture all extra AI fields into eventDetails
+                const { 
+                    eventType, eventSubType, timestamp, isSuccessful, period, xCoord, yCoord, 
+                    assignedPlayerId, assignedTeamId, onCourtPlayerIds, identifiedTeamColor, 
+                    identifiedJerseyNumber, absoluteTimestamp, videoClipStartTime, videoClipEndTime,
+                    gameId, chunkId, ...details 
+                } = eventData;
+                event.eventDetails = details;
+
+                // NEW: Resolve on-court player IDs
+                if (Array.isArray(eventData.onCourtPlayerIds)) {
+                    event.onCourtPlayerIds = eventData.onCourtPlayerIds.map((tempId: string) => 
+                        this.isUuid(tempId) ? tempId : uuidv5(`${result.gameId}:${tempId}`, STATVISION_NAMESPACE)
+                    );
+                } else {
+                    event.onCourtPlayerIds = [];
+                }
+                
                 return event;
             });
-            await this.gameEventRepository.batchInsert(gameEventsToInsert);
-            this.logger.info(`Successfully streamed \${gameEventsToInsert.length} draft events for game \${result.gameId}.`, { phase: 'results_processing' });
+
+            // Use save() which performs an UPSERT if the primary key (id) matches
+            await this.dataSource.getRepository(GameEvent).save(gameEventsToUpsert, { chunk: 100 });
+            this.logger.info(`Successfully upserted \${gameEventsToUpsert.length} draft events for game \${result.gameId}.`, { phase: 'results_processing' });
         }
     }
 
     private isUuid(id: string | null | undefined): boolean {
         if (!id) return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (typeof id === 'string' && (id.startsWith('chunk-') || id.startsWith('TEMP_'))) return false;
-        return uuidRegex.test(id);
+        return validateUuid(id);
     }
 
     private parseTime(time: any): number {
@@ -157,103 +189,49 @@ export class VideoAnalysisResultService {
 
     public async resolvePlayerIds(gameId: string, events: any[], userId: string): Promise<any[]> {
         if (!events || events.length === 0) return events;
-        const game = await this.gameRepository.findOneById(gameId);
+        const game = await this.dataSource.getRepository(Game).findOne({ where: { id: gameId } });
         if (!game) return events;
         const gameDate = game.gameDate || new Date();
         const resolvedEvents = [];
         
-        // Cache for discovered entities in this batch to avoid redundant DB calls
-        const discoveryCache = new Map<string, string>();
-        const teamDiscoveryCache = new Map<string, string>();
-
         for (const event of events) {
+            // --- 1. RESOLVE TEAM PLACEHOLDERS (RAW AI STRINGS) ---
             let teamId = event.assignedTeamId;
             const jerseyNumber = event.identifiedJerseyNumber;
             const color = event.identifiedTeamColor || 'Unknown';
-            const description = event.identifiedPlayerDescription || event.identifiedTeamDescription;
 
-            // --- TEAM RESOLUTION ---
-            // 1. Map placeholders if game has assigned teams
             if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
                 teamId = game.homeTeamId;
             } else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) {
                 teamId = game.awayTeamId;
             }
 
-            // 2. Draft Mode: Create/Resolve Temp Team for colors
-            if (!this.isUuid(teamId)) {
-                const teamKey = `TEAM-${color}`;
-                if (teamDiscoveryCache.has(teamKey)) {
-                    teamId = teamDiscoveryCache.get(teamKey);
-                } else {
-                    try {
-                        const teamName = `${color} Team`;
-                        const teamRepo = this.teamRepository['teamBaseRepository'];
-                        let team = await teamRepo.findOne({ where: { name: teamName, isTemp: true, userId } });
-                        
-                        if (!team) {
-                            team = new Team();
-                            team.name = teamName;
-                            team.isTemp = true;
-                            team.userId = userId;
-                            team = await this.teamRepository.save(team);
-                            this.logger.info(`[Discovery] Created new Temp Team: ${teamName}`, { teamId: team.id });
-                        }
-                        teamId = team.id;
-                        teamDiscoveryCache.set(teamKey, teamId!);
-                    } catch (err) {
-                        this.logger.error(`[Discovery] Failed to resolve team for ${color}`, { error: err });
-                    }
-                }
+            // --- 2. CONVERT REMAINING PLACEHOLDERS TO DETERMINISTIC UUIDs ---
+            if (teamId && !this.isUuid(teamId)) {
+                teamId = uuidv5(`${gameId}:${teamId}`, STATVISION_NAMESPACE);
             }
             event.assignedTeamId = teamId;
 
-            // --- PLAYER RESOLUTION ---
-            // 3. Try to find existing player in this team
-            if (teamId && jerseyNumber && this.isUuid(teamId)) {
+            // --- 3. RESOLVE PLAYER PLACEHOLDERS ---
+            let playerId = event.assignedPlayerId;
+            
+            // Try to find an official player if we have a team and jersey
+            if (this.isUuid(teamId) && jerseyNumber) {
                 try {
                     const history = await this.playerRepository.findPlayerByJerseyAndTeam(teamId, Number(jerseyNumber), gameDate);
                     if (history) {
-                        event.assignedPlayerId = history.playerId;
-                        resolvedEvents.push(event);
-                        continue;
+                        playerId = history.playerId;
                     }
                 } catch (err) {
                     this.logger.warn(`[Resolution] Error looking up existing player`, { error: err });
                 }
             }
 
-            // 4. Discovery Logic: Create Temp Player
-            const discoveryKey = `${teamId}-${jerseyNumber || 'no-num'}-${description || 'no-desc'}`;
-            
-            if (discoveryCache.has(discoveryKey)) {
-                event.assignedPlayerId = discoveryCache.get(discoveryKey);
-            } else {
-                try {
-                    let playerName = `${color} `;
-                    if (jerseyNumber) playerName += `#${jerseyNumber}`;
-                    if (description) playerName += ` (${description})`;
-                    playerName = playerName.trim();
-
-                    const playerRepo = this.playerRepository['playerBaseRepository'];
-                    let player = await playerRepo.findOne({ 
-                        where: { name: playerName, isTemp: true } 
-                    });
-
-                    if (!player) {
-                        player = new Player();
-                        player.name = playerName;
-                        player.isTemp = true;
-                        player = await this.playerRepository.save(player);
-                        this.logger.info(`[Discovery] Created new Temp Player: ${playerName}`, { playerId: player.id });
-                    }
-
-                    event.assignedPlayerId = player.id;
-                    discoveryCache.set(discoveryKey, player.id);
-                } catch (err) {
-                    this.logger.error(`[Discovery] Failed to create temp player for ${discoveryKey}`, { error: err });
-                }
+            // If still a placeholder, convert to deterministic UUID
+            if (playerId && !this.isUuid(playerId)) {
+                playerId = uuidv5(`${gameId}:${playerId}`, STATVISION_NAMESPACE);
             }
+            event.assignedPlayerId = playerId;
             
             resolvedEvents.push(event);
         }
@@ -262,6 +240,11 @@ export class VideoAnalysisResultService {
 
     private async processFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {
         this.logger.info(`[JOB_FINALIZE] 🏁 Finalizing Game ID: ${result.gameId} | Status: ${result.status}`, { phase: 'results_processing' });
+        
+        // Final sync of entities and events
+        await this.persistIdentifiedEntities(result);
+        await this.processChunkResult(result); // Final push to GameEvent table
+
         let gameStatusToUpdate: GameStatus;
         if (result.status === VideoAnalysisJobStatus.COMPLETED) {
             gameStatusToUpdate = GameStatus.ANALYZED;
@@ -274,7 +257,6 @@ export class VideoAnalysisResultService {
         await this.gameRepository.updateStatus(result.gameId, gameStatusToUpdate, result.failedChunkInfo);
 
         if (gameStatusToUpdate === GameStatus.ANALYZED) {
-            await this.persistIdentifiedEntities(result);
             await this.gameStatsService.calculateAndStoreStats(result.gameId);
             this.logger.info(`[JOB_SUCCESS] 🎉 Game ${result.gameId} analysis complete and stats calculated.`, { phase: 'results_processing' });
         } else {
@@ -283,40 +265,71 @@ export class VideoAnalysisResultService {
     }
 
     private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
+        const game = await this.dataSource.getRepository(Game).findOne({ where: { id: result.gameId } });
+        if (!game) return;
+
+        // Process Teams
         if (result.identifiedTeams && result.identifiedTeams.length > 0) {
             for (const teamData of result.identifiedTeams) {
-                if (!this.isUuid(teamData.id)) continue; 
+                let teamId = teamData.id;
 
-                let team = await this.teamRepository.findOneById(teamData.id);
+                // Apply Official Mapping
+                if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
+                    teamId = game.homeTeamId;
+                } else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) {
+                    teamId = game.awayTeamId;
+                }
+
+                // Deterministic UUID
+                if (!this.isUuid(teamId)) {
+                    teamId = uuidv5(`${result.gameId}:${teamId}`, STATVISION_NAMESPACE);
+                }
+
+                let team = await this.dataSource.getRepository(Team).findOne({ where: { id: teamId } });
                 if (!team) {
                     team = new Team();
-                    team.id = teamData.id;
-                    team.name = `${teamData.type === 'HOME' ? 'Home' : 'Away'} Team${teamData.color ? ' ('+teamData.color+')' : ''}`;
+                    team.id = teamId;
+                    team.name = teamData.name || `${teamData.type === 'HOME' ? 'Home' : 'Away'} Team (${teamData.color})`;
                     team.isTemp = true;
                     team.userId = result.userId;
-                    await this.teamRepository.save(team);
+                    await this.dataSource.getRepository(Team).save(team);
+                    this.logger.info(`[Discovery] Created Temp Team: ${team.name}`, { teamId });
                 }
-                const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
-                Object.assign(gameTeamStats, { gameId: result.gameId, teamId: teamData.id, ...teamData });
-                await this.gameStatsService.saveGameTeamStats(gameTeamStats);
             }
         }
 
+        // Process Players
         if (result.identifiedPlayers && result.identifiedPlayers.length > 0) {
             for (const playerData of result.identifiedPlayers) {
-                if (!this.isUuid(playerData.id)) continue;
+                let playerId = playerData.id;
+                let teamId = playerData.teamId;
 
-                let player = await this.playerRepository.findOneById(playerData.id);
+                // Resolve Team first
+                if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) teamId = game.homeTeamId;
+                else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) teamId = game.awayTeamId;
+                if (teamId && !this.isUuid(teamId)) teamId = uuidv5(`${result.gameId}:${teamId}`, STATVISION_NAMESPACE);
+
+                // Check for official player assignment
+                if (this.isUuid(teamId) && playerData.jerseyNumber) {
+                    const history = await this.playerRepository.findPlayerByJerseyAndTeam(teamId, Number(playerData.jerseyNumber), game.gameDate || new Date());
+                    if (history) playerId = history.playerId;
+                }
+
+                // Deterministic UUID
+                if (!this.isUuid(playerId)) {
+                    playerId = uuidv5(`${result.gameId}:${playerId}`, STATVISION_NAMESPACE);
+                }
+
+                let player = await this.dataSource.getRepository(Player).findOne({ where: { id: playerId } });
                 if (!player) {
                     player = new Player();
-                    player.id = playerData.id;
-                    player.name = `Player${playerData.jerseyNumber ? ' #'+playerData.jerseyNumber : ''}`;
+                    player.id = playerId;
+                    player.name = playerData.name || `Player #${playerData.jerseyNumber}`;
+                    player.position = playerData.position || null;
                     player.isTemp = true;
-                    await this.playerRepository.save(player);
+                    await this.dataSource.getRepository(Player).save(player);
+                    this.logger.info(`[Discovery] Created Temp Player: ${player.name}`, { playerId });
                 }
-                const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
-                Object.assign(gamePlayerStats, { gameId: result.gameId, playerId: playerData.id, ...playerData });
-                await this.gameStatsService.saveGamePlayerStats(gamePlayerStats);
             }
         }
     }

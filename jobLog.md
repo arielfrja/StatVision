@@ -1,5 +1,27 @@
 # Job Log - StatVision
 
+## [2026-06-03] Architectural Refactor: Draft-to-Mapping Workflow Fix
+**Objective:** Resolve critical data mismatches between AI placeholders and official rosters, and implement idempotent event persistence.
+
+### ✅ Completed Tasks
+- **Model Alignment:** Updated `EVENT_SCHEMA` to include `onCourtPlayerIds` for full lineup tracking.
+- **Delayed ID Conversion:** Refactored `EventProcessorService` to stop early UUID conversion, preserving raw `TEMP_` IDs for official mapping.
+- **Consolidated Result Service:** Centralized all event mapping, entity resolution, and persistence in `VideoAnalysisResultService`.
+- **Deterministic Event IDs:** Implemented v5 UUID generation for events based on `gameId + time + type + actor` to ensure idempotency and prevent duplicate draft events.
+- **On-Court Data Persistence:** Fixed the "leak" where `onCourtPlayerIds` were being dropped or stored as raw AI strings; they are now properly resolved to UUIDs.
+- **Job Finalizer Cleanup:** Simplified `JobFinalizerService` by removing redundant persistence logic and adding a "Premature Finalization Guard".
+
+### 🛠 Architectural Improvements
+- **Idempotency:** Live stream results are now safe to retry without causing duplicates.
+- **Mapping Integrity:** Official Home/Away teams are now correctly linked to AI detections even in "Discovery" mode.
+- **Lineup Context:** Advanced analytics can now rely on the `on_court_player_ids` column for every event.
+
+### 🧪 QA Task List
+1. **Verify Official Mapping:** Create a game with assigned Lakers/Celtics. Ensure AI events link to those teams, not new "Temp" teams.
+2. **Verify Idempotency:** Manually trigger the same chunk analysis twice via HTTP. Ensure only one set of events exists in the `game_events` table.
+3. **Verify Lineup Data:** Check the `on_court_player_ids` column for events. Ensure it contains a list of UUIDs that match the identified players.
+4. **Verify Live -> Final Transition:** Ensure events visible during "Analyzing" don't change or duplicate when the job hits "Completed".
+
 ## [2026-05-29] Ingestion: Direct Video Analysis & Identity Learning
 **Objective:** Transition to a high-performance "Single Upload" architecture and resolve player/team identity inconsistencies across turns.
 
