@@ -95,4 +95,16 @@ This manual documents the functional features of the StatVision platform that ha
 - **Flexible Time Ranges:** View usage data over 7-day, 30-day, or 90-day periods.
 
 ---
-*Next Chapter: [8. Multi-Tenant Workspaces] (In Development)*
+
+## 8. Virtual Coach AI
+**Status:** 🟢 Production Ready (Phase 6 Launch)
+**Description:** A high-level analysis engine that transforms structured game data into actionable coaching insights.
+
+### Features:
+- **Strategic Performance Insights:** One-click generation of a comprehensive coaching report based on detected events and player efficiency.
+- **Top 3 Strengths & Weaknesses:** The AI identifies tactical trends (e.g., "Dominant defensive rebounding," "Frequent turnovers in transition") with professional basketball terminology.
+- **Tactical Drill Recommendations:** 3 specific, evidence-based drills tailored to address the weaknesses identified in the game data.
+- **Key Player Insights:** Automated identification of an "Impact Player" with a specific coaching note for their development.
+
+---
+*Next Chapter: [9. Multi-Tenant Workspaces] (In Development)*

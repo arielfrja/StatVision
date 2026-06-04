@@ -42,6 +42,9 @@ We maintain a clean documentation hierarchy in the `docs/` directory:
 
 ## 💻 Getting Started
 
+### 🚀 New Developer?
+Check out our **[Developer Onboarding Guide](docs/DEVELOPER_ONBOARDING.md)** for step-by-step setup instructions.
+
 ### Prerequisites
 - Node.js (v18+)
 - FFmpeg installed in PATH.
