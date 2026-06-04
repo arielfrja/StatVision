@@ -3,18 +3,19 @@
 import React, { useState } from 'react';
 import Button from '@/components/Button';
 import { Game } from '@/types/game';
-import logger from '@/utils/Logger';
+import { appLogger as logger } from '@/utils/Logger';
 
 interface CoachReportProps {
     game: Game;
 }
 
 export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
-    const [report, setReport] = useState<string | null>(null); // game.metadata doesn't have coachReport yet in types
+    const [report, setReport] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [selectedTeamId, setSelectedTeamId] = useState<string>(game.homeTeamId);
+    const [selectedTeamId, setSelectedTeamId] = useState<string>(game.homeTeamId || '');
 
     const generateReport = async () => {
+        if (!selectedTeamId) return;
         setLoading(true);
         try {
             const response = await fetch(`/api/games/${game.id}/coach-report`, {
@@ -52,13 +53,13 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
                         onChange={(e) => setSelectedTeamId(e.target.value)}
                         className="bg-primary-bg border border-border-main text-tx-primary text-xs font-bold uppercase p-2 rounded focus:outline-none focus:border-accent"
                     >
-                        <option value={game.homeTeamId}>{game.homeTeam?.name || 'Home Team'}</option>
-                        <option value={game.awayTeamId}>{game.awayTeam?.name || 'Away Team'}</option>
+                        <option value={game.homeTeamId || ''}>{game.homeTeam?.name || 'Home Team'}</option>
+                        <option value={game.awayTeamId || ''}>{game.awayTeam?.name || 'Away Team'}</option>
                     </select>
                     
                     <Button 
                         onClick={generateReport} 
-                        loading={loading}
+                        isLoading={loading}
                         icon="smart_toy"
                         variant="primary"
                     >
