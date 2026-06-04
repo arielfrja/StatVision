@@ -174,6 +174,32 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
         );
     }
 
+    public async generateCoachReport(
+        gameType: string,
+        teamName: string,
+        identityMode: string,
+        eventsJson: string,
+        boxScoreJson: string
+    ): Promise<string> {
+        this.logger?.info(`[GeminiProvider] Generating coach report for ${teamName}`, { phase: 'coaching' });
+
+        const prompt = PromptLoader.loadPrompt('coach_report', {
+            gameType,
+            teamName,
+            identityMode,
+            eventsJson,
+            boxScoreJson
+        });
+
+        const result = await this.genAI.models.generateContent({
+            model: this.modelName,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+
+        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        return responseText || "Failed to generate report.";
+    }
+
     private async waitForFileActive(name: string): Promise<void> {
         const pollInterval = 10000; // 10 seconds
         const maxRetries = 60; // 10 minutes

@@ -5,7 +5,11 @@ import { randomUUID } from 'crypto';
 
 export enum VideoAnalysisJobStatus {
     PENDING = 'PENDING',
-    PROCESSING = 'PROCESSING',
+    QUEUED = 'QUEUED',
+    CHUNKING = 'CHUNKING',
+    ANALYZING = 'ANALYZING',
+    PROCESSING = 'PROCESSING', // Generic in-progress state
+    FINALIZING = 'FINALIZING',
     COMPLETED = 'COMPLETED',
     FAILED = 'FAILED',
     RETRYABLE_FAILED = 'RETRYABLE_FAILED',

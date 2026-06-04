@@ -495,6 +495,32 @@ export const gameRoutes = (
         }
     });
 
+    router.post("/:gameId/coach-report", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).send("Unauthorized");
+        }
+
+        const { gameId } = req.params;
+        const { teamId } = req.body;
+
+        if (!teamId) {
+            return res.status(400).json({ message: "teamId is required." });
+        }
+
+        try {
+            const game = await gameRepository.findOne({ where: { id: gameId, userId: req.user.id } });
+            if (!game) {
+                return res.status(404).json({ message: "Game not found or does not belong to user." });
+            }
+
+            const report = await gameAnalysisService.generateCoachReport(gameId, teamId);
+            res.status(200).json({ report });
+        } catch (error: any) {
+            logger.error(`Error generating coach report for game ${gameId}:`, error);
+            res.status(500).json({ message: error.message || "Internal server error." });
+        }
+    });
+
     router.post("/:gameId/assignment", async (req, res) => {
         if (!req.user || !req.user.id) {
             return res.status(401).send("Unauthorized");

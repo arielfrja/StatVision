@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { JobWatchdogService } from "./service/JobWatchdogService";
 import logger from "./config/logger";
 
 const envPath = path.resolve(__dirname, '../.env');
@@ -85,6 +86,14 @@ AppDataSource.initialize()
         // Initialize background consumers
         container.get<VideoAnalysisResultService>(VideoAnalysisResultService).startConsumingResults();
         container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
+
+        // Start Job Watchdog (runs every 5 minutes)
+        const watchdog = container.get<JobWatchdogService>(JobWatchdogService);
+        setInterval(() => {
+            watchdog.checkStaleJobs().catch((err: Error) => logger.error("[WATCHDOG_ERROR]", err));
+        }, 5 * 60 * 1000);
+        // Run once on startup
+        watchdog.checkStaleJobs().catch((err: Error) => logger.error("[WATCHDOG_STARTUP_ERROR]", err));
 
         // WebSocket Handlers
         io.on("connection", (socket) => {

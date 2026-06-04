@@ -1,5 +1,14 @@
 # Job Log - StatVision
 
+## [2026-06-03] Strategic Pivot: Stabilization & Virtual Coach AI
+- **Initiative:** Technical & Product Review Analysis.
+- **Decision:** Paused Phase 6 "Park Legends" to prioritize **Infrastructure Stabilization**.
+- **Actions:**
+    - Migration to **Virtual Chunking** (Offset-based) to solve FFmpeg CPU starvation.
+    - Implementation of **Job State Machine** with heartbeats and API Watchdog.
+    - Implementation of **Virtual Coach Report** as the flagship Phase 6 feature.
+- **Rationale:** Technical debt in the analysis pipeline was causing job timeouts; stabilization is required before monetizing.
+
 ## [2026-06-03] Architectural Refactor: Draft-to-Mapping Workflow Fix
 **Objective:** Resolve critical data mismatches between AI placeholders and official rosters, and implement idempotent event persistence.
 

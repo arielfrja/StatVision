@@ -86,6 +86,12 @@ export class JobFinalizerService {
         }
 
         if (finalStatus) {
+            // Update to FINALIZING state before long running persistence/aggregate logic
+            await this.jobRepository.update(jobId, { 
+                status: VideoAnalysisJobStatus.FINALIZING,
+                processingHeartbeatAt: new Date()
+            });
+
             // Aggregate all results for the final message
             const playerMap = new Map<string, any>();
             const teamMap = new Map<string, any>();

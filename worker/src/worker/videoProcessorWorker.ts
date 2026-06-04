@@ -128,7 +128,10 @@ export class VideoOrchestratorService {
         }
 
         try {
-            await this.jobRepository.update(savedJob.id, { status: VideoAnalysisJobStatus.PROCESSING });
+            await this.jobRepository.update(savedJob.id, { 
+                status: VideoAnalysisJobStatus.CHUNKING,
+                processingHeartbeatAt: new Date()
+            });
             
             // 1. Download from GCS if needed
             if (filePath.startsWith('gs://')) {
@@ -172,7 +175,7 @@ export class VideoOrchestratorService {
             }
 
             const tempDir = path.dirname(localVideoPath);
-            const chunkingMode = (process.env.CHUNKING_MODE || 'SEQUENTIAL').toUpperCase();
+            const chunkingMode = workerConfig.chunkingMode;
             this.jobLogger.info(`[ORCHESTRATOR] Starting chunking for job ${savedJob.id} in ${chunkingMode} mode`, { phase: 'orchestration' });
 
             let chunks: VideoChunk[] = [];
@@ -243,7 +246,11 @@ export class VideoOrchestratorService {
             }
 
             // Update with actual chunk count
-            await this.jobRepository.update(savedJob.id, { totalChunks });
+            await this.jobRepository.update(savedJob.id, { 
+                totalChunks,
+                status: VideoAnalysisJobStatus.ANALYZING,
+                processingHeartbeatAt: new Date()
+            });
             await this.gameRepository.update(gameId, { totalChunks });
             
             await this.progressManager.updateJob(savedJob.id, startSequence + chunks.length, 'Chunking complete. Starting analysis.', 'ANALYZING');

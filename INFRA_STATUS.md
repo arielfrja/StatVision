@@ -29,7 +29,7 @@ StatVision is a monorepo consisting of:
 4.  **Atomic Progress Tracking**: Added `total_chunks` and `completed_chunks` tracking to the database to manage parallel analysis jobs.
 
 ## 5. Current Bottleneck Game
-*   **Status**: Refactor in progress. System is being transitioned to the new task-based architecture.
+*   **Status**: **Pivoting to Virtual Chunking**. We are removing the FFmpeg physical slicing bottleneck. The system will now use a single video upload to Gemini and process segments via time-offsets, preserving the Node event loop for critical gRPC heartbeats.
 
 ---
-**Status Report Updated: Transitioning to Task-Based Architecture**
+**Status Report Updated: Transitioning to Virtual Chunking & Robust Job State Machine**

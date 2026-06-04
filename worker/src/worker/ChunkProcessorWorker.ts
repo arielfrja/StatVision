@@ -70,6 +70,15 @@ export class ChunkProcessorWorker {
             const extendAckDeadline = async () => {
                 this.logger.debug(`Extending ack deadline for message ${message.id}`, { phase: 'analyzing' });
                 message.modAck(workerConfig.ackDeadlineSeconds);
+                
+                // Also update DB heartbeat for the job
+                try {
+                    await this.jobRepository.update(parsedMessage.jobId, {
+                        processingHeartbeatAt: new Date()
+                    });
+                } catch (err) {
+                    this.logger.warn(`Failed to update DB heartbeat for job ${parsedMessage.jobId}`, { err });
+                }
             };
 
             try {

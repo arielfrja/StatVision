@@ -8,13 +8,14 @@ import {
     AppError, User, Team, ILogger,
     PubSubEventBus, IEventBus,
     GCSStorageProvider, LocalStorageProvider, IStorageProvider,
-    AiUsageService
+    AiUsageService, GeminiProvider
 } from "@statvision/common";
 import { GameService } from "../modules/games/GameService";
 import { GameAssignmentService } from "../modules/games/GameAssignmentService";
 import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { ProgressSubscriberService } from "../service/ProgressSubscriberService";
+import { JobWatchdogService } from "../service/JobWatchdogService";
 import logger from "../config/logger";
 import { Server } from "socket.io";
 
@@ -81,11 +82,18 @@ export class AppContainer {
             commonLogger
         );
         
+        const geminiProvider = new GeminiProvider(
+            process.env.GEMINI_API_KEY || '',
+            process.env.GEMINI_MODEL_NAME || 'gemini-1.5-pro',
+            commonLogger
+        );
+
         const playerService = new PlayerService(this.dataSource, gameStatsService, commonLogger);
         const gameAssignmentService = new GameAssignmentService(this.dataSource, gameStatsService);
-        const gameAnalysisService = new GameAnalysisService(this.dataSource);
+        const gameAnalysisService = new GameAnalysisService(this.dataSource, geminiProvider);
         
         const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, logger, gameStatsService, eventBus);
+        const jobWatchdogService = new JobWatchdogService(this.dataSource);
 
         // Registering services
         this.services.set(TeamService.name, teamService);
@@ -96,6 +104,7 @@ export class AppContainer {
         this.services.set(GameAnalysisService.name, gameAnalysisService);
         this.services.set(AiUsageService.name, aiUsageService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
+        this.services.set(JobWatchdogService.name, jobWatchdogService);
 
         if (this.io) {
             const progressSubscriberService = new ProgressSubscriberService(eventBus, this.io);

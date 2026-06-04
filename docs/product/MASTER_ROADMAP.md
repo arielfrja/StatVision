@@ -39,8 +39,14 @@ This document tracks the high-level progress of the StatVision platform. It comb
 - [x] **Olympic-Level Intelligence:** Overhauled AI prompts to filter replays and use professional taxonomy.
 - [ ] **Automated Highlight Generator:** AI-powered "mixtape" creation from event timestamps.
 
+## 🔄 Stabilization Sprint: Review-Led Hardening (ACTIVE)
+- [ ] **Virtual Chunking Migration:** Pivot from physical FFmpeg slicing to offset-based logical segments.
+- [ ] **Robust Job State Machine:** Implement `currentPhase` and `heartbeatAt` tracking in the DB.
+- [ ] **API Watchdog:** Automated detection and recovery for stale worker jobs.
+
 ## 📈 Phase 6: Expansion & Monetization (ACTIVE)
 - [x] **AI Resource Monitoring:** Tracking of tokens and video minutes with user-facing dashboard.
+- [ ] **Virtual Coach Report (V1):** AI-powered insights (Strengths/Weaknesses/Drills) based on game data.
 - [ ] **Usage-Based Tiering:** Implement Free/Pro/Org subscription logic.
 - [ ] **"Park Legends" Leaderboard:** Community-wide stats and ELO-based rankings.
 - [ ] **Recruitment Marketplace:** Secure data sharing with scouts and coaches.
