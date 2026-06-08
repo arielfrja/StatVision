@@ -76,7 +76,7 @@ const GamesPage = () => {
           Return to Vault
         </button>
         <h1 className="text-3xl font-bold tracking-tight text-tx-primary">
-          {resumeGameId ? 'Recover Ingestion' : 'Initialize New Analysis'}
+          {resumeGameId ? 'Recover Upload' : 'Initialize New Analysis'}
         </h1>
       </header>
       <div className="bg-surface border border-border-main rounded-md p-1">
@@ -110,7 +110,7 @@ const GamesPage = () => {
           icon="add_box"
           size="lg"
         >
-          New Ingestion
+          New Upload
         </Button>
       </header>
 
@@ -120,7 +120,7 @@ const GamesPage = () => {
               <span className="material-symbols-outlined text-3xl">videocam_off</span>
             </div>
             <h2 className="text-lg font-bold text-tx-primary mb-2">The Vault is Empty</h2>
-            <p className="text-sm text-tx-secondary max-w-xs mx-auto mb-10">Initialize your first game ingestion to begin automated performance tracking.</p>
+            <p className="text-sm text-tx-secondary max-w-xs mx-auto mb-10">Upload your first game to begin automated performance tracking.</p>
             <Button 
               onClick={() => setIsUploadMode(true)}
               variant="outline"
@@ -190,7 +190,7 @@ const GamesPage = () => {
                         icon="refresh"
                         onClick={(e) => handleRetry(e, game.id)}
                     >
-                        Retry Ingestion
+                        Retry Upload
                     </Button>
                   ) : (
                     <>

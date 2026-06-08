@@ -1,3 +1,5 @@
+import path from 'path';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@material/web'],
@@ -10,6 +12,10 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  webpack: (config) => {
+    config.resolve.alias['swr'] = path.resolve(process.cwd(), '../node_modules/swr');
+    return config;
   },
 };
 
