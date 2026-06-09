@@ -13,7 +13,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  webpack: (config) => {
+  webpack: (config: any) => {
     config.resolve.alias['swr'] = path.resolve(process.cwd(), '../node_modules/swr');
     return config;
   },
