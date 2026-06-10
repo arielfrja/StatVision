@@ -264,6 +264,8 @@ export const gameRoutes = (
         const { gameId } = req.params;
         const { gcsUri } = req.body;
 
+        logger.info(`[UPLOAD_COMPLETE] Received confirmation for game ${gameId}, URI: ${gcsUri}`);
+
         if (!gcsUri) {
             return res.status(400).json({ message: "Missing gcsUri in body." });
         }
@@ -271,16 +273,18 @@ export const gameRoutes = (
         try {
             const game = await gameRepository.findOneBy({ id: gameId, userId: req.user.id });
             if (!game) {
+                logger.warn(`[UPLOAD_COMPLETE] Game ${gameId} not found for user ${req.user.id}`);
                 return res.status(404).json({ message: "Game not found or access denied." });
             }
 
             // --- Robust Verification ---
             // Extract the path from the URI (gs://bucket/path)
             const remotePath = gcsUri.replace(/^gs:\/\/[^\/]+\//, '');
+            logger.debug(`[UPLOAD_COMPLETE] Verifying existence of ${remotePath} in storage...`);
             const fileExists = await storageProvider.exists(remotePath);
 
             if (!fileExists) {
-                logger.warn(`Upload confirmation received for ${gameId}, but file is not yet visible in GCS: ${remotePath}`);
+                logger.warn(`[UPLOAD_COMPLETE] Upload confirmation received for ${gameId}, but file is not yet visible in GCS: ${remotePath}`);
                 return res.status(202).json({ 
                     status: 'PENDING_STORAGE', 
                     message: "Cloud Storage is still finalizing the video. Please wait a moment..." 
@@ -291,18 +295,19 @@ export const gameRoutes = (
             game.status = GameStatus.UPLOADED;
             game.filePath = gcsUri;
             await gameRepository.save(game);
+            logger.info(`[UPLOAD_COMPLETE] Game ${gameId} status updated to UPLOADED`);
 
             // Emit event to start analysis via Cloud Tasks
             await queueOrchestrationTask(game.id, gcsUri, req.user.id);
 
-            logger.info(`Video upload confirmed and Cloud Task created for game ${gameId}: ${gcsUri}`);
+            logger.info(`[UPLOAD_COMPLETE] Video upload confirmed and Cloud Task created for game ${gameId}: ${gcsUri}`);
             res.status(200).json({ 
                 status: 'SUCCESS',
                 message: "Upload confirmed. Analysis started.", 
                 game 
             });
         } catch (error) {
-            logger.error(`Error confirming upload for game ${gameId}:`, error);
+            logger.error(`[UPLOAD_COMPLETE] Error confirming upload for game ${gameId}:`, error);
             res.status(500).json({ message: "Internal server error." });
         }
     });

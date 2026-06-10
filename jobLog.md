@@ -1,5 +1,18 @@
 # Job Log - StatVision
 
+## [2026-06-10] Fix: Ingestion Handshake & Progress Accuracy
+**Objective:** Resolve the "Network Error" during upload and ensure database status accuracy before reporting completion.
+
+### ✅ Completed Tasks
+- **Path Correction:** Fixed incorrect API endpoint in `UploadForm.tsx` (changed `/:id/upload-complete` to `/games/:id/upload-complete`).
+- **Progress Logic ("99% Hold"):** Updated frontend to cap streaming progress at 99%. The final 1% is only granted after the backend confirms successful GCS verification and DB status update to `UPLOADED`.
+- **Backend Hardening:** Added explicit GCS file existence verification in `gameRoutes.ts` before transitioning status. Enhanced logging with `[UPLOAD_COMPLETE]` tags.
+- **Manual Recovery:** Rescued a stuck game (`6456fc73...`) by manually verifying storage and updating its DB status to `UPLOADED`.
+
+### 🛠 Improvements
+- **Reliability:** Prevents games from being stuck in `PENDING` state after successful file upload.
+- **User Feedback:** Clearer messaging during the "Cloud Finalization" phase (the gap between file transfer and system readiness).
+
 ## [2026-06-03] Strategic Pivot: Stabilization & Virtual Coach AI
 - **Initiative:** Technical & Product Review Analysis.
 - **Decision:** Paused Phase 6 "Park Legends" to prioritize **Infrastructure Stabilization**.

@@ -139,7 +139,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
         try {
             const token = await getAccessTokenSilently();
-            const response = await apiClient.post(`/${gameId}/upload-complete`, { gcsUri }, {
+            const response = await apiClient.post(`/games/${gameId}/upload-complete`, { gcsUri }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -233,7 +233,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 formData.append('file', file);
                 await apiClient.put(uploadUrl!, formData, {
                     onUploadProgress: (p) => {
-                        if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
+                        if (p.total) {
+                            const percent = Math.round((p.loaded * 99) / p.total);
+                            setProgress(percent);
+                        }
                     }
                 });
             } else {
@@ -260,7 +263,9 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     onUploadProgress: (p) => {
                         if (p.total) {
                             const totalUploaded = startByte + p.loaded;
-                            setProgress(Math.round((totalUploaded * 100) / file.size));
+                            // Limit to 99% during stream
+                            const percent = Math.min(99, Math.round((totalUploaded * 99) / file.size));
+                            setProgress(percent);
                         }
                     }
                 });
@@ -268,11 +273,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
             // Step 4: Robust Confirm Handshake
             setStatus('FINALIZING');
+            setProgress(99);
             setProgressLabel('Confirming cloud persistence...');
             
             const success = await finalizeUpload(gameId!, gcsUri!);
 
             if (success) {
+                setProgress(100);
                 localStorage.removeItem('statvision_active_upload_id');
                 localStorage.removeItem('statvision_active_upload_filename');
                 localStorage.removeItem('statvision_active_upload_filesize');
