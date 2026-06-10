@@ -70,7 +70,10 @@ const GamesPage = () => {
     }
 
     try {
-      await apiClient.delete(`/games/${gameId}`);
+      const token = await getAccessTokenSilently();
+      await apiClient.delete(`/games/${gameId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
       // Cleanup localStorage if this was the active resumable upload
       const activeUploadId = localStorage.getItem('statvision_active_upload_id');
