@@ -1,5 +1,19 @@
 # Job Log - StatVision
 
+## [2026-06-10] Feature: Game Deletion & Upload Cleanup
+**Objective:** Enable users to delete unsuccessful or unwanted games and ensure all associated cloud resources and local session data are cleaned up.
+
+### ✅ Completed Tasks
+- **Frontend UI:** Added a "Delete" button to game cards in the **Film Room**.
+- **Frontend Logic:** Implemented `handleDelete` with confirmation and **localStorage cleanup** to prevent session leaks for resumable uploads.
+- **Upload Cancellation:** Added `AbortController` support to `UploadForm.tsx`. Clicking "Cancel" during an active stream now immediately terminates the network request.
+- **Storage Layer:** Added `deleteFilesByPrefix` to `IStorageProvider`, `GCSStorageProvider`, and `LocalStorageProvider`.
+- **Backend Hardening:** Updated `GameService.deleteGame` to perform a comprehensive cleanup of the `videos/{gameId}/` prefix in GCS, ensuring partial/unfinalized uploads are removed.
+
+### 🛠 Improvements
+- **Data Management:** Users can now clear failed drafts or duplicate uploads.
+- **Resource Integrity:** Prevents "orphaned" video files in GCS from unfinalized uploads.
+
 ## [2026-06-10] Fix: Ingestion Handshake & Progress Accuracy
 **Objective:** Resolve the "Network Error" during upload and ensure database status accuracy before reporting completion.
 

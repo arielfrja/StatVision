@@ -118,4 +118,21 @@ export class LocalStorageProvider implements IStorageProvider {
         const apiBaseUrl = process.env.API_URL || 'http://localhost:3000';
         return `${apiBaseUrl}/games/upload/local-mock-session?path=${encodeURIComponent(destinationPath)}`;
     }
+
+    async deleteFilesByPrefix(prefix: string): Promise<void> {
+        try {
+            const dirToDelete = path.join(this.baseDir, prefix);
+            if (fs.existsSync(dirToDelete) && fs.lstatSync(dirToDelete).isDirectory()) {
+                fs.rmSync(dirToDelete, { recursive: true, force: true });
+                this.logInfo(`[LocalStorageProvider] Deleted directory ${dirToDelete}`);
+            } else {
+                // If it's just a file prefix and not a directory, we could glob it,
+                // but for our use case (videos/{gameId}/), it's usually a directory.
+                this.logInfo(`[LocalStorageProvider] No directory found for prefix ${prefix}`);
+            }
+        } catch (error) {
+            this.logError(`[LocalStorageProvider] Error deleting files with prefix ${prefix}:`, error);
+            throw error;
+        }
+    }
 }

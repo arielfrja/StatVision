@@ -40,4 +40,10 @@ export interface IStorageProvider {
      * @returns A promise resolving to the resumable upload session URL.
      */
     getResumableUploadUrl(destinationPath: string, contentType: string): Promise<string>;
+
+    /**
+     * Deletes all files with the specified prefix from the storage bucket.
+     * @param prefix The prefix (directory-like path) to delete.
+     */
+    deleteFilesByPrefix(prefix: string): Promise<void>;
 }

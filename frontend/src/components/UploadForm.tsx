@@ -41,6 +41,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
     const [resumableFileMetadata, setResumableFileMetadata] = useState<{name: string, size: number} | null>(null);
     const [isExplicitResume, setIsExplicitResume] = useState(!!initialGameId);
 
+    const abortControllerRef = React.useRef<AbortController | null>(null);
+
     useEffect(() => {
         setMounted(true);
         const savedId = localStorage.getItem('statvision_active_upload_id');
@@ -131,6 +133,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         localStorage.removeItem('statvision_active_upload_filesize');
     };
 
+    const handleCancel = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        onCancel();
+    };
+
     /**
      * Intelligent Handshake: Polls the backend until GCS finalization is confirmed.
      */
@@ -174,6 +183,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         setIsProcessing(true);
         setError(null);
         setStatus('UPLOADING');
+        abortControllerRef.current = new AbortController();
 
         try {
             const token = await getAccessTokenSilently();
@@ -232,6 +242,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 const formData = new FormData();
                 formData.append('file', file);
                 await apiClient.put(uploadUrl!, formData, {
+                    signal: abortControllerRef.current?.signal,
                     onUploadProgress: (p) => {
                         if (p.total) {
                             const percent = Math.round((p.loaded * 99) / p.total);
@@ -256,6 +267,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
                 const chunkToUpload = file.slice(startByte);
                 await axios.put(uploadUrl!, chunkToUpload, {
+                    signal: abortControllerRef.current?.signal,
                     headers: { 
                         'Content-Type': file.type || 'video/mp4',
                         'Content-Range': `bytes ${startByte}-${file.size - 1}/${file.size}`
@@ -290,10 +302,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 setStatus('ERROR');
             }
         } catch (err: any) {
+            if (axios.isCancel(err)) {
+                logger.info('Upload cancelled by user');
+                return;
+            }
             setError(`Upload failed: ${err.response?.data?.message || err.message}`);
             setStatus('ERROR'); 
         } finally {
             setIsProcessing(false);
+            abortControllerRef.current = null;
         }
     };
 
@@ -367,7 +384,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             )}
 
             <div className="flex justify-end gap-3 pt-6 border-t border-border-main">
-                <Button variant="ghost" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
+                <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
                 
                 {isExplicitResume && isResumable ? (
                     <>

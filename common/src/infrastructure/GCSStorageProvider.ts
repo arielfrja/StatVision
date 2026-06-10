@@ -103,4 +103,16 @@ export class GCSStorageProvider implements IStorageProvider {
             throw error;
         }
     }
+
+    async deleteFilesByPrefix(prefix: string): Promise<void> {
+        try {
+            await this.storage.bucket(this.bucketName).deleteFiles({
+                prefix
+            });
+            this.logInfo(`[GCSStorageProvider] Deleted files with prefix ${prefix}`);
+        } catch (error) {
+            this.logError(`[GCSStorageProvider] Error deleting files with prefix ${prefix}:`, error);
+            throw error;
+        }
+    }
 }

@@ -61,6 +61,31 @@ const GamesPage = () => {
     router.replace(`/games?resume=${gameId}`);
   };
 
+  const handleDelete = async (e: React.MouseEvent, gameId: string) => {
+    e.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this game and all its data? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/games/${gameId}`);
+      
+      // Cleanup localStorage if this was the active resumable upload
+      const activeUploadId = localStorage.getItem('statvision_active_upload_id');
+      if (activeUploadId === gameId) {
+        localStorage.removeItem('statvision_active_upload_id');
+        localStorage.removeItem('statvision_active_upload_filename');
+        localStorage.removeItem('statvision_active_upload_filesize');
+      }
+
+      mutate(); // Refresh the list
+    } catch (error) {
+      console.error('Error deleting game:', error);
+      alert('Failed to delete game. Please try again.');
+    }
+  };
+
   if (isUploadMode) return (
     <div className="max-w-4xl mx-auto pb-24">
       <header className="mb-10 flex flex-col gap-4">
@@ -143,16 +168,27 @@ const GamesPage = () => {
                 className={`bg-surface border border-border-main rounded-md group overflow-hidden flex flex-col transition-all duration-200 ${canRetry ? 'opacity-80' : 'cursor-pointer hover:border-accent'}`}
               >
                 {/* Scoreboard-style Header */}
-                <div className="p-5 border-b border-border-main bg-primary-bg/30 flex items-center justify-between">
+                <div className="p-5 border-b border-border-main bg-primary-bg/30 flex items-center justify-between gap-4">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">{date}</span>
                     <span className="text-[10px] font-bold text-accent uppercase tracking-tighter italic">{game.gameType.replace(/_/g, ' ')}</span>
                   </div>
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wider" 
-                    style={{ color: status.color, borderColor: `${status.color}33`, background: `${status.color}0D` }}>
-                    <span className={`material-symbols-outlined text-[12px] ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
-                    {status.label}
-                  </span>
+                  
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wider" 
+                      style={{ color: status.color, borderColor: `${status.color}33`, background: `${status.color}0D` }}>
+                      <span className={`material-symbols-outlined text-[12px] ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
+                      {status.label}
+                    </span>
+
+                    <button 
+                      onClick={(e) => handleDelete(e, game.id)}
+                      className="text-tx-dim hover:text-color-error transition-colors p-1 rounded-full hover:bg-color-error/10 flex items-center justify-center"
+                      title="Delete Game"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Matchup Content */}
