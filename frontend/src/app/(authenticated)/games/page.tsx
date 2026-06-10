@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
+import apiClient from '@/utils/apiClient';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
 import { Game, GameStatus } from '@/types/game';
