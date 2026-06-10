@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
+import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
@@ -11,6 +12,7 @@ import UploadForm from '@/components/UploadForm';
 
 const GamesPage = () => {
   const router = useRouter();
+  const { getAccessTokenSilently } = useAuth0();
   const searchParams = useSearchParams();
   const resumeId = searchParams.get('resume');
 
