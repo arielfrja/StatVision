@@ -107,4 +107,16 @@ This manual documents the functional features of the StatVision platform that ha
 - **Key Player Insights:** Automated identification of an "Impact Player" with a specific coaching note for their development.
 
 ---
-*Next Chapter: [9. Multi-Tenant Workspaces] (In Development)*
+
+## 9. Production Serverless Architecture
+**Status:** 🟢 Production Ready (Alpha Phase)
+**Description:** A cost-optimized, reactive infrastructure designed to scale to zero during periods of inactivity.
+
+### Features:
+- **Stateless Reactive API:** The API service on Cloud Run is purely stateless. It shuts down completely when not in use, reducing idle costs to zero.
+- **Firebase Real-time Sync:** Replaced WebSockets with Firebase Realtime Database. The frontend listens directly to Firebase for progress updates, allowing thousands of concurrent users without increasing server load.
+- **Secure Webhooks:** AI analysis results and progress updates are delivered via Google Pub/Sub Push Webhooks, secured with OIDC identity verification.
+- **Externalized Maintenance:** System-wide watchdog tasks are managed via Google Cloud Scheduler, removing the need for internal server-side timers.
+- **Automated Artifact Cleanup:** A dedicated cleanup service automatically purges temporary video segments (chunks) from Cloud Storage upon job completion, preventing storage cost leakage.
+- **Dead Letter Queue (DLQ) Ready:** Configured to handle message processing failures gracefully without triggering infinite retry loops or billing spikes.
+

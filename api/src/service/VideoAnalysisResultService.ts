@@ -7,11 +7,13 @@ import {
     VideoAnalysisJobStatus, GameEventStatus, IEventBus, PlayerTeamHistory
 } from "@statvision/common";
 import * as winston from 'winston';
+import { NotificationService } from "./NotificationService";
+import { CleanupService } from "./CleanupService";
 
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
 const CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'chunk-analysis-results-sub';
 
-interface VideoAnalysisJobResultMessage {
+export interface VideoAnalysisJobResultMessage {
     jobId: string;
     gameId: string;
     userId: string;
@@ -37,7 +39,9 @@ export class VideoAnalysisResultService {
         private dataSource: DataSource, 
         logger: winston.Logger,
         gameStatsService: GameStatsService,
-        eventBus: IEventBus
+        eventBus: IEventBus,
+        private notificationService: NotificationService,
+        private cleanupService: CleanupService
     ) { 
         this.gameRepository = new GameRepository(dataSource);
         this.gameEventRepository = new GameEventRepository(dataSource);
@@ -48,17 +52,21 @@ export class VideoAnalysisResultService {
         this.eventBus = eventBus;
     }
 
+    /**
+     * @deprecated Use handlePushMessage() for production push-based architecture.
+     * This method is kept for local development/legacy support but should not be called in Cloud Run.
+     */
     public async startConsumingResults(): Promise<void> {
-        this.logger.info("VideoAnalysisResultService: Initializing Pub/Sub consumers...", { phase: 'results_processing' });
+        this.logger.info("VideoAnalysisResultService: Initializing Pub/Sub consumers (Legacy PULL mode)...", { phase: 'results_processing' });
         
         await this.eventBus.subscribe(VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME, async (result: VideoAnalysisJobResultMessage, message: Message) => {
             this.logger.info(`Received final job result message ${message.id} for job ${result.jobId}`, { phase: 'results_processing' });
             try {
                 await this.processFinalResult(result);
-                message.ack();
+                if (message.ack) message.ack();
             } catch (error) {
                 this.logger.error(`Error processing final job result:`, { error, phase: 'results_processing' });
-                message.nack();
+                if (message.nack) message.nack();
             }
         });
 
@@ -66,17 +74,48 @@ export class VideoAnalysisResultService {
             this.logger.info(`Received live chunk result for chunk ${result.chunkId} of job ${result.jobId}`, { phase: 'results_processing' });
             try {
                 await this.processChunkResult(result);
-                message.ack();
+                if (message.ack) message.ack();
             } catch (error: any) {
                 this.logger.error(`Error processing live chunk result for game ${result.gameId}: ${error.message}`, { 
                     stack: error.stack,
                     phase: 'results_processing' 
                 });
-                message.nack();
+                if (message.nack) message.nack();
             }
         });
+    }
 
-        this.logger.info(`VideoAnalysisResultService: Consumers started for results and live streams.`, { phase: 'results_processing' });
+    /**
+     * Entry point for Pub/Sub Push Webhooks (Production mode).
+     */
+    public async handlePushMessage(message: VideoAnalysisJobResultMessage): Promise<void> {
+        this.logger.info(`[VideoAnalysisResultService] Handling push message for job ${message.jobId}`, { 
+            phase: 'results_processing',
+            isFinal: message.isFinalResult || !message.chunkId 
+        });
+
+        try {
+            if (message.isFinalResult || !message.chunkId) {
+                await this.processFinalResult(message);
+            } else {
+                await this.processChunkResult(message);
+            }
+        } catch (error: any) {
+            this.logger.error(`[VideoAnalysisResultService] Failed to process push message: ${error.message}`, { 
+                jobId: message.jobId,
+                error: error.stack
+            });
+            
+            // Inform user of the failure via Firebase
+            await this.notificationService.updateJobProgress(message.jobId, {
+                progress: 0,
+                status: 'FAILED',
+                details: `Internal error: ${error.message}`,
+                gameId: message.gameId
+            });
+
+            throw error; // Rethrow so the webhook returns 500 and triggers retry
+        }
     }
 
     private async processChunkResult(result: VideoAnalysisJobResultMessage): Promise<void> {
@@ -84,7 +123,6 @@ export class VideoAnalysisResultService {
         
         try {
             await this.persistIdentifiedEntities(result);
-            this.logger.debug(`Entities persisted for game ${result.gameId}`, { phase: 'results_processing' });
         } catch (err: any) {
             this.logger.error(`Error in persistIdentifiedEntities: ${err.message}`, { stack: err.stack });
             throw err;
@@ -93,7 +131,6 @@ export class VideoAnalysisResultService {
         let resolvedEvents;
         try {
             resolvedEvents = await this.resolvePlayerIds(result.gameId, result.processedEvents);
-            this.logger.debug(`Player IDs resolved for game ${result.gameId}`, { phase: 'results_processing' });
         } catch (err: any) {
             this.logger.error(`Error in resolvePlayerIds: ${err.message}`, { stack: err.stack });
             throw err;
@@ -107,18 +144,9 @@ export class VideoAnalysisResultService {
                 gameEvent.chunkId = result.chunkId || null;
                 gameEvent.status = GameEventStatus.DRAFT;
 
-                // Ensure non-UUIDs are not saved to UUID columns
-                if (!this.isUuid(gameEvent.assignedTeamId)) {
-                    gameEvent.assignedTeamId = null;
-                }
-                if (!this.isUuid(gameEvent.assignedPlayerId)) {
-                    gameEvent.assignedPlayerId = null;
-                }
-
-                // FIX: Database has NOT NULL constraint on is_successful
-                if (gameEvent.isSuccessful === null || gameEvent.isSuccessful === undefined) {
-                    gameEvent.isSuccessful = false;
-                }
+                if (!this.isUuid(gameEvent.assignedTeamId)) gameEvent.assignedTeamId = null;
+                if (!this.isUuid(gameEvent.assignedPlayerId)) gameEvent.assignedPlayerId = null;
+                if (gameEvent.isSuccessful === null || gameEvent.isSuccessful === undefined) gameEvent.isSuccessful = false;
 
                 return gameEvent;
             });
@@ -135,7 +163,7 @@ export class VideoAnalysisResultService {
 
     private isUuid(id: string | null | undefined): boolean {
         if (!id) return false;
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return uuidRegex.test(id);
     }
 
@@ -150,13 +178,11 @@ export class VideoAnalysisResultService {
         const resolutionCache = new Map<string, string>();
 
         for (const event of events) {
-            // IF WORKER ALREADY PROVIDED A UUID, TRUST IT!
             if (event.assignedPlayerId && this.isUuid(event.assignedPlayerId)) {
                 resolvedEvents.push(event);
                 continue;
             }
 
-            // Otherwise, try heuristic resolution (legacy/backup)
             let teamId = event.assignedTeamId;
             const jerseyNumber = event.identifiedJerseyNumber;
 
@@ -187,12 +213,17 @@ export class VideoAnalysisResultService {
     private async processFinalResult(result: VideoAnalysisJobResultMessage): Promise<void> {
         this.logger.info(`Finalizing analysis for Game ID: ${result.gameId}`, { phase: 'results_processing' });
         let gameStatusToUpdate: GameStatus;
+        let firebaseStatus = 'COMPLETED';
+
         if (result.status === VideoAnalysisJobStatus.COMPLETED) {
             gameStatusToUpdate = GameStatus.ANALYZED;
+            firebaseStatus = 'ANALYZED';
         } else if (result.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
             gameStatusToUpdate = GameStatus.ANALYSIS_FAILED_RETRYABLE;
+            firebaseStatus = 'FAILED_RETRYABLE';
         } else {
             gameStatusToUpdate = GameStatus.FAILED;
+            firebaseStatus = 'FAILED';
         }
 
         await this.gameRepository.updateStatus(result.gameId, gameStatusToUpdate, result.failedChunkInfo);
@@ -201,6 +232,28 @@ export class VideoAnalysisResultService {
             await this.persistIdentifiedEntities(result);
             await this.gameStatsService.calculateAndStoreStats(result.gameId);
         }
+
+        // 1. Sync final status to Firebase
+        await this.notificationService.updateJobProgress(result.jobId, {
+            progress: 100,
+            status: firebaseStatus,
+            gameId: result.gameId
+        });
+
+        // 2. Cleanup GCS artifacts (zombie chunks)
+        await this.cleanupService.cleanupJobArtifacts(result.jobId);
+
+        // 3. Notify user via Push Notification
+        const title = gameStatusToUpdate === GameStatus.ANALYZED ? 'Game Analyzed!' : 'Analysis Failed';
+        const body = gameStatusToUpdate === GameStatus.ANALYZED 
+            ? `Your game analysis for ${result.gameId} is complete.`
+            : `Analysis for game ${result.gameId} failed. Please check the dashboard.`;
+
+        await this.notificationService.sendUserUpdate(result.userId, title, body, {
+            gameId: result.gameId,
+            jobId: result.jobId,
+            status: firebaseStatus
+        });
     }
 
     private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
@@ -216,7 +269,6 @@ export class VideoAnalysisResultService {
                     team.isTemp = true;
                     team.userId = result.userId;
                     await this.teamRepository.save(team);
-                    this.logger.info(`Created temporary team: ${team.name} (${team.id})`);
                 }
 
                 const { id: _, ...statsToMerge } = teamData;
@@ -237,10 +289,8 @@ export class VideoAnalysisResultService {
                     player.name = playerData.name || `Player${playerData.jerseyNumber ? ' #'+playerData.jerseyNumber : ''}`;
                     player.isTemp = true;
                     await this.playerRepository.save(player);
-                    this.logger.info(`Created temporary player: ${player.name} (${player.id})`);
                 }
 
-                // NEW: Ensure player is linked to the team in history so resolution works
                 if (playerData.teamId && this.isUuid(playerData.teamId)) {
                     try {
                         const history = await this.playerRepository.findPlayerByJerseyAndTeam(
@@ -255,7 +305,6 @@ export class VideoAnalysisResultService {
                             newHistory.jerseyNumber = playerData.jerseyNumber;
                             newHistory.startDate = new Date();
                             await this.dataSource.getRepository(PlayerTeamHistory).save(newHistory);
-                            this.logger.debug(`Created team history for player ${player.id} on team ${playerData.teamId}`);
                         }
                     } catch (err) {
                         this.logger.warn(`Failed to save player history during persistence`, { error: err });

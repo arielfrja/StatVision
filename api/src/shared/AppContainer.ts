@@ -16,17 +16,18 @@ import { GameAnalysisService } from "../modules/games/GameAnalysisService";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { ProgressSubscriberService } from "../service/ProgressSubscriberService";
 import { JobWatchdogService } from "../service/JobWatchdogService";
+import { NotificationService } from "../service/NotificationService";
+import { CleanupService } from "../service/CleanupService";
 import logger from "../config/logger";
-import { Server } from "socket.io";
 
 export class AppContainer {
     private static instance: AppContainer;
     private dataSource: DataSource;
     private services: Map<string, any> = new Map();
-    private io?: Server;
 
     private constructor(dataSource: DataSource) {
         this.dataSource = dataSource;
+        this.registerServices();
     }
 
     public static getInstance(dataSource: DataSource): AppContainer {
@@ -36,16 +37,14 @@ export class AppContainer {
         return AppContainer.instance;
     }
 
-    public setIo(io: Server): void {
-        this.io = io;
-        this.registerServices();
-    }
-
     private registerServices(): void {
         // Infrastructure
         const commonLogger = logger as unknown as ILogger;
         const eventBus = new PubSubEventBus(commonLogger);
         this.services.set("IEventBus", eventBus);
+
+        const notificationService = new NotificationService();
+        this.services.set(NotificationService.name, notificationService);
 
         let storageProvider: IStorageProvider;
         if (process.env.NODE_ENV === 'production') {
@@ -60,6 +59,9 @@ export class AppContainer {
             );
         }
         this.services.set("IStorageProvider", storageProvider);
+
+        const cleanupService = new CleanupService(storageProvider);
+        this.services.set(CleanupService.name, cleanupService);
 
         // Repositories
         const userRepository = new UserRepository(this.dataSource, commonLogger);
@@ -92,8 +94,16 @@ export class AppContainer {
         const gameAssignmentService = new GameAssignmentService(this.dataSource, gameStatsService);
         const gameAnalysisService = new GameAnalysisService(this.dataSource, geminiProvider);
         
-        const videoAnalysisResultService = new VideoAnalysisResultService(this.dataSource, logger, gameStatsService, eventBus);
-        const jobWatchdogService = new JobWatchdogService(this.dataSource);
+        const videoAnalysisResultService = new VideoAnalysisResultService(
+            this.dataSource, 
+            logger, 
+            gameStatsService, 
+            eventBus, 
+            notificationService,
+            cleanupService
+        );
+        const jobWatchdogService = new JobWatchdogService(this.dataSource, notificationService);
+        const progressSubscriberService = new ProgressSubscriberService(eventBus, notificationService);
 
         // Registering services
         this.services.set(TeamService.name, teamService);
@@ -105,11 +115,7 @@ export class AppContainer {
         this.services.set(AiUsageService.name, aiUsageService);
         this.services.set(VideoAnalysisResultService.name, videoAnalysisResultService);
         this.services.set(JobWatchdogService.name, jobWatchdogService);
-
-        if (this.io) {
-            const progressSubscriberService = new ProgressSubscriberService(eventBus, this.io);
-            this.services.set(ProgressSubscriberService.name, progressSubscriberService);
-        }
+        this.services.set(ProgressSubscriberService.name, progressSubscriberService);
 
         // Registering repositories
         this.services.set("UserRepository", userRepository);

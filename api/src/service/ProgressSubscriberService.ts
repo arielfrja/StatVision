@@ -1,6 +1,6 @@
-import { Server } from 'socket.io';
 import { IEventBus } from '@statvision/common';
 import logger from '../config/logger';
+import { NotificationService } from './NotificationService';
 
 const JOB_PROGRESS_SUBSCRIPTION_NAME = process.env.JOB_PROGRESS_SUBSCRIPTION_NAME || 'job-progress-sub';
 
@@ -15,7 +15,7 @@ export interface ProgressUpdate {
 export class ProgressSubscriberService {
     constructor(
         private eventBus: IEventBus,
-        private io: Server
+        private notificationService: NotificationService
     ) {}
 
     public async startSubscribing(): Promise<void> {
@@ -23,12 +23,16 @@ export class ProgressSubscriberService {
 
         try {
             await this.eventBus.subscribe(JOB_PROGRESS_SUBSCRIPTION_NAME, async (update: ProgressUpdate, message: any) => {
-                const { jobId, gameId } = update;
-                logger.debug(`[ProgressSubscriberService] Received progress update for job ${jobId} (Game: ${gameId}): ${update.progress}%`);
+                const { jobId, progress, currentPhase, details, gameId } = update;
+                logger.debug(`[ProgressSubscriberService] Received progress update for job ${jobId}: ${progress}%`);
 
-                // Emit to the specific job room and game room
-                this.io.to(`job:${jobId}`).emit('progress_update', update);
-                this.io.to(`game:${gameId}`).emit('progress_update', update);
+                // Synchronize progress to Firebase Realtime DB
+                await this.notificationService.updateJobProgress(jobId, {
+                    progress,
+                    status: currentPhase,
+                    details,
+                    gameId
+                });
 
                 if (message.ack) message.ack();
             });

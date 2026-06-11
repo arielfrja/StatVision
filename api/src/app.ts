@@ -9,8 +9,6 @@ dotenv.config({ path: envPath });
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
-import { createServer } from "http";
-import { Server } from "socket.io";
 import { AppDataSource } from "./data-source";
 import { authMiddleware } from "./middleware/authMiddleware";
 import { IAuthProvider } from "./auth/authProvider";
@@ -20,6 +18,7 @@ import { teamRoutes } from "./routes/teamRoutes";
 import { playerGlobalRoutes } from "./routes/playerGlobalRoutes";
 import { gameRoutes } from "./routes/gameRoutes";
 import { usageRoutes } from "./routes/usageRoutes";
+import { webhookRoutes } from "./routes/webhookRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { AppContainer } from "./shared/AppContainer";
@@ -45,13 +44,6 @@ declare global {
 import logRoutes from './routes/logRoutes';
 
 const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-    cors: {
-        origin: "*", // Adjust in production
-        methods: ["GET", "POST"]
-    }
-});
 
 app.use(cors({
     origin: '*',
@@ -65,6 +57,9 @@ app.use(loggingMiddleware);
 // Public route for client logs (must be before auth)
 app.use("/api/log", logRoutes);
 
+// Register Webhooks BEFORE global auth middleware
+app.use("/api/webhooks", webhookRoutes);
+
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -75,7 +70,6 @@ AppDataSource.initialize()
         logger.info("Data Source has been initialized!");
 
         const container = AppContainer.getInstance(AppDataSource);
-        container.setIo(io);
 
         const jwksUri = process.env.AUTH0_JWKS_URI || "";
         const audience = process.env.AUTH0_AUDIENCE || "";
@@ -83,46 +77,20 @@ AppDataSource.initialize()
 
         authProvider = getAuthProvider(jwksUri, audience, issuer);
 
-        // Initialize background consumers
-        container.get<VideoAnalysisResultService>(VideoAnalysisResultService).startConsumingResults();
-        container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
-
-        // Start Job Watchdog (runs every 5 minutes)
-        const watchdog = container.get<JobWatchdogService>(JobWatchdogService);
-        setInterval(() => {
-            watchdog.checkStaleJobs().catch((err: Error) => logger.error("[WATCHDOG_ERROR]", err));
-        }, 5 * 60 * 1000);
-        // Run once on startup
-        watchdog.checkStaleJobs().catch((err: Error) => logger.error("[WATCHDOG_STARTUP_ERROR]", err));
-
-        // WebSocket Handlers
-        io.on("connection", (socket) => {
-            logger.info(`Socket connected: ${socket.id}`);
-
-            socket.on("join_job", (jobId: string) => {
-                logger.info(`Socket ${socket.id} joining room job:${jobId}`);
-                socket.join(`job:${jobId}`);
-            });
-
-            socket.on("leave_job", (jobId: string) => {
-                logger.info(`Socket ${socket.id} leaving room job:${jobId}`);
-                socket.leave(`job:${jobId}`);
-            });
-
-            socket.on("join_game", (gameId: string) => {
-                logger.info(`Socket ${socket.id} joining room game:${gameId}`);
-                socket.join(`game:${gameId}`);
-            });
-
-            socket.on("leave_game", (gameId: string) => {
-                logger.info(`Socket ${socket.id} leaving room game:${gameId}`);
-                socket.leave(`game:${gameId}`);
-            });
-
-            socket.on("disconnect", () => {
-                logger.info(`Socket disconnected: ${socket.id}`);
-            });
-        });
+        /**
+         * PRODUCTION ARCHITECTURE (PUSH-BASED)
+         * 1. We NO LONGER call startConsumingResults() here.
+         * 2. We NO LONGER initialize Socket.io.
+         * 3. We NO LONGER use setInterval for the Watchdog.
+         * 
+         * Everything is triggered via /api/webhooks/
+         */
+        
+        // Legacy fallback for local development (only if manually enabled)
+        if (process.env.ENABLE_LEGACY_PULL === 'true') {
+            container.get<VideoAnalysisResultService>(VideoAnalysisResultService).startConsumingResults();
+            container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
+        }
 
         // Apply authMiddleware globally
         app.use(authMiddleware(AppDataSource, authProvider));
@@ -148,8 +116,8 @@ AppDataSource.initialize()
         app.use(errorMiddleware);
 
         const PORT = process.env.PORT || 3000;
-        httpServer.listen(PORT, () => {
-            logger.info(`Server is running on port ${PORT}`);
+        app.listen(PORT, () => {
+            logger.info(`Server is running on port ${PORT} (PURE STATELESS MODE)`);
         });
     })
     .catch((err: any) => {

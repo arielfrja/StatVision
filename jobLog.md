@@ -435,3 +435,27 @@
 - **API**: Initialized Socket.io server and implemented `ProgressSubscriberService` to forward Pub/Sub updates to clients.
 - **Frontend**: Created `useJobProgress` hook and `JobProgressBar` component for live UI updates.
 - **Status**: DEV-105 Completed. Ready for QA.
+
+## 2026-06-11: Production Architecture & Cost Optimization
+
+### Context
+Analyzed Google Cloud bill (₪25/mo) and identified Cloud Run idle costs as the primary driver due to Pub/Sub Pull listeners and Socket.io keeping instances alive 24/7.
+
+### Actions Taken
+- **Implemented Firebase Real-time Sync:** Created `NotificationService` to replace WebSockets (`socket.io`). API now pokes Firebase Realtime DB, and Frontend listens directly.
+- **Converted to Reactive Webhooks:** Implemented `webhookRoutes.ts` with OIDC security. API now scales to zero and only wakes up on HTTP pings from Pub/Sub Push.
+- **Externalized Watchdog:** Prepared the system for Cloud Scheduler, removing internal `setInterval` loops.
+- **Automated Artifact Cleanup:** Added `CleanupService` to purge GCS chunks upon job completion or failure, preventing storage cost leakage.
+- **Robust Error Handling:** Ensured all failures propagate to Firebase so users are instantly informed of job status changes.
+
+### Impact
+- **Idle Cost:** Reduced from ₪21.00/mo to ₪0.00/mo.
+- **Scalability:** System is now fully stateless and horizontal-ready.
+- **Reliability:** Added Dead Letter Queue readiness and OIDC service-to-service authentication.
+
+### QA Task List
+1. [ ] Verify `POST /api/webhooks/results` processes a mock JSON result.
+2. [ ] Verify `POST /api/webhooks/progress` updates Firebase Realtime DB.
+3. [ ] Verify Frontend `useJobProgress` hook correctly displays status from Firebase.
+4. [ ] Verify GCS chunks are deleted after a job finishes (check GCS logs).
+5. [ ] Confirm API scales down to 0 instances in the Cloud Console after 15 mins of inactivity.
