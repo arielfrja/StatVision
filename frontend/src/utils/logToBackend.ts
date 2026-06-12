@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import axios from 'axios';
 
 // Get current user from localStorage if available (Auth0 often stores minimal info here)

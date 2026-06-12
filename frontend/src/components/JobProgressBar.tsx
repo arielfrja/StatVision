@@ -15,7 +15,7 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
       <div className="flex flex-col gap-2 w-full p-4 bg-surface-high border border-border-main rounded-md">
         <div className="flex justify-between items-center">
           <span className="text-xs font-semibold uppercase tracking-wider text-tx-secondary">Awaiting Engine...</span>
-          <span className="text-[10px] text-tx-dim">{isConnected ? "SOCKET: ACTIVE" : "SOCKET: CONNECTING..."}</span>
+          <span className="text-[10px] text-tx-dim">{isConnected ? "FIREBASE: ACTIVE" : "FIREBASE: CONNECTING..."}</span>
         </div>
         {/* @ts-ignore */}
         <md-linear-progress indeterminate style={{ '--md-linear-progress-track-height': '2px' }} />
@@ -27,7 +27,7 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
     <div className="flex flex-col gap-3 w-full p-4 bg-surface border border-border-main rounded-md">
       <div className="flex justify-between items-start">
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-accent">{progress.currentPhase}</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-accent">{progress.status}</span>
           <span className="text-xs text-tx-secondary font-medium">{progress.details}</span>
         </div>
         <div className="flex flex-col items-end gap-1">

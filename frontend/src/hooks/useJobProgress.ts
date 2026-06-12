@@ -48,6 +48,7 @@ export const useJobProgress = (jobId?: string, gameId?: string) => {
     });
 
     return () => {
+      unsubscribe();
       off(jobRef);
       setIsConnected(false);
     };
