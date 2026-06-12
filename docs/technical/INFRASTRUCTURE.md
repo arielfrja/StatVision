@@ -1,16 +1,18 @@
 # StatVision - Technical Brief for Deployment & Infrastructure Architecture
 
 ## 1. Executive Summary
-StatVision is an AI-powered basketball analytics platform currently transitioning from a "Push-to-Deploy" monolithic pipeline to a more robust, multi-environment infrastructure. We are seeking professional guidance on implementing a sustainable **Test/Staging environment** that balances cost-efficiency with functional parity to production.
+StatVision is an AI-powered basketball analytics platform built on a **fully production-scaled, reactive serverless architecture**. The system is designed for high-precision processing and extreme cost-efficiency, utilizing "Scale-to-Zero" principles to ensure idle costs remain near zero.
 
 ## 2. Current System Architecture
-- **Frontend:** Next.js 15 (React) deployed to **Firebase Hosting**.
-- **Backend API:** Node.js/Express (TypeORM/PostgreSQL) on **Google Cloud Run**.
-- **Processing Worker:** Decoupled Node.js service on **Google Cloud Run** using FFmpeg.
-- **Messaging:** **GCP Pub/Sub** for asynchronous communication between API and Worker.
-- **AI Core:** **Google Gemini 3 Flash** (gemini-3-flash-preview) for video analysis.
-- **Database:** **PostgreSQL** (Supabase).
-- **CI/CD:** **GitHub Actions** deploying on push to `main`.
+- **Frontend:** Next.js 15 (React) deployed to **Vercel** / **Firebase Hosting**.
+- **Backend API:** Node.js/Express (Stateless) on **Google Cloud Run**. Scales to 0 when idle.
+- **Processing Worker:** Decoupled Node.js service on **Google Cloud Run**. Triggered by **Cloud Tasks**.
+- **Messaging:** **GCP Pub/Sub (PUSH)**. Uses OIDC-secured webhooks for inter-service communication.
+- **Real-time Sync:** **Firebase Realtime Database**. Replaces WebSockets for live status propagation.
+- **AI Core:** **Google Gemini 3 Flash** for high-speed video analysis.
+- **Database:** **PostgreSQL** (Supabase/Managed).
+- **CI/CD:** **GitHub Actions** with automated Artifact Registry pruning (Keep-5 images).
+
 
 ## 3. The Requirement: Test Environment
 We need to implement a deployment path for the `test` branch with the following constraints:
