@@ -9,7 +9,7 @@ The system has been migrated to a fully serverless, reactive architecture to opt
   - **CPU Allocation:** Only during request processing.
   - **Status:** 🟢 Healthy
 - **Worker Service:** Google Cloud Run (`statvision-worker-test`)
-  - **Scaling:** 1 to 20 instances (Min 1 to ensure immediate background processing for Alpha).
+  - **Scaling:** 0 to 20 instances (Scale to zero enabled).
   - **Status:** 🟢 Healthy
 
 ### **Persistence & State**
