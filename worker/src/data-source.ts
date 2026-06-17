@@ -23,7 +23,7 @@ export const AppDataSource = new DataSource({
         host: process.env.DB_HOST || "localhost",
         port: parseInt(process.env.DB_PORT || "5432"),
         username: process.env.DB_USERNAME || "statsvision",
-        password: process.env.DB_PASSWORD || "statsvision_password",
+        password: process.env.DB_PASSWORD,
         database: process.env.DB_DATABASE || "statsvision_db",
     }),
     synchronize: false, 
