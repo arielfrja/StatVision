@@ -92,11 +92,15 @@ AppDataSource.initialize()
             container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
         }
 
-        // Apply authMiddleware globally
+        // Public Routes (No Auth)
+        app.use("/", authRoutes(AppDataSource));
+        app.use("/api/log", logRoutes);
+        app.use("/api/webhooks", webhookRoutes);
+
+        // Apply authMiddleware to everything below
         app.use(authMiddleware(AppDataSource, authProvider));
 
-        // Routes
-        app.use("/", authRoutes(AppDataSource));
+        // Protected Routes
         app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
         app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService)));
         
