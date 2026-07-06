@@ -10,6 +10,9 @@ last_token.txt
 
 # Logs
 *.log
+**/logs/
+*.audit.json
+*.gz
 firebase-debug.log
 
 # Databases & Backups

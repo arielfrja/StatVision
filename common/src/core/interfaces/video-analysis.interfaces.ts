@@ -1,5 +1,5 @@
 export interface IdentifiedTeam {
-    id: string; // The v5 UUID
+    id: string; // Internal temporary ID (e.g. 'TEMP_TEAM_1') OR v5 UUID after resolution
     name?: string | null;
     type: 'HOME' | 'AWAY';
     color: string | null;
@@ -7,8 +7,8 @@ export interface IdentifiedTeam {
 }
 
 export interface IdentifiedPlayer {
-    id:string; // The v5 UUID
-    teamId: string | null; // Foreign key to IdentifiedTeam
+    id:string; // Internal temporary ID (e.g. 'TEMP_PLAYER_5') OR v5 UUID after resolution
+    teamId: string | null; // Foreign key to IdentifiedTeam (raw or UUID)
     name?: string | null;
     jerseyNumber: number | null;
     description: string | null; // e.g., "tall player with red shoes"

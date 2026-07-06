@@ -42,7 +42,7 @@ const PerformanceDashboardPage = () => {
           <span className="material-symbols-outlined text-3xl text-tx-dim opacity-40">upload_file</span>
         </div>
         <h1 className="text-xl font-bold text-tx-primary mb-2">No Active Records</h1>
-        <p className="text-sm text-tx-secondary mb-8 max-w-xs mx-auto uppercase tracking-wider font-medium">Initialize game footage ingestion to activate the performance analytics dashboard.</p>
+        <p className="text-sm text-tx-secondary mb-8 max-w-xs mx-auto uppercase tracking-wider font-medium">Upload game footage to activate the performance analytics dashboard.</p>
         <Link href="/games" passHref>
           <Button size="lg" className="px-10">Upload Game</Button>
         </Link>
@@ -61,7 +61,7 @@ const PerformanceDashboardPage = () => {
                 <span className="material-symbols-outlined">restart_alt</span>
               </div>
               <div>
-                 <h3 className="text-sm font-bold text-tx-primary uppercase tracking-wider">Unfinished Ingestion Detected</h3>
+                 <h3 className="text-sm font-bold text-tx-primary uppercase tracking-wider">Unfinished Upload Detected</h3>
                  <p className="text-xs text-tx-secondary font-medium">Process for "<span className="text-accent font-bold">{pendingUpload.name}</span>" was interrupted. System is ready to resume.</p>
               </div>
            </div>

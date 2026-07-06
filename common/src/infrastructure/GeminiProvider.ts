@@ -83,7 +83,8 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
 1. **Reuse Known Entities**: You MUST first look at the 'KNOWN TEAMS' and 'KNOWN PLAYERS' lists provided below. 
 2. **Event Attribution**: For every event you identify, try to attribute it to an existing ID from these lists (e.g., 'TEMP_PLAYER_5' or 'TEMP_TEAM_1').
 3. **Adding New Entities**: Only if you are 100% certain a player/team is NOT in the lists, add a NEW entry to the 'identifiedTeams' or 'players' array and generate a new TEMP ID.
-4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).`;
+4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).
+5. **Context & Flow Awareness**: You have been provided with the history of previous analysis turns. Ensure your current detections (Score, Possession, Player Positions) flow logically from the state established in those turns.`;
 
             // Inject known entities into user prompt for better consistency
             if (knownTeams.length > 0) {
@@ -171,6 +172,32 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
         await this.genAI.files.delete({ name: fileName }).catch((err: any) => 
             this.logger?.error(`[GeminiProvider] Failed to delete file ${fileName}`, { err })
         );
+    }
+
+    public async generateCoachReport(
+        gameType: string,
+        teamName: string,
+        identityMode: string,
+        eventsJson: string,
+        boxScoreJson: string
+    ): Promise<string> {
+        this.logger?.info(`[GeminiProvider] Generating coach report for ${teamName}`, { phase: 'coaching' });
+
+        const prompt = PromptLoader.loadPrompt('coach_report', {
+            gameType,
+            teamName,
+            identityMode,
+            eventsJson,
+            boxScoreJson
+        });
+
+        const result = await this.genAI.models.generateContent({
+            model: this.modelName,
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+
+        const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        return responseText || "Failed to generate report.";
     }
 
     private async waitForFileActive(name: string): Promise<void> {

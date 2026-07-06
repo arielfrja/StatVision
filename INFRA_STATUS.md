@@ -1,35 +1,35 @@
-# 🏗️ StatVision Technical Infrastructure Status (May 2026)
+# StatVision Infrastructure Status
 
-## 1. System Architecture Overview
-StatVision is a monorepo consisting of:
-*   **Frontend**: Next.js 16 (App Router) hosted on Vercel.
-*   **API**: Node.js/Express service on Google Cloud Run.
-*   **Worker**: Node.js background processor on Google Cloud Run (handles FFMPEG & Gemini AI).
-*   **Storage**: Google Cloud Storage (GCS) for video assets.
-*   **Messaging**: Google Cloud Pub/Sub for service orchestration.
-*   **Database**: PostgreSQL hosted on Supabase.
+## 🟢 Production-Scale Architecture (Alpha)
+The system has been migrated to a fully serverless, reactive architecture to optimize for cost and scalability.
 
-## 2. Current "Uploaded but stuck" Status
-**Issue**: Several games are stuck in `UPLOADED` status without triggering analysis.
-**Root Cause**: 
-*   **Resource Constraints**: The Worker was initially hitting OOM (Out of Memory) errors at 512MB RAM during video downloads. 
-*   **CPU Starvation**: Upgrading to 4GB RAM allowed the process to survive, but the 2-vCPU limit is causing `ffmpeg` to consume 100% CPU, which starves the Node.js event loop and drops the TLS/gRPC connections to GCP, leading to silent failures or timeouts (`14 UNAVAILABLE`).
-*   **Scaling Conflict**: Cloud Run's default "Scale to Zero" behavior conflicts with Pub/Sub **Pull** subscriptions. The Worker goes to sleep and never "hears" new messages unless kept alive at a fixed monthly cost (~$20/mo).
+### **Compute & Scaling**
+- **API Service:** Google Cloud Run (`statvision-api-test`)
+  - **Scaling:** 0 to 20 instances.
+  - **CPU Allocation:** Only during request processing.
+  - **Status:** 🟢 Healthy
+- **Worker Service:** Google Cloud Run (`statvision-worker-test`)
+  - **Scaling:** 0 to 20 instances (Scale to zero enabled).
+  - **Status:** 🟢 Healthy
 
-## 3. Recent Major Fixes
-*   ✅ **Direct-to-Cloud Uploads**: Refactored from server-proxied uploads to GCS Resumable Signed URLs. Data now flows directly from Browser -> GCS.
-*   ✅ **Shared Filesystem**: Implemented GCS providers in both services to allow the Worker to download videos uploaded by the API.
-*   ✅ **Persistent Resumption**: Added `localStorage` and DB columns (`upload_url`) to allow users to resume large uploads across page refreshes.
-*   ✅ **JSON Logging**: Migrated production logs to structured JSON for better observability in Cloud Run.
+### **Persistence & State**
+- **Primary Database:** Supabase PostgreSQL (Managed)
+- **Real-time Sync:** **Firebase Realtime Database** (`statsvision-477017-default-rtdb`)
+  - **Purpose:** Replaced WebSockets for live job progress updates.
+  - **Endpoint:** `https://statsvision-477017-default-rtdb.firebaseio.com`
+- **Artifact Storage:** Google Cloud Storage (`statvision-uploads-test`)
+  - **Lifecycle Policy:** (Recommended) Auto-delete `chunks/` after 24 hours.
 
-## 4. Implemented Optimizations (May 2026)
-1.  **Transition to Cloud Tasks**: Replaced Pub/Sub Pull with **Google Cloud Tasks (Push via HTTP)**. This allows the Worker to scale to **0 instances** when idle, significantly reducing costs.
-2.  **Controlled Fan-Out**: Implemented a two-stage processing model (Chunker -> Analyzer) triggered by Cloud Tasks with strict rate limits (12 chunks/min) to stay within Gemini Free Tier quotas.
-3.  **FFMPEG Stabilization**: Configured `ffmpeg` with `-threads 2` to prevent CPU starvation. This keeps the Node.js event loop responsive for gRPC heartbeats and network stability.
-4.  **Atomic Progress Tracking**: Added `total_chunks` and `completed_chunks` tracking to the database to manage parallel analysis jobs.
+### **Messaging & Integration**
+- **Control Plane:** Google Cloud Pub/Sub
+  - **Mode:** **PUSH (Webhooks)** for API results and progress.
+  - **Security:** OIDC Identity verification for all webhooks.
+- **Task Queue:** Google Cloud Tasks
+  - **Purpose:** Orchestrates worker jobs with rate limiting and retries.
 
-## 5. Current Bottleneck Game
-*   **Status**: Refactor in progress. System is being transitioned to the new task-based architecture.
+### **Security**
+- **Auth Provider:** Auth0 (JWT Validation)
+- **Service-to-Service:** Google OIDC tokens for internal communication.
 
 ---
-**Status Report Updated: Transitioning to Task-Based Architecture**
+*Last Updated: 2026-06-11 by Gemini CLI*

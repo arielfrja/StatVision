@@ -19,6 +19,7 @@ import EventEditor from '@/components/analysis/EventEditor';
 import BoxScoreTable from '@/components/analysis/BoxScoreTable';
 import PlayByPlayFeed from '@/components/analysis/PlayByPlayFeed';
 import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
+import { CoachReport } from './CoachReport';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
 import { JobProgressBar } from '@/components/JobProgressBar';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -260,11 +261,17 @@ function AnalysisPage() {
                                 <md-icon slot="icon">group</md-icon>
                                 <span>Identified Personnel</span>
                             </md-primary-tab>
+                            {/* @ts-ignore */}
+                            <md-primary-tab>
+                                <md-icon slot="icon">smart_toy</md-icon>
+                                <span>Coach Report</span>
+                            </md-primary-tab>
                         </md-tabs>
 
                         <div className="mt-2">
                             {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} onEditPlayer={(id) => console.log('Edit player', id)} />}
                             {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                            {activeTab === 2 && <CoachReport game={game} />}
                         </div>
                     </div>
                 </div>

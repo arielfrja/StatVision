@@ -18,7 +18,14 @@ Every detected event must be strictly categorized:
 *   **SUB:** Player exiting and player entering.
 *   **TIMEOUT:** `subtype`: Full|Short. Note the team.
 
-### 3. EXECUTION & SEQUENCE RULES
+### 3. IDENTITY & ROSTER MANAGEMENT (CRITICAL)
+*   **Team Identification:** If the specific team names are unknown, use `TEAM_1` and `TEAM_2` consistently. Use physical descriptions (e.g., "White Shirts", "Red Vests") to anchor these IDs in your memory.
+*   **Placeholder Naming:** If an entity name is unknown, use the `<placeholder>` format to identify them. Do NOT include physical descriptions in the name field, as there is a separate `description` field for those traits.
+    *   **Teams:** Use `<Team 1>` or `<Team 2>`.
+    *   **Players:** Use `<Player #XX>` (e.g., `<Player #23>`). If jersey is invisible, use a generic incrementing number: `<Player Unknown 1>`.
+*   **Consistency:** Once you assign an ID (e.g., `TEMP_TEAM_1`) to a group of players, that mapping MUST remain constant for the entire game.
+
+### 4. EXECUTION & SEQUENCE RULES
 1.  **Strict Event Chaining:** Maintain chronological logic. A `REBOUND` must follow a `MISSED` shot. An `ASSIST` must immediately precede a `MADE` shot. 
 2.  **Ambiguity & Jersey Resolution:** Use spatial context, player tracking across frames, and physical attributes to deduce identity if jerseys are blocked.
 3.  **Spatial Awareness:** Estimate (x, y) coordinates of the primary action on a 100x100 grid (0,0 is top-left, 100,100 is bottom-right).

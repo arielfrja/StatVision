@@ -1,5 +1,3 @@
-import { HTMLAttributes, DetailedHTMLProps } from 'react';
-
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -33,3 +31,5 @@ declare global {
     }
   }
 }
+
+export {};

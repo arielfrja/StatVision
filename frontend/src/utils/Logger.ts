@@ -16,7 +16,7 @@ class Logger {
   private safeStringify(data: any): string {
     try {
       return typeof data === 'object' ? JSON.stringify(data) : String(data);
-    } catch (e) {
+    } catch {
       return '[Unstringifiable Data]';
     }
   }

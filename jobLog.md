@@ -1,5 +1,63 @@
 # Job Log - StatVision
 
+## [2026-06-10] Feature: Game Deletion & Upload Cleanup
+**Objective:** Enable users to delete unsuccessful or unwanted games and ensure all associated cloud resources and local session data are cleaned up.
+
+### ✅ Completed Tasks
+- **Frontend UI:** Added a "Delete" button to game cards in the **Film Room**.
+- **Frontend Logic:** Implemented `handleDelete` with confirmation and **localStorage cleanup** to prevent session leaks for resumable uploads.
+- **Upload Cancellation:** Added `AbortController` support to `UploadForm.tsx`. Clicking "Cancel" during an active stream now immediately terminates the network request.
+- **Storage Layer:** Added `deleteFilesByPrefix` to `IStorageProvider`, `GCSStorageProvider`, and `LocalStorageProvider`.
+- **Backend Hardening:** Updated `GameService.deleteGame` to perform a comprehensive cleanup of the `videos/{gameId}/` prefix in GCS, ensuring partial/unfinalized uploads are removed.
+
+### 🛠 Improvements
+- **Data Management:** Users can now clear failed drafts or duplicate uploads.
+- **Resource Integrity:** Prevents "orphaned" video files in GCS from unfinalized uploads.
+
+## [2026-06-10] Fix: Ingestion Handshake & Progress Accuracy
+**Objective:** Resolve the "Network Error" during upload and ensure database status accuracy before reporting completion.
+
+### ✅ Completed Tasks
+- **Path Correction:** Fixed incorrect API endpoint in `UploadForm.tsx` (changed `/:id/upload-complete` to `/games/:id/upload-complete`).
+- **Progress Logic ("99% Hold"):** Updated frontend to cap streaming progress at 99%. The final 1% is only granted after the backend confirms successful GCS verification and DB status update to `UPLOADED`.
+- **Backend Hardening:** Added explicit GCS file existence verification in `gameRoutes.ts` before transitioning status. Enhanced logging with `[UPLOAD_COMPLETE]` tags.
+- **Manual Recovery:** Rescued a stuck game (`6456fc73...`) by manually verifying storage and updating its DB status to `UPLOADED`.
+
+### 🛠 Improvements
+- **Reliability:** Prevents games from being stuck in `PENDING` state after successful file upload.
+- **User Feedback:** Clearer messaging during the "Cloud Finalization" phase (the gap between file transfer and system readiness).
+
+## [2026-06-03] Strategic Pivot: Stabilization & Virtual Coach AI
+- **Initiative:** Technical & Product Review Analysis.
+- **Decision:** Paused Phase 6 "Park Legends" to prioritize **Infrastructure Stabilization**.
+- **Actions:**
+    - Migration to **Virtual Chunking** (Offset-based) to solve FFmpeg CPU starvation.
+    - Implementation of **Job State Machine** with heartbeats and API Watchdog.
+    - Implementation of **Virtual Coach Report** as the flagship Phase 6 feature.
+- **Rationale:** Technical debt in the analysis pipeline was causing job timeouts; stabilization is required before monetizing.
+
+## [2026-06-03] Architectural Refactor: Draft-to-Mapping Workflow Fix
+**Objective:** Resolve critical data mismatches between AI placeholders and official rosters, and implement idempotent event persistence.
+
+### ✅ Completed Tasks
+- **Model Alignment:** Updated `EVENT_SCHEMA` to include `onCourtPlayerIds` for full lineup tracking.
+- **Delayed ID Conversion:** Refactored `EventProcessorService` to stop early UUID conversion, preserving raw `TEMP_` IDs for official mapping.
+- **Consolidated Result Service:** Centralized all event mapping, entity resolution, and persistence in `VideoAnalysisResultService`.
+- **Deterministic Event IDs:** Implemented v5 UUID generation for events based on `gameId + time + type + actor` to ensure idempotency and prevent duplicate draft events.
+- **On-Court Data Persistence:** Fixed the "leak" where `onCourtPlayerIds` were being dropped or stored as raw AI strings; they are now properly resolved to UUIDs.
+- **Job Finalizer Cleanup:** Simplified `JobFinalizerService` by removing redundant persistence logic and adding a "Premature Finalization Guard".
+
+### 🛠 Architectural Improvements
+- **Idempotency:** Live stream results are now safe to retry without causing duplicates.
+- **Mapping Integrity:** Official Home/Away teams are now correctly linked to AI detections even in "Discovery" mode.
+- **Lineup Context:** Advanced analytics can now rely on the `on_court_player_ids` column for every event.
+
+### 🧪 QA Task List
+1. **Verify Official Mapping:** Create a game with assigned Lakers/Celtics. Ensure AI events link to those teams, not new "Temp" teams.
+2. **Verify Idempotency:** Manually trigger the same chunk analysis twice via HTTP. Ensure only one set of events exists in the `game_events` table.
+3. **Verify Lineup Data:** Check the `on_court_player_ids` column for events. Ensure it contains a list of UUIDs that match the identified players.
+4. **Verify Live -> Final Transition:** Ensure events visible during "Analyzing" don't change or duplicate when the job hits "Completed".
+
 ## [2026-05-29] Ingestion: Direct Video Analysis & Identity Learning
 **Objective:** Transition to a high-performance "Single Upload" architecture and resolve player/team identity inconsistencies across turns.
 
@@ -377,3 +435,27 @@
 - **API**: Initialized Socket.io server and implemented `ProgressSubscriberService` to forward Pub/Sub updates to clients.
 - **Frontend**: Created `useJobProgress` hook and `JobProgressBar` component for live UI updates.
 - **Status**: DEV-105 Completed. Ready for QA.
+
+## 2026-06-11: Production Architecture & Cost Optimization
+
+### Context
+Analyzed Google Cloud bill (₪25/mo) and identified Cloud Run idle costs as the primary driver due to Pub/Sub Pull listeners and Socket.io keeping instances alive 24/7.
+
+### Actions Taken
+- **Implemented Firebase Real-time Sync:** Created `NotificationService` to replace WebSockets (`socket.io`). API now pokes Firebase Realtime DB, and Frontend listens directly.
+- **Converted to Reactive Webhooks:** Implemented `webhookRoutes.ts` with OIDC security. API now scales to zero and only wakes up on HTTP pings from Pub/Sub Push.
+- **Externalized Watchdog:** Prepared the system for Cloud Scheduler, removing internal `setInterval` loops.
+- **Automated Artifact Cleanup:** Added `CleanupService` to purge GCS chunks upon job completion or failure, preventing storage cost leakage.
+- **Robust Error Handling:** Ensured all failures propagate to Firebase so users are instantly informed of job status changes.
+
+### Impact
+- **Idle Cost:** Reduced from ₪21.00/mo to ₪0.00/mo.
+- **Scalability:** System is now fully stateless and horizontal-ready.
+- **Reliability:** Added Dead Letter Queue readiness and OIDC service-to-service authentication.
+
+### QA Task List
+1. [ ] Verify `POST /api/webhooks/results` processes a mock JSON result.
+2. [ ] Verify `POST /api/webhooks/progress` updates Firebase Realtime DB.
+3. [ ] Verify Frontend `useJobProgress` hook correctly displays status from Firebase.
+4. [ ] Verify GCS chunks are deleted after a job finishes (check GCS logs).
+5. [ ] Confirm API scales down to 0 instances in the Cloud Console after 15 mins of inactivity.

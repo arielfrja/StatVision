@@ -95,6 +95,21 @@ This document provides a chronological record of every major step, decision, and
 
 ---
 
+## 🌩 PHASE 7: Production Serverless & Cost Optimization
+### **Milestone: Zero-Idle Foundation (2026-06-11)**
+- **Cost Fixing:** Identified ₪20/mo idle cost driver in Cloud Run.
+- **Architectural Shift: Stateless Reactive Core:**
+    - **Replaced WebSockets:** Removed `socket.io` to allow the API to scale to zero.
+    - **Firebase Real-time Sync:** Implemented a pure state-sync layer using **Firebase Realtime DB** for live UI updates.
+    - **Converted to Push Subscriptions:** Shifted from "Pulling" messages to **Push Webhooks** with OIDC security.
+- **Automated Lifecycle Management:**
+    - **Artifact Pruning:** Implemented a GitHub Action policy to keep only the latest 5 Docker images, saving Artifact Registry storage.
+    - **GCS Cleanup:** Added a Lifecycle Policy to auto-delete temporary video chunks after 24 hours.
+- **System Maintenance:** Externalized the "Watchdog" process to **Cloud Scheduler**, removing internal server timers.
+
+---
+
 ## 🚀 CONTINUOUS LEDGER
     *For day-to-day updates and active sprint progress, refer to the root [jobLog.md](../jobLog.md).*
+
 

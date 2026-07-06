@@ -37,12 +37,26 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
     const [activeGameId, setActiveGameId] = useState<string | null>(initialGameId || null);
     const [activeUploadUrl, setActiveUploadUrl] = useState<string | null>(null);
     const [activeGcsUri, setActiveGcsUri] = useState<string | null>(null);
+    const [isResumable, setIsResumable] = useState(false);
+    const [resumableFileMetadata, setResumableFileMetadata] = useState<{name: string, size: number} | null>(null);
+    const [isExplicitResume, setIsExplicitResume] = useState(!!initialGameId);
+
+    const abortControllerRef = React.useRef<AbortController | null>(null);
 
     useEffect(() => {
         setMounted(true);
-        if (!activeGameId) {
-            const savedId = localStorage.getItem('statvision_active_upload_id');
-            if (savedId) setActiveGameId(savedId);
+        const savedId = localStorage.getItem('statvision_active_upload_id');
+        const savedName = localStorage.getItem('statvision_active_upload_filename');
+        const savedSize = localStorage.getItem('statvision_active_upload_filesize');
+
+        // Only load background state if we are in explicit resume mode
+        // OR if we want to check for file matching later
+        if (!activeGameId && savedId) {
+            setActiveGameId(savedId);
+        }
+
+        if (savedName && savedSize) {
+            setResumableFileMetadata({ name: savedName, size: parseInt(savedSize, 10) });
         }
     }, []);
 
@@ -56,17 +70,20 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     });
                     
                     const game: Game = gameResponse.data;
-                    setGameName(game.name);
                     
                     if (game.status !== GameStatus.PENDING) {
-                        setStatus('COMPLETE');
+                        // If it's not pending, we shouldn't be resuming it
+                        setActiveGameId(null);
+                        localStorage.removeItem('statvision_active_upload_id');
+                        localStorage.removeItem('statvision_active_upload_filename');
+                        localStorage.removeItem('statvision_active_upload_filesize');
                         return;
                     }
 
+                    if (!gameName) setGameName(game.name);
                     setStatus('READY');
-                    setError('Previous ingestion attempt was incomplete. Please re-select the game footage to continue.');
                 } catch (err) {
-                    console.error('Failed to restore ingestion session:', err);
+                    console.error('Failed to restore upload session:', err);
                 }
             }
         };
@@ -87,18 +104,51 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             if (!gameName) {
                 setGameName(selectedFile.name.split('.')[0].replace(/[-_]/g, ' '));
             }
+
+            // Identity Check: Can we resume?
+            if (activeGameId) {
+                if (resumableFileMetadata) {
+                    const matches = selectedFile.name === resumableFileMetadata.name && 
+                                   selectedFile.size === resumableFileMetadata.size;
+                    setIsResumable(matches);
+                } else {
+                    // If we have activeGameId (e.g. from Retry button) but no local metadata,
+                    // we assume user knows what they're doing for now, but will save metadata on start.
+                    setIsResumable(true);
+                }
+            } else {
+                setIsResumable(false);
+            }
         }
+    };
+
+    const handleStartAgain = () => {
+        setActiveGameId(null);
+        setActiveUploadUrl(null);
+        setActiveGcsUri(null);
+        setIsResumable(false);
+        setResumableFileMetadata(null);
+        localStorage.removeItem('statvision_active_upload_id');
+        localStorage.removeItem('statvision_active_upload_filename');
+        localStorage.removeItem('statvision_active_upload_filesize');
+    };
+
+    const handleCancel = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        onCancel();
     };
 
     /**
      * Intelligent Handshake: Polls the backend until GCS finalization is confirmed.
      */
-    const finalizeIngestion = async (gameId: string, gcsUri: string, attempt = 1): Promise<boolean> => {
+    const finalizeUpload = async (gameId: string, gcsUri: string, attempt = 1): Promise<boolean> => {
         if (attempt > 10) return false;
 
         try {
             const token = await getAccessTokenSilently();
-            const response = await apiClient.post(`/${gameId}/upload-complete`, { gcsUri }, {
+            const response = await apiClient.post(`/games/${gameId}/upload-complete`, { gcsUri }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -110,7 +160,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             if (response.data.status === 'PENDING_STORAGE') {
                 setProgressLabel(`Cloud Finalization (Attempt ${attempt}/10)...`);
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                return await finalizeIngestion(gameId, gcsUri, attempt + 1);
+                return await finalizeUpload(gameId, gcsUri, attempt + 1);
             }
 
             return false;
@@ -118,7 +168,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             console.warn(`Finalization attempt ${attempt} failed:`, err);
             if (attempt < 5) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                return await finalizeIngestion(gameId, gcsUri, attempt + 1);
+                return await finalizeUpload(gameId, gcsUri, attempt + 1);
             }
             return false;
         }
@@ -133,14 +183,21 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         setIsProcessing(true);
         setError(null);
         setStatus('UPLOADING');
+        abortControllerRef.current = new AbortController();
 
         try {
             const token = await getAccessTokenSilently();
-            let gameId = activeGameId;
-            let uploadUrl = activeUploadUrl;
-            let gcsUri = activeGcsUri;
+            
+            // Resume only if:
+            // 1. It's an explicit resume (arrived via 'Retry' button)
+            // 2. AND the selected file identity matches the previous attempt
+            const shouldResume = isExplicitResume && isResumable;
 
-            // Step 1: Create Game Record
+            let gameId = shouldResume ? activeGameId : null;
+            let uploadUrl = shouldResume ? activeUploadUrl : null;
+            let gcsUri = shouldResume ? activeGcsUri : null;
+
+            // Step 1: Create Game Record if not resuming
             if (!gameId) {
                 setProgressLabel('Establishing game record...');
                 const createGameResponse = await apiClient.post('/games', {
@@ -150,12 +207,20 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 });
                 gameId = createGameResponse.data.id;
                 setActiveGameId(gameId);
-                if (gameId) localStorage.setItem('statvision_active_upload_id', gameId);
+                
+                // Persist session identity
+                if (gameId) {
+                    localStorage.setItem('statvision_active_upload_id', gameId);
+                    localStorage.setItem('statvision_active_upload_filename', file.name);
+                    localStorage.setItem('statvision_active_upload_filesize', file.size.toString());
+                    setResumableFileMetadata({ name: file.name, size: file.size });
+                    setIsResumable(true);
+                }
             }
 
-            // Step 2: Get Resumable Upload URL
+            // Step 2: Get Resumable Upload URL if we don't have one for this gameId
             if (!uploadUrl) {
-                setProgressLabel('Securing cloud ingestion link...');
+                setProgressLabel('Securing cloud upload link...');
                 const urlResponse = await apiClient.get(`/games/${gameId}/upload-url`, {
                     params: {
                         fileName: file.name,
@@ -177,8 +242,12 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 const formData = new FormData();
                 formData.append('file', file);
                 await apiClient.put(uploadUrl!, formData, {
+                    signal: abortControllerRef.current?.signal,
                     onUploadProgress: (p) => {
-                        if (p.total) setProgress(Math.round((p.loaded * 100) / p.total));
+                        if (p.total) {
+                            const percent = Math.round((p.loaded * 99) / p.total);
+                            setProgress(percent);
+                        }
                     }
                 });
             } else {
@@ -198,6 +267,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
                 const chunkToUpload = file.slice(startByte);
                 await axios.put(uploadUrl!, chunkToUpload, {
+                    signal: abortControllerRef.current?.signal,
                     headers: { 
                         'Content-Type': file.type || 'video/mp4',
                         'Content-Range': `bytes ${startByte}-${file.size - 1}/${file.size}`
@@ -205,7 +275,9 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     onUploadProgress: (p) => {
                         if (p.total) {
                             const totalUploaded = startByte + p.loaded;
-                            setProgress(Math.round((totalUploaded * 100) / file.size));
+                            // Limit to 99% during stream
+                            const percent = Math.min(99, Math.round((totalUploaded * 99) / file.size));
+                            setProgress(percent);
                         }
                     }
                 });
@@ -213,12 +285,16 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
             // Step 4: Robust Confirm Handshake
             setStatus('FINALIZING');
+            setProgress(99);
             setProgressLabel('Confirming cloud persistence...');
             
-            const success = await finalizeIngestion(gameId!, gcsUri!);
+            const success = await finalizeUpload(gameId!, gcsUri!);
 
             if (success) {
+                setProgress(100);
                 localStorage.removeItem('statvision_active_upload_id');
+                localStorage.removeItem('statvision_active_upload_filename');
+                localStorage.removeItem('statvision_active_upload_filesize');
                 setStatus('COMPLETE');
                 onUploadComplete();
             } else {
@@ -226,10 +302,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 setStatus('ERROR');
             }
         } catch (err: any) {
+            if (axios.isCancel(err)) {
+                logger.info('Upload cancelled by user');
+                return;
+            }
             setError(`Upload failed: ${err.response?.data?.message || err.message}`);
             setStatus('ERROR'); 
         } finally {
             setIsProcessing(false);
+            abortControllerRef.current = null;
         }
     };
 
@@ -237,7 +318,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         return (
             <div className="max-w-xl mx-auto p-12 bg-surface rounded-md border border-border-main text-center animate-in fade-in zoom-in-95">
                 <span className="material-symbols-outlined text-5xl text-success mb-6">check_circle</span>
-                <h3 className="text-xl font-bold text-tx-primary mb-2">Ingestion Successful</h3>
+                <h3 className="text-xl font-bold text-tx-primary mb-2">Upload Successful</h3>
                 <p className="text-sm text-tx-secondary mb-10 max-w-xs mx-auto">
                     The video for <span className="text-tx-primary font-bold">{gameName}</span> is now being processed by the AI engine.
                 </p>
@@ -249,7 +330,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
     return (
         <div className="max-w-xl mx-auto p-8 bg-surface rounded-md border border-border-main space-y-8">
             <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-tx-secondary">Game Ingestion</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-tx-secondary">Game Upload</h3>
                 <p className="text-xs text-tx-dim">Upload raw footage to begin automated event detection.</p>
             </div>
 
@@ -303,10 +384,36 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
             )}
 
             <div className="flex justify-end gap-3 pt-6 border-t border-border-main">
-                <Button variant="ghost" onClick={onCancel} disabled={isProcessing}>Cancel</Button>
-                <Button onClick={handleFastUpload} isLoading={isProcessing} disabled={!file} size="lg">
-                    {activeGameId ? 'Resume Ingestion' : 'Begin Analysis'}
-                </Button>
+                <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+                
+                {isExplicitResume && isResumable ? (
+                    <>
+                        <Button 
+                            variant="outline" 
+                            onClick={handleStartAgain} 
+                            disabled={isProcessing}
+                        >
+                            Start Again
+                        </Button>
+                        <Button 
+                            onClick={handleFastUpload} 
+                            isLoading={isProcessing} 
+                            disabled={!file} 
+                            size="lg"
+                        >
+                            Resume Upload
+                        </Button>
+                    </>
+                ) : (
+                    <Button 
+                        onClick={handleFastUpload} 
+                        isLoading={isProcessing} 
+                        disabled={!file} 
+                        size="lg"
+                    >
+                        Upload
+                    </Button>
+                )}
             </div>
         </div>
     );

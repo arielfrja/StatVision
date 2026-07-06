@@ -1,50 +1,56 @@
 import { useEffect, useState } from "react";
-import { socket } from "../utils/socket";
+import { getDatabase, ref, onValue, off } from "firebase/database";
+import { app } from "../firebase-config";
 
 export interface ProgressUpdate {
   jobId: string;
   gameId: string;
   progress: number;
-  currentPhase: string;
+  status: string;
   details: string;
 }
 
+/**
+ * useJobProgress Hook
+ * 
+ * Replaces Socket.io with Firebase Realtime Database for production scaling.
+ * Listens to the `/jobs/{jobId}` path for live status and progress updates.
+ */
 export const useJobProgress = (jobId?: string, gameId?: string) => {
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
-  const [isConnected, setIsConnected] = useState(socket.connected);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!jobId && !gameId) return;
+    // If we have a gameId but no jobId, we might want to list jobs for that game.
+    // For now, we prioritize listening to a specific jobId if provided.
+    const targetId = jobId || gameId;
+    if (!targetId) return;
 
-    function onConnect() {
-      setIsConnected(true);
-      if (jobId) socket.emit("join_job", jobId);
-      if (gameId) socket.emit("join_game", gameId);
-    }
+    const db = getDatabase(app);
+    const jobRef = ref(db, `jobs/${targetId}`);
 
-    function onDisconnect() {
-      setIsConnected(false);
-    }
+    setIsConnected(true);
 
-    function onProgressUpdate(update: ProgressUpdate) {
-      if ((jobId && update.jobId === jobId) || (gameId && update.gameId === gameId)) {
-        setProgress(update);
+    const unsubscribe = onValue(jobRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setProgress({
+          jobId: targetId,
+          gameId: data.gameId || '',
+          progress: data.progress || 0,
+          status: data.status || 'PENDING',
+          details: data.details || ''
+        });
       }
-    }
-
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("progress_update", onProgressUpdate);
-
-    socket.connect();
+    }, (error) => {
+      console.error("[Firebase_Hook_Error]", error);
+      setIsConnected(false);
+    });
 
     return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("progress_update", onProgressUpdate);
-      if (jobId) socket.emit("leave_job", jobId);
-      if (gameId) socket.emit("leave_game", gameId);
-      socket.disconnect();
+      unsubscribe();
+      off(jobRef);
+      setIsConnected(false);
     };
   }, [jobId, gameId]);
 

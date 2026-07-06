@@ -67,19 +67,13 @@ export class GameService {
 
         // 1. Cleanup Storage
         if (this.storageProvider) {
-            // Cleanup Source Video
-            if (game.filePath) {
-                try {
-                    let remotePath = game.filePath;
-                    if (remotePath.startsWith('gs://')) {
-                        const uriParts = remotePath.split('/');
-                        remotePath = uriParts.slice(3).join('/');
-                    }
-                    logger.info(`GameService: Deleting source file from storage: ${remotePath}`);
-                    await this.storageProvider.deleteFile(remotePath);
-                } catch (error) {
-                    logger.warn(`GameService: Failed to delete source file for game ${gameId}`, error);
-                }
+            // Cleanup all files associated with this game (including partial uploads)
+            try {
+                const gamePrefix = `videos/${gameId}/`;
+                logger.info(`GameService: Deleting all files with prefix from storage: ${gamePrefix}`);
+                await this.storageProvider.deleteFilesByPrefix(gamePrefix);
+            } catch (error) {
+                logger.warn(`GameService: Failed to cleanup storage prefix for game ${gameId}`, error);
             }
 
             // Cleanup Chunks in Storage

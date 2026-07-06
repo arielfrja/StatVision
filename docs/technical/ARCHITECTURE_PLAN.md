@@ -37,9 +37,12 @@ backend/src/
 
 ### D. Frontend: Timeline-First UX
 *   **Verification Workflow:** Shift from a modal-based assignment to a visual timeline where users verify AI-identified events against the video.
-*   **Real-time Feedback:** Use the chunking status to provide a "live stream" feel as analysis progresses.
+*   **Reactive Real-time Feedback:** Replaced WebSockets with **Firebase Realtime Database**. The API writes status updates, and the Frontend listens directly to the DB. This enables infinite scaling with zero server idle cost.
 
 ## 3. Technology Stack Updates
-*   **Backend:** Node.js/Express, TypeORM (PostgreSQL).
+*   **Backend:** Node.js/Express (Stateless), TypeORM (PostgreSQL).
+*   **Real-time:** Firebase Realtime DB (State Sync).
+*   **Messaging:** Pub/Sub Push (Reactive Webhooks) & Cloud Tasks.
 *   **AI:** Gemini 1.5 Pro/Flash (via `@google/genai`).
 *   **Frontend:** Next.js 15, React 19, Material 3.
+

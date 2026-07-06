@@ -20,6 +20,13 @@ export const workerConfig = {
      */
     processingMode: process.env.PROCESSING_MODE || 'SEQUENTIAL',
 
+    /**
+     * Chunking Mode:
+     * VIRTUAL (Recommended): Uses logical offsets (start/end) on a single video file. No FFmpeg slicing.
+     * PHYSICAL: Slices the video into many small MP4 files using FFmpeg. High CPU usage.
+     */
+    chunkingMode: (process.env.CHUNKING_MODE || 'VIRTUAL').toUpperCase(),
+
     // Pub/Sub settings
     ackDeadlineSeconds: parseInt(process.env.ACK_DEADLINE_SECONDS || '60', 10),
     heartbeatIntervalSeconds: parseInt(process.env.HEARTBEAT_INTERVAL_SECONDS || '45', 10),

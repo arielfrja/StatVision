@@ -95,4 +95,28 @@ This manual documents the functional features of the StatVision platform that ha
 - **Flexible Time Ranges:** View usage data over 7-day, 30-day, or 90-day periods.
 
 ---
-*Next Chapter: [8. Multi-Tenant Workspaces] (In Development)*
+
+## 8. Virtual Coach AI
+**Status:** 🟢 Production Ready (Phase 6 Launch)
+**Description:** A high-level analysis engine that transforms structured game data into actionable coaching insights.
+
+### Features:
+- **Strategic Performance Insights:** One-click generation of a comprehensive coaching report based on detected events and player efficiency.
+- **Top 3 Strengths & Weaknesses:** The AI identifies tactical trends (e.g., "Dominant defensive rebounding," "Frequent turnovers in transition") with professional basketball terminology.
+- **Tactical Drill Recommendations:** 3 specific, evidence-based drills tailored to address the weaknesses identified in the game data.
+- **Key Player Insights:** Automated identification of an "Impact Player" with a specific coaching note for their development.
+
+---
+
+## 9. Production Serverless Architecture
+**Status:** 🟢 Production Ready (Alpha Phase)
+**Description:** A cost-optimized, reactive infrastructure designed to scale to zero during periods of inactivity.
+
+### Features:
+- **Stateless Reactive API:** The API service on Cloud Run is purely stateless. It shuts down completely when not in use, reducing idle costs to zero.
+- **Firebase Real-time Sync:** Replaced WebSockets with Firebase Realtime Database. The frontend listens directly to Firebase for progress updates, allowing thousands of concurrent users without increasing server load.
+- **Secure Webhooks:** AI analysis results and progress updates are delivered via Google Pub/Sub Push Webhooks, secured with OIDC identity verification.
+- **Externalized Maintenance:** System-wide watchdog tasks are managed via Google Cloud Scheduler, removing the need for internal server-side timers.
+- **Automated Artifact Cleanup:** A dedicated cleanup service automatically purges temporary video segments (chunks) from Cloud Storage upon job completion, preventing storage cost leakage.
+- **Dead Letter Queue (DLQ) Ready:** Configured to handle message processing failures gracefully without triggering infinite retry loops or billing spikes.
+

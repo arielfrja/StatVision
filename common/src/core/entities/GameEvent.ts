@@ -58,8 +58,8 @@ export class GameEvent {
     @Column({ name: "event_sub_type", type: "varchar", nullable: true })
     eventSubType: string | null;
 
-    @Column({ name: "is_successful", default: false })
-    isSuccessful: boolean;
+    @Column({ name: "is_successful", type: "boolean", nullable: true, default: false })
+    isSuccessful: boolean | null;
 
     @Column({ name: "period", type: "int", nullable: true })
     period: number | null;

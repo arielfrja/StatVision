@@ -36,15 +36,19 @@ To achieve modularity, the backend will be built using a combination of establis
 *   **`game_player_stats` table:** `id` (PK), `game_id` (FK to games), `player_id` (FK to players), `minutes_played`, `plus_minus`, (All other detailed stats from `game_team_stats`)
 
 #### 4.2 Backend Services & Logic
-The backend will be composed of two main services deployed as separate serverless containers (e.g., Google Cloud Run).
+The backend is composed of two primary services deployed on **Google Cloud Run**.
 
-1.  **API Service (e.g., Node.js/Express with TypeORM):**
-    *   **Responsibility:** Handles all synchronous HTTP requests from the frontend, including creating user records in PostgreSQL after Auth0 registration.
-    *   **Flow:** Receives a request (e.g., user creation, or other API calls) -> Verifies Auth0 JWT (using a modular authentication provider) -> Calls the Service Layer -> The Service Layer uses the injected Repository to interact with PostgreSQL -> Returns a response.
+1.  **API Service (Node.js/Express):**
+    *   **Responsibility:** Primary gateway for CRUD and Auth0 integration.
+    *   **Orchestration:** Triggers analysis by creating a **Google Cloud Task**.
+    *   **Watchdog:** Monitors worker heartbeats every 5 minutes and auto-fails stale jobs.
+    *   **Coach AI:** Provides a `POST /coach-report` endpoint for LLM-powered tactical analysis.
 
-2.  **Local Video Processor Service (In-Process Worker):**
-    *   **Responsibility:** Executes the long-running video analysis task. This component is designed with a clear interface (Service/Repository pattern) to facilitate its extraction into a separate **Worker Service** when scaling is required.
-    *   **Trigger:** Directly called by the API Service after a successful video upload.
-    *   **Flow:** Called by API Service (with local video path) -> Calls `GameService` to update status -> Accesses local video -> Calls Gemini API -> Uses `GameEventRepository` to save results to PostgreSQL -> Updates game status -> **Deletes local video file (MVP Scope)**.
+2.  **Worker Service (Node.js Chunker/Processor):**
+    *   **Responsibility:** Executes the compute-intensive analysis pipeline.
+    *   **Virtual Pipeline:**
+        1. **Chunker Phase:** Calculates logical time-offsets (no FFmpeg slicing).
+        2. **Analysis Phase:** Single video upload to Gemini; multi-turn sequential processing with 30s DB heartbeats.
+        3. **Finalization Phase:** Results aggregation, Box Score computation, and asset purging.
 
-    **Statistical Flexibility Constraint:** The `GameStatsService` must be robust against sparse event data. It will calculate only the metrics possible based on the available events, defaulting uncalculated advanced metrics to zero or null. This ensures the system supports minimal statistical capture (e.g., Points only) without requiring a full pro-level data set.
+    **Statistical Flexibility:** The `GameStatsService` must be robust against sparse event data. It will calculate only the metrics possible based on the available events, defaulting uncalculated advanced metrics to zero.

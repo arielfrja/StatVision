@@ -128,7 +128,10 @@ export class VideoOrchestratorService {
         }
 
         try {
-            await this.jobRepository.update(savedJob.id, { status: VideoAnalysisJobStatus.PROCESSING });
+            await this.jobRepository.update(savedJob.id, { 
+                status: VideoAnalysisJobStatus.CHUNKING,
+                processingHeartbeatAt: new Date()
+            });
             
             // 1. Download from GCS if needed
             if (filePath.startsWith('gs://')) {
@@ -172,7 +175,7 @@ export class VideoOrchestratorService {
             }
 
             const tempDir = path.dirname(localVideoPath);
-            const chunkingMode = (process.env.CHUNKING_MODE || 'SEQUENTIAL').toUpperCase();
+            const chunkingMode = workerConfig.chunkingMode;
             this.jobLogger.info(`[ORCHESTRATOR] Starting chunking for job ${savedJob.id} in ${chunkingMode} mode`, { phase: 'orchestration' });
 
             let chunks: VideoChunk[] = [];
@@ -243,7 +246,11 @@ export class VideoOrchestratorService {
             }
 
             // Update with actual chunk count
-            await this.jobRepository.update(savedJob.id, { totalChunks });
+            await this.jobRepository.update(savedJob.id, { 
+                totalChunks,
+                status: VideoAnalysisJobStatus.ANALYZING,
+                processingHeartbeatAt: new Date()
+            });
             await this.gameRepository.update(gameId, { totalChunks });
             
             await this.progressManager.updateJob(savedJob.id, startSequence + chunks.length, 'Chunking complete. Starting analysis.', 'ANALYZING');
@@ -280,22 +287,40 @@ export class VideoOrchestratorService {
         }
     }
 
-    private async queueChunksForAnalysis(jobId: string, chunkIds: string[]): Promise<void> {
-        if (chunkIds.length === 0) return;
-
-        // ANALYSIS IS ALWAYS SEQUENTIAL (Multi-turn requirement)
-        // We only queue the FIRST chunk. Subsequent chunks are triggered by the worker upon completion.
-        const firstChunkId = chunkIds[0];
+    private async triggerAnalysisTask(jobId: string, chunkId: string): Promise<void> {
+        const payload = { jobId, chunkId };
         
+        // 1. LOCAL DEVELOPMENT FALLBACK
+        if (process.env.NODE_ENV !== 'production' || !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+            this.jobLogger.info(`[LOCAL] Bypassing Cloud Tasks. Triggering analyzer via HTTP fallback.`);
+            try {
+                const fetch = (await import('node-fetch')).default;
+                const response = await fetch(workerConfig.analyzerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (response.ok) {
+                    this.jobLogger.info(`Successfully triggered local analyzer for chunk: ${chunkId}`);
+                    return;
+                } else {
+                    const text = await response.text();
+                    this.jobLogger.warn(`Local analyzer trigger failed: ${text}`);
+                }
+            } catch (err) {
+                this.jobLogger.error(`Failed to trigger local analyzer directly:`, err);
+            }
+
+            if (process.env.NODE_ENV !== 'production') return;
+        }
+
+        // 2. PRODUCTION CLOUD TASKS
         const parent = this.tasksClient.queuePath(
             workerConfig.cloudTasksProjectId,
             workerConfig.cloudTasksLocation,
             workerConfig.cloudTasksQueueName
         );
 
-        this.jobLogger.info(`[ORCHESTRATOR] Initiating SEQUENTIAL analysis chain for Job ${jobId}. Starting with chunk ${firstChunkId}`, { phase: 'orchestration' });
-
-        const payload = { jobId, chunkId: firstChunkId };
         const task = {
             dispatchTimeout: { seconds: 600 },
             httpRequest: {
@@ -311,11 +336,22 @@ export class VideoOrchestratorService {
 
         try {
             await this.tasksClient.createTask({ parent, task });
-            this.jobLogger.debug(`[ORCHESTRATOR] Created first analysis task in chain for chunk ${firstChunkId}`, { phase: 'orchestration' });
+            this.jobLogger.debug(`[ORCHESTRATOR] Created analysis task for chunk ${chunkId}`, { phase: 'orchestration' });
         } catch (error: any) {
-            this.jobLogger.error(`[ORCHESTRATOR] Failed to initiate analysis chain`, { error, phase: 'orchestration' });
-            throw error;
+            this.jobLogger.error(`[ORCHESTRATOR] Failed to create Cloud Task`, { error, phase: 'orchestration' });
+            if (process.env.NODE_ENV === 'production') throw error;
         }
+    }
+
+    private async queueChunksForAnalysis(jobId: string, chunkIds: string[]): Promise<void> {
+        if (chunkIds.length === 0) return;
+
+        // ANALYSIS IS ALWAYS SEQUENTIAL (Multi-turn requirement)
+        // We only queue the FIRST chunk. Subsequent chunks are triggered by the worker upon completion.
+        const firstChunkId = chunkIds[0];
+        this.jobLogger.info(`[ORCHESTRATOR] Initiating SEQUENTIAL analysis chain for Job ${jobId}. Starting with chunk ${firstChunkId}`, { phase: 'orchestration' });
+        
+        await this.triggerAnalysisTask(jobId, firstChunkId);
     }
 
     public async checkExistingJobsOnStartup(): Promise<void> {

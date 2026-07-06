@@ -52,10 +52,13 @@ The system leverages serverless orchestration to handle long-running computer vi
 #### 3.3 Worker Service (High-Performance)
 *   **Resources:** Scaled to **2 vCPU / 4GiB RAM** with a **1-hour timeout**.
 *   **Responsibilities:**
-    *   **Orchestrator:** Manages the overall job state machine (`PENDING` -> `ANALYZING` -> `COMPLETED`).
+    *   **Orchestrator:** Manages the overall job state machine (`PENDING` -> `QUEUED` -> `CHUNKING` -> `ANALYZING` -> `FINALIZING` -> `COMPLETED`).
     *   **Virtual Chunker:** Replaces physical FFmpeg slicing. Calculates logical time segments (e.g., 0-120s) and persists them as database rows.
-    *   **Chunk Processor:** Executes the **Sequential Multi-Turn Chain**. It uploads the video once to Gemini and iterates through segments, passing AI "memory" (chat history) from turn to turn.
+    *   **Chunk Processor:** Executes the **Sequential Multi-Turn Chain**. It uploads the video once to Gemini and iterates through segments, passing AI "memory" (chat history) from turn to turn. Updates a 30s **Heartbeat** for observability.
     *   **Job Finalizer:** Performs the final `onJobFinal` lifecycle: usage auditing, game status updates, and automatic sanitization of GCS and Gemini files.
+
+#### 3.4 API Watchdog (Reliability)
+*   **Responsibility:** A background service in the API that monitors the `VideoAnalysisJob` table. It detects "stale" jobs (no heartbeat for 15+ minutes) and auto-fails them to ensure the system remains observable and recoverable.
 
 ### 4. Data Pipeline Principles
 

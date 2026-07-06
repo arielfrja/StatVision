@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001 --webpack",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -16,6 +16,7 @@
     "@material/web": "^2.4.0",
     "axios": "^1.12.2",
     "eruda": "^3.4.3",
+    "firebase": "^12.14.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
     "puppeteer-core": "^24.40.0",
@@ -23,7 +24,6 @@
     "react-dom": "19.0.0",
     "react-player": "^3.4.0",
     "recharts": "^3.8.1",
-    "socket.io-client": "^4.8.3",
     "swr": "^2.4.1"
   },
   "devDependencies": {

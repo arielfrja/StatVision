@@ -93,8 +93,13 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 3000 \
+            --min-instances 0 \
             --max-instances ${{ env.MAX_INSTANCES }} \
-            --set-env-vars "NODE_ENV=production,GCP_PROJECT_ID=${{ env.PROJECT_ID }},UPLOAD_DIR=/tmp/uploads,UPLOAD_BUCKET=statvision-uploads${{ env.ENV_SUFFIX }},USE_MOCK_AUTH=false,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_TOPIC_NAME=${{ env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=video-analysis-results-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_TOPIC_NAME=chunk-analysis-results${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=chunk-analysis-results-sub${{ env.ENV_SUFFIX }},JOB_PROGRESS_TOPIC_NAME=${{ env.JOB_PROGRESS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},JOB_PROGRESS_SUBSCRIPTION_NAME=job-progress-sub${{ env.ENV_SUFFIX }},ORCHESTRATOR_URL=https://${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}-chsbu3g4oa-uc.a.run.app/api/orchestrate-game"
+            --cpu-throttling \
+            --set-env-vars "NODE_ENV=production,GCP_PROJECT_ID=${{ env.PROJECT_ID }},UPLOAD_DIR=/tmp/uploads,UPLOAD_BUCKET=statvision-uploads${{ env.ENV_SUFFIX }},USE_MOCK_AUTH=false,DATABASE_URL=${{ env.DB_URL }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }},AUTH0_AUDIENCE=${{ secrets.AUTH0_AUDIENCE }},AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }},AUTH0_JWKS_URI=${{ secrets.AUTH0_JWKS_URI }},VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_TOPIC_NAME=${{ env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=video-analysis-results-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_TOPIC_NAME=chunk-analysis-results${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=chunk-analysis-results-sub${{ env.ENV_SUFFIX }},JOB_PROGRESS_TOPIC_NAME=${{ env.JOB_PROGRESS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},JOB_PROGRESS_SUBSCRIPTION_NAME=job-progress-sub${{ env.ENV_SUFFIX }},ORCHESTRATOR_URL=https://${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}-chsbu3g4oa-uc.a.run.app/api/orchestrate-game,FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}"
+
+      - name: Prune Old API Images
+        run: ./scripts/prune-images.sh ${{ env.REGISTRY }}/${{ env.API_SERVICE }}${{ env.ENV_SUFFIX }} 2
 
       # --- Worker Service ---
       - name: Build and Push Worker Container
@@ -110,11 +115,15 @@ jobs:
             --platform managed \
             --no-allow-unauthenticated \
             --port 8080 \
+            --min-instances 0 \
             --max-instances ${{ env.MAX_INSTANCES }} \
             --cpu 2 \
             --memory 4Gi \
             --timeout 3600 \
             --set-env-vars "NODE_ENV=production,GCP_PROJECT_ID=${{ env.PROJECT_ID }},DATABASE_URL=${{ env.DB_URL }},UPLOAD_BUCKET=statvision-uploads${{ env.ENV_SUFFIX }},WORKER_TEMP_DIR=/tmp/statvision,GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GEMINI_MODEL_NAME=${{ env.GEMINI_MODEL_NAME }},processingMode=sequential,CHUNKING_MODE=VIRTUAL,ANALYSIS_FPS=1,FFMPEG_PRESET=ultrafast,FFMPEG_VF=,ANALYZER_URL=https://${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }}-chsbu3g4oa-uc.a.run.app/api/analyze-chunk,VIDEO_UPLOAD_TOPIC_NAME=${{ env.VIDEO_UPLOAD_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_UPLOAD_SUBSCRIPTION_NAME=video-upload-events-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_TOPIC_NAME=${{ env.CHUNK_ANALYSIS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_SUBSCRIPTION_NAME=chunk-analysis-sub${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_TOPIC_NAME=${{ env.VIDEO_ANALYSIS_RESULTS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=video-analysis-results-sub${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_TOPIC_NAME=chunk-analysis-results${{ env.ENV_SUFFIX }},CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME=chunk-analysis-results-sub${{ env.ENV_SUFFIX }},JOB_PROGRESS_TOPIC_NAME=${{ env.JOB_PROGRESS_TOPIC_NAME }}${{ env.ENV_SUFFIX }},JOB_PROGRESS_SUBSCRIPTION_NAME=job-progress-sub${{ env.ENV_SUFFIX }}"
+
+      - name: Prune Old Worker Images
+        run: ./scripts/prune-images.sh ${{ env.REGISTRY }}/${{ env.WORKER_SERVICE }}${{ env.ENV_SUFFIX }} 2
 
   deploy-frontend:
     name: Deploy Frontend

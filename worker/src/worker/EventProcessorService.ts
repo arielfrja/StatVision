@@ -3,6 +3,11 @@ import { GameType, IdentityMode } from "@statvision/common";
 import { chunkLogger as logger } from "../config/loggers";
 
 export class EventProcessorService {
+    /**
+     * Extracts and cleans events from the raw AI response.
+     * Crucially, it leaves IDs as raw strings (TEMP_...) to allow the ResultService
+     * to handle official mapping and deterministic UUID generation.
+     */
     public processEvents(
         rawResponse: any,
         gameId: string,
@@ -18,8 +23,7 @@ export class EventProcessorService {
         const finalEvents: ProcessedGameEvent[] = [];
         const rawEvents = rawResponse.events || [];
         
-        // 1. EXTRACT UPDATED MASTER LISTS FROM AI RESPONSE
-        // We trust Gemini to return the full state (old + new) in identifiedTeams
+        // 1. EXTRACT UPDATED MASTER LISTS FROM AI RESPONSE (Raw IDs preserved)
         const aiTeams: any[] = rawResponse.identifiedTeams || [];
         const updatedIdentifiedTeams: IdentifiedTeam[] = [];
         const updatedIdentifiedPlayers: IdentifiedPlayer[] = [];
@@ -37,12 +41,12 @@ export class EventProcessorService {
                 for (const player of team.players) {
                     updatedIdentifiedPlayers.push({
                         id: player.id,
-                        number: player.number, // Local mapping for internal loop
-                        jerseyNumber: player.number, // Interface requirement
+                        number: player.number,
+                        jerseyNumber: player.number,
                         name: player.name,
                         description: player.description,
                         position: player.position,
-                        teamId: team.id // Link player to team
+                        teamId: team.id // Link to the raw team ID
                     } as any);
                 }
             }
@@ -51,15 +55,20 @@ export class EventProcessorService {
         // 2. PROCESS INDIVIDUAL EVENTS
         for (const rawEvent of rawEvents) {
             const absoluteTimestamp = chunkInfo.startTime + this.parseTime(rawEvent.timestamp);
+            
+            // Generate a temporary event key for intra-chunk de-duplication
             const eventKey = `${rawEvent.eventType}-${absoluteTimestamp}-${rawEvent.assignedTeamId || ''}-${rawEvent.assignedPlayerId || ''}`;
 
             if (processedEventKeys.has(eventKey)) continue;
 
             const processedEvent: ProcessedGameEvent = {
+                id: '', // Will be generated deterministically in ResultService
                 ...rawEvent,
                 gameId,
                 absoluteTimestamp,
                 chunkId: chunkInfo.id || null,
+                // Ensure onCourtPlayerIds is passed through
+                onCourtPlayerIds: Array.isArray(rawEvent.onCourtPlayerIds) ? rawEvent.onCourtPlayerIds : []
             };
 
             finalEvents.push(processedEvent);
@@ -76,10 +85,12 @@ export class EventProcessorService {
     private parseTime(time: any): number {
         if (typeof time === 'number') return time;
         if (typeof time === 'string') {
-            const parts = time.split(':');
+            const parts = time.trim().split(':');
             if (parts.length === 2) {
                 return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
             }
+            const parsed = parseFloat(time);
+            return isNaN(parsed) ? 0 : parsed;
         }
         return 0;
     }
