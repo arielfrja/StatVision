@@ -7,9 +7,6 @@ import {
     VideoAnalysisJobStatus, GameEventStatus, IEventBus
 } from "@statvision/common";
 import * as winston from 'winston';
-import { v5 as uuidv5, validate as validateUuid } from 'uuid';
-
-const STATVISION_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 const VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.VIDEO_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'video-analysis-results-sub';
 const CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME = process.env.CHUNK_ANALYSIS_RESULTS_SUBSCRIPTION_NAME || 'chunk-analysis-results-sub';
@@ -131,7 +128,9 @@ export class VideoAnalysisResultService {
 
     private isUuid(id: string | null | undefined): boolean {
         if (!id) return false;
-        return validateUuid(id);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (typeof id === 'string' && (id.startsWith('chunk-') || id.startsWith('TEMP_'))) return false;
+        return uuidRegex.test(id);
     }
 
     private parseTime(time: any): number {
@@ -163,38 +162,98 @@ export class VideoAnalysisResultService {
         const gameDate = game.gameDate || new Date();
         const resolvedEvents = [];
         
+        // Cache for discovered entities in this batch to avoid redundant DB calls
+        const discoveryCache = new Map<string, string>();
+        const teamDiscoveryCache = new Map<string, string>();
+
         for (const event of events) {
             let teamId = event.assignedTeamId;
             const jerseyNumber = event.identifiedJerseyNumber;
+            const color = event.identifiedTeamColor || 'Unknown';
+            const description = event.identifiedPlayerDescription || event.identifiedTeamDescription;
 
+            // --- TEAM RESOLUTION ---
+            // 1. Map placeholders if game has assigned teams
             if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
                 teamId = game.homeTeamId;
             } else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) {
                 teamId = game.awayTeamId;
             }
 
-            if (teamId && !this.isUuid(teamId)) {
-                teamId = uuidv5(`${gameId}:${teamId}`, STATVISION_NAMESPACE);
+            // 2. Draft Mode: Create/Resolve Temp Team for colors
+            if (!this.isUuid(teamId)) {
+                const teamKey = `TEAM-${color}`;
+                if (teamDiscoveryCache.has(teamKey)) {
+                    teamId = teamDiscoveryCache.get(teamKey);
+                } else {
+                    try {
+                        const teamName = `${color} Team`;
+                        const teamRepo = this.teamRepository['teamBaseRepository'];
+                        let team = await teamRepo.findOne({ where: { name: teamName, isTemp: true, userId } });
+                        
+                        if (!team) {
+                            team = new Team();
+                            team.name = teamName;
+                            team.isTemp = true;
+                            team.userId = userId;
+                            team = await this.teamRepository.save(team);
+                            this.logger.info(`[Discovery] Created new Temp Team: ${teamName}`, { teamId: team.id });
+                        }
+                        teamId = team.id;
+                        teamDiscoveryCache.set(teamKey, teamId!);
+                    } catch (err) {
+                        this.logger.error(`[Discovery] Failed to resolve team for ${color}`, { error: err });
+                    }
+                }
             }
             event.assignedTeamId = teamId;
 
-            let playerId = event.assignedPlayerId;
-
-            if (this.isUuid(teamId) && jerseyNumber) {
+            // --- PLAYER RESOLUTION ---
+            // 3. Try to find existing player in this team
+            if (teamId && jerseyNumber && this.isUuid(teamId)) {
                 try {
                     const history = await this.playerRepository.findPlayerByJerseyAndTeam(teamId, Number(jerseyNumber), gameDate);
                     if (history) {
-                        playerId = history.playerId;
+                        event.assignedPlayerId = history.playerId;
+                        resolvedEvents.push(event);
+                        continue;
                     }
                 } catch (err) {
                     this.logger.warn(`[Resolution] Error looking up existing player`, { error: err });
                 }
             }
 
-            if (playerId && !this.isUuid(playerId)) {
-                playerId = uuidv5(`${gameId}:${playerId}`, STATVISION_NAMESPACE);
+            // 4. Discovery Logic: Create Temp Player
+            const discoveryKey = `${teamId}-${jerseyNumber || 'no-num'}-${description || 'no-desc'}`;
+            
+            if (discoveryCache.has(discoveryKey)) {
+                event.assignedPlayerId = discoveryCache.get(discoveryKey);
+            } else {
+                try {
+                    let playerName = `${color} `;
+                    if (jerseyNumber) playerName += `#${jerseyNumber}`;
+                    if (description) playerName += ` (${description})`;
+                    playerName = playerName.trim();
+
+                    const playerRepo = this.playerRepository['playerBaseRepository'];
+                    let player = await playerRepo.findOne({ 
+                        where: { name: playerName, isTemp: true } 
+                    });
+
+                    if (!player) {
+                        player = new Player();
+                        player.name = playerName;
+                        player.isTemp = true;
+                        player = await this.playerRepository.save(player);
+                        this.logger.info(`[Discovery] Created new Temp Player: ${playerName}`, { playerId: player.id });
+                    }
+
+                    event.assignedPlayerId = player.id;
+                    discoveryCache.set(discoveryKey, player.id);
+                } catch (err) {
+                    this.logger.error(`[Discovery] Failed to create temp player for ${discoveryKey}`, { error: err });
+                }
             }
-            event.assignedPlayerId = playerId;
             
             resolvedEvents.push(event);
         }
@@ -224,66 +283,39 @@ export class VideoAnalysisResultService {
     }
 
     private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
-        const game = await this.gameRepository.findOneById(result.gameId);
-        if (!game) return;
-
         if (result.identifiedTeams && result.identifiedTeams.length > 0) {
             for (const teamData of result.identifiedTeams) {
-                let teamId = teamData.id;
+                if (!this.isUuid(teamData.id)) continue; 
 
-                if (teamId === 'TEMP_TEAM_1' && game.homeTeamId) {
-                    teamId = game.homeTeamId;
-                } else if (teamId === 'TEMP_TEAM_2' && game.awayTeamId) {
-                    teamId = game.awayTeamId;
-                }
-
-                if (!this.isUuid(teamId)) {
-                    teamId = uuidv5(`${result.gameId}:${teamId}`, STATVISION_NAMESPACE);
-                }
-
-                let team = await this.teamRepository.findOneById(teamId);
+                let team = await this.teamRepository.findOneById(teamData.id);
                 if (!team) {
                     team = new Team();
-                    team.id = teamId;
+                    team.id = teamData.id;
                     team.name = `${teamData.type === 'HOME' ? 'Home' : 'Away'} Team${teamData.color ? ' ('+teamData.color+')' : ''}`;
                     team.isTemp = true;
                     team.userId = result.userId;
                     await this.teamRepository.save(team);
                 }
-                const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamId)) || new GameTeamStats();
-                Object.assign(gameTeamStats, { gameId: result.gameId, teamId, ...teamData });
+                const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, teamData.id)) || new GameTeamStats();
+                Object.assign(gameTeamStats, { gameId: result.gameId, teamId: teamData.id, ...teamData });
                 await this.gameStatsService.saveGameTeamStats(gameTeamStats);
             }
         }
 
         if (result.identifiedPlayers && result.identifiedPlayers.length > 0) {
             for (const playerData of result.identifiedPlayers) {
-                let playerId = playerData.id;
-                let playerTeamId = playerData.teamId;
+                if (!this.isUuid(playerData.id)) continue;
 
-                if (playerTeamId === 'TEMP_TEAM_1' && game.homeTeamId) playerTeamId = game.homeTeamId;
-                else if (playerTeamId === 'TEMP_TEAM_2' && game.awayTeamId) playerTeamId = game.awayTeamId;
-                if (playerTeamId && !this.isUuid(playerTeamId)) playerTeamId = uuidv5(`${result.gameId}:${playerTeamId}`, STATVISION_NAMESPACE);
-
-                if (this.isUuid(playerTeamId) && playerData.jerseyNumber) {
-                    const history = await this.playerRepository.findPlayerByJerseyAndTeam(playerTeamId, Number(playerData.jerseyNumber), game.gameDate || new Date());
-                    if (history) playerId = history.playerId;
-                }
-
-                if (!this.isUuid(playerId)) {
-                    playerId = uuidv5(`${result.gameId}:${playerId}`, STATVISION_NAMESPACE);
-                }
-
-                let player = await this.playerRepository.findOneById(playerId);
+                let player = await this.playerRepository.findOneById(playerData.id);
                 if (!player) {
                     player = new Player();
-                    player.id = playerId;
+                    player.id = playerData.id;
                     player.name = `Player${playerData.jerseyNumber ? ' #'+playerData.jerseyNumber : ''}`;
                     player.isTemp = true;
                     await this.playerRepository.save(player);
                 }
-                const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerId)) || new GamePlayerStats();
-                Object.assign(gamePlayerStats, { gameId: result.gameId, playerId, ...playerData });
+                const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
+                Object.assign(gamePlayerStats, { gameId: result.gameId, playerId: playerData.id, ...playerData });
                 await this.gameStatsService.saveGamePlayerStats(gamePlayerStats);
             }
         }
