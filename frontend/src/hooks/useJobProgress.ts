@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDatabase, ref, onValue, off } from "firebase/database";
+import { getDatabase, ref, onValue, off, DataSnapshot } from "firebase/database";
 import { app } from "../firebase-config";
 
 export interface ProgressUpdate {
@@ -31,7 +31,7 @@ export const useJobProgress = (jobId?: string, gameId?: string) => {
 
     setIsConnected(true);
 
-    const unsubscribe = onValue(jobRef, (snapshot) => {
+    const unsubscribe = onValue(jobRef, (snapshot: DataSnapshot) => {
       const data = snapshot.val();
       if (data) {
         setProgress({
@@ -42,7 +42,7 @@ export const useJobProgress = (jobId?: string, gameId?: string) => {
           details: data.details || ''
         });
       }
-    }, (error) => {
+    }, (error: Error) => {
       console.error("[Firebase_Hook_Error]", error);
       setIsConnected(false);
     });

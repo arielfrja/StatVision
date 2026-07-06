@@ -162,7 +162,7 @@ const GamesPage = () => {
           </section>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {games.map((game) => {
+          {games.map((game: Game) => {
             const status = getStatusDisplay(game.status);
             const date = new Date(game.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const canRetry = game.status === GameStatus.FAILED || game.status === GameStatus.PENDING;

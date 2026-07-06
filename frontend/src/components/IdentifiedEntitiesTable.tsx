@@ -63,7 +63,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                 <div className="h-px flex-1 bg-border-main ml-6"></div>
             </div>
             
-            {teamsWithPlayers.map(team => (
+            {teamsWithPlayers.map((team: TeamWithPlayers) => (
                 <div key={team.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {/* Team Info Header */}
                     <div className="px-4 py-3 bg-surface-high border-x border-t border-border-main rounded-t-md flex justify-between items-center">
@@ -95,7 +95,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                                 </tr>
                             </thead>
                             <tbody>
-                                {team.players.length > 0 ? team.players.map((player) => (
+                                {team.players.length > 0 ? team.players.map((player: EnrichedPlayer) => (
                                     <tr key={player.id} className="interactive group">
                                         <td>
                                             <span className="font-bold text-tx-primary">{player.name || 'Unknown Player'}</span>

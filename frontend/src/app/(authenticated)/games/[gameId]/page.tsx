@@ -8,6 +8,7 @@ import { Game } from '@/types/game';
 import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
 import { GameEvent } from '@/types/gameEvent';
+import { GameTeamStats } from '@/types/stats';
 import Loader from '@/components/Loader';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
@@ -37,7 +38,7 @@ function AnalysisPage() {
 
     // Data Fetching
     const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
-        refreshInterval: (data) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
+        refreshInterval: (data: Game | undefined) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
     });
 
     // UI State
@@ -149,8 +150,8 @@ function AnalysisPage() {
         );
     }
 
-    const homeStats = game.teamStats.find(ts => ts.teamId === game.homeTeamId);
-    const awayStats = game.teamStats.find(ts => ts.teamId === game.awayTeamId);
+    const homeStats = game.teamStats.find((ts: GameTeamStats) => ts.teamId === game.homeTeamId);
+    const awayStats = game.teamStats.find((ts: GameTeamStats) => ts.teamId === game.awayTeamId);
 
     return (
         <div className="flex flex-col gap-6 pb-20">

@@ -4,6 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { Game, GameStatus } from '@/types/game';
+import { GameTeamStats } from '@/types/stats';
 import Loader from '@/components/Loader';
 import Button from '@/components/Button';
 import Link from 'next/link';
@@ -14,12 +15,12 @@ const PerformanceDashboardPage = () => {
 
   const pendingUpload = useMemo(() => {
     if (!games) return null;
-    return games.find(g => g.status === GameStatus.PENDING && g.uploadUrl);
+    return games.find((g: Game) => g.status === GameStatus.PENDING && g.uploadUrl);
   }, [games]);
 
   const activeGame = useMemo(() => {
     if (!games || games.length === 0) return null;
-    return games.find(g => g.status === GameStatus.PROCESSING) || games[0];
+    return games.find((g: Game) => g.status === GameStatus.PROCESSING) || games[0];
   }, [games]);
 
   const recentEvents = useMemo(() => {
@@ -167,7 +168,7 @@ const PerformanceDashboardPage = () => {
             <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Session Scoring</h3>
             <div className="space-y-6">
               {activeGame?.teamStats?.length ? (
-                activeGame.teamStats.slice(0, 2).map((ts, idx) => (
+                activeGame.teamStats.slice(0, 2).map((ts: GameTeamStats, idx: number) => (
                   <div key={ts.teamId}>
                     <div className="flex justify-between items-end mb-2">
                         <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-wider">{idx === 0 ? 'Home' : 'Away'}</span>
