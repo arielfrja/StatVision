@@ -558,3 +558,82 @@ These tests must be run from a standard x86_64 Linux/macOS environment (or CI):
 - `origin/master` → statvision-api-prod ✅
 - `origin/master` → statvision-worker-prod ✅
 - `origin/master` → Vercel frontend (if applicable)
+
+---
+
+## [2026-07-06] E2E: Full Pipeline Test with termux-browser-pilot
+**Objective:** Run a complete end-to-end test through the browser using `termux-browser-pilot` (tbp) - create game, upload 343MB demo.webm, verify analysis results in the UI.
+
+### ✅ What Was Tested
+1. **Frontend Navigation & Auth** — tbp navigated to production Vercel URL, clicked "Sign In", was redirected to Auth0, filled email/password credentials, and successfully logged in to `/dashboard`.
+2. **Games Page UI** — Navigated to `/games`, verified "Film Room" page renders with game cards and "New Upload" button.
+3. **Upload Flow UI** — Clicked "New Upload" -> `md-filled-button`, page transitioned to upload form with file picker and "Cancel"/"Upload" buttons.
+4. **Game Creation via API** — Ran `sandbox/prod_upload_test.ts` (using Auth0 token extracted from browser localStorage via `tbp eval`):
+   - Created game: `c7b1c8d5-d0ca-48a1-b329-21340330b9f3`, name "Prod Test - 2026-07-06T08:44:21.947Z"
+   - Got resumable upload URL from GCS
+   - Uploaded 343MB `docs/assets/demo.webm` directly to GCS
+   - Confirmed upload via `/upload-complete` endpoint
+5. **Worker Processing** — Verified via Cloud Logging:
+   - `08:45:12` — Worker received orchestration request for game
+   - Chunks processed: 1/9 → 2/9 (in ~3 minutes)
+   - 40 events generated from first 2 chunks
+6. **Real-Time UI Updates** — Navigated to game detail page in browser:
+   - ✅ Shows "40 Events Detected" in GAME LOG section
+   - ✅ Events rendered with timestamps (5:26 → 0:00), action types (3PT SHOT, 2PT SHOT MADE/MISSED, PASS, FOUL, STEAL, REBOUND, etc.)
+   - ✅ Box Score, Personnel, Coach Report sections present
+   - ✅ Game info card shows "UPLOADED" status, FULL COURT, 0-0 score
+   - ⏳ Events show "Unassigned" (player identity not yet linked — expected while processing is underway)
+
+### 📸 Screenshots Taken
+| File | Content |
+|------|---------|
+| `~/e2e_01_home.png` | Landing page before login |
+| `~/e2e_04_after_login.png` | Dashboard after successful Auth0 login |
+| `~/e2e_05_games.png` | Games page ("Film Room") |
+| `~/e2e_09_game_list.png` | Game list showing new game as "UPLOADED" |
+| `~/e2e_11_game_detail2.png` | Game detail page showing 0-0 FULL COURT |
+| `~/e2e_12_processing.png` | Game log with 40 events detected |
+| `~/e2e_13_events.png` | Full event list (40 events) |
+
+### 🔑 Key Observations
+- **tbp performance**: Browser automation is functional but slow on Android (Firefox + Xvfb). Page navigations take 3-10s, screenshots ~1s.
+- **Auth token extraction**: `tbp eval` successfully read `localStorage` to extract Auth0 access token for API calls — bypasses the expired-token problem.
+- **File upload limitation**: tbp's JS-based file upload caps at 5MB. For 343MB demo.webm, the API-based upload path was used instead (via `prod_upload_test.ts`).
+- **Worker processing**: ~1-2 minutes per chunk (38MB each). 9 chunks total for full video. Events appear in real-time as chunks complete.
+- **Unassigned events**: All 40 events show "Unassigned" team. This is expected since identity pipeline processes later chunks (jersey color matching, personnel identification).
+
+### 📊 Data Integrity: Raw Analysis vs DB Persistence
+*Comparison of raw Gemini output vs what was stored in the database:*
+
+| Metric | Gemini Raw | DB Stored | Match |
+|--------|-----------|-----------|-------|
+| Total events | 99 | 99 | ✅ |
+| Distinct types | 25 | 25 | ✅ |
+| 2pt Shot Missed | 20 | 20 | ✅ |
+| Defensive Rebound | 14 | 14 | ✅ |
+| Personal Foul | 10 | 10 | ✅ |
+| Offensive Rebound | 10 | 10 | ✅ |
+| Pass | 6 | 6 | ✅ |
+| 2pt Shot Made | 5 | 5 | ✅ |
+| 2pt Shot Attempt | 5 | 5 | ✅ |
+| Turnover | 5 | 5 | ✅ |
+| 3pt Shot Missed | 3 | 3 | ✅ |
+| Steal | 3 | 3 | ✅ |
+| All remaining 14 types | matching | ✅ |
+
+**Idempotency**: Deterministic UUID v5 (`gameId:absoluteTimestamp:eventType:assignedPlayerId || 'TEAM'`) produced zero duplicate IDs across all 99 events ✅
+
+**Orphan events**: 3 events without team (Game Start, End of Period, Period Start) and 11 without player (team-level events like Foul, Out of Bounds, Turnover, etc.) — all expected ✅
+
+### 🐛 Bug Found: Watchdog Race Condition
+**Root Cause**: `api/src/service/JobWatchdogService.ts` kills jobs with no heartbeat for 15+ min. The worker completed all 9 chunks (137 events in DB ✅) but the watchdog killed the job before `JobFinalizerService` could run `calculateAndStoreStats`. Game ended as `FAILED` with `playerStats`/`teamStats` empty → UI showed "Unassigned" for all events.
+- `homeTeamId`/`awayTeamId` were also NULL on the game record (team identity mapping only happens in `processFinalResult`)
+- Fix applied: `sandbox/fix_failed_game.sql` recalculated stats, set team IDs, marked game as `ANALYZED`
+- Permanent fix committed: watchdog now excludes jobs with `completedChunks = totalChunks` (pending finalization)
+- Heartbeat now updated at start of `finalizeJob()` to prevent mid-aggregation killing
+
+### ⚠️ Remaining Work
+- [x] All 9/9 chunks completed — 137 events stored ✅
+- [x] `game_events.assigned_team_id` populated (134/137 have team, 122/137 have player)
+- [x] `playerStats`/`teamStats` recalculated, home/away team IDs set
+- [ ] Evaluate whether to set `NEXT_PUBLIC_USE_MOCK_AUTH=true` on production Vercel to enable no-login E2E testing
