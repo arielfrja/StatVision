@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
@@ -25,6 +25,15 @@ const TeamsPage = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
+
+  const dialogRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    const handler = () => setShowModal(false);
+    el.addEventListener('close', handler);
+    return () => el.removeEventListener('close', handler);
+  }, [showModal]);
 
   const handleCreateTeam = async () => {
     if (!newTeamName) return;
@@ -132,7 +141,7 @@ const TeamsPage = () => {
         </div>
       )}
 
-      <md-dialog open={showModal} @close={() => setShowModal(false)}>
+      <md-dialog ref={dialogRef} open={showModal}>
         <div slot="headline">Create New Squad</div>
         <div slot="content">
           <md-filled-text-field

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import '@material/web/labs/navigationbar/navigation-bar.js';
 import '@material/web/labs/navigationtab/navigation-tab.js';
@@ -17,12 +17,25 @@ const BottomNav = () => {
   const pathname = usePathname();
   const router = useRouter();
 
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const handler = (e: any) => {
+      const path = navItems[e.detail.activeIndex]?.path;
+      if (path) router.push(path);
+    };
+    el.addEventListener('navigation-bar-activated', handler);
+    return () => el.removeEventListener('navigation-bar-activated', handler);
+  }, [router]);
+
   const activeIndex = navItems.findIndex(item => item.path === pathname);
 
   return (
     <md-navigation-bar
+      ref={navRef}
       activeIndex={activeIndex >= 0 ? activeIndex : 0}
-      @navigation-bar-activated={(e: any) => router.push(navItems[e.detail.activeIndex].path)}
       style={{
         position: 'fixed',
         bottom: 0,

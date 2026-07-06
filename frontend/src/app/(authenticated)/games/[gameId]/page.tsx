@@ -38,6 +38,8 @@ function AnalysisPage() {
     const { isAuthenticated, getAccessTokenSilently } = useAuth0();
     const router = useRouter();
     const playerRef = useRef(null);
+    const deleteConfirmRef = useRef<HTMLElement>(null);
+    const deleteEventRef = useRef<HTMLElement>(null);
 
     // Responsive breakpoint
     const [isDesktop, setIsDesktop] = useState(false);
@@ -49,6 +51,22 @@ function AnalysisPage() {
         mq.addEventListener('change', handler);
         return () => mq.removeEventListener('change', handler);
     }, []);
+
+    useEffect(() => {
+        const el = deleteConfirmRef.current;
+        if (!el) return;
+        const handler = () => setShowDeleteConfirm(false);
+        el.addEventListener('close', handler);
+        return () => el.removeEventListener('close', handler);
+    }, [showDeleteConfirm]);
+
+    useEffect(() => {
+        const el = deleteEventRef.current;
+        if (!el) return;
+        const handler = () => setEventToDelete(null);
+        el.addEventListener('close', handler);
+        return () => el.removeEventListener('close', handler);
+    }, [eventToDelete]);
 
     // Data Fetching
     const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
@@ -591,21 +609,21 @@ function AnalysisPage() {
                 onAssignmentComplete={mutate}
             />
 
-            <md-dialog open={showDeleteConfirm} @close={() => setShowDeleteConfirm(false)}>
+            <md-dialog ref={deleteConfirmRef} open={showDeleteConfirm}>
               <div slot="headline">Delete Analysis?</div>
               <div slot="content">This will permanently remove all stats and video data for this game. This action cannot be undone.</div>
               <div slot="actions">
-                <md-text-button @click={() => setShowDeleteConfirm(false)}>Cancel</md-text-button>
-                <md-text-button style="color:var(--md-sys-color-error)" @click={handleDeleteGame} disabled={isDeleting}>Confirm Deletion</md-text-button>
+                <md-text-button onClick={() => setShowDeleteConfirm(false)}>Cancel</md-text-button>
+                <md-text-button style="color:var(--md-sys-color-error)" onClick={handleDeleteGame} disabled={isDeleting}>Confirm Deletion</md-text-button>
               </div>
             </md-dialog>
 
-            <md-dialog open={!!eventToDelete} @close={() => setEventToDelete(null)}>
+            <md-dialog ref={deleteEventRef} open={!!eventToDelete}>
               <div slot="headline">Delete Event?</div>
               <div slot="content">Are you sure you want to remove this log entry from the play-by-play feed?</div>
               <div slot="actions">
-                <md-text-button @click={() => setEventToDelete(null)}>Keep It</md-text-button>
-                <md-text-button style="color:var(--md-sys-color-error)" @click={confirmDeleteEvent}>Delete Entry</md-text-button>
+                <md-text-button onClick={() => setEventToDelete(null)}>Keep It</md-text-button>
+                <md-text-button style="color:var(--md-sys-color-error)" onClick={confirmDeleteEvent}>Delete Entry</md-text-button>
               </div>
             </md-dialog>
 

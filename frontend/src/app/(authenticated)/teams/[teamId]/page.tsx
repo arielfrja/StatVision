@@ -1,7 +1,7 @@
 /* eslint-disable */
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import '@material/web/progress/circular-progress.js';
 import '@material/web/button/filled-button.js';
@@ -44,6 +44,25 @@ function TeamPlayersPage() {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerJersey, setNewPlayerJersey] = useState<number | '' >('');
   const [newPlayerDescription, setNewPlayerDescription] = useState('');
+
+  const addDialogRef = useRef<HTMLElement>(null);
+  const deleteDialogRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = addDialogRef.current;
+    if (!el) return;
+    const handler = () => setShowAddModal(false);
+    el.addEventListener('close', handler);
+    return () => el.removeEventListener('close', handler);
+  }, [showAddModal]);
+
+  useEffect(() => {
+    const el = deleteDialogRef.current;
+    if (!el) return;
+    const handler = () => setPlayerToDelete(null);
+    el.addEventListener('close', handler);
+    return () => el.removeEventListener('close', handler);
+  }, [playerToDelete]);
 
   const fetchTeamDetails = useCallback(async () => {
     if (!teamId) return;
@@ -209,7 +228,7 @@ function TeamPlayersPage() {
       </div>
 
       {/* Recruit Modal */}
-      <md-dialog open={showAddModal} @close={() => setShowAddModal(false)}>
+      <md-dialog ref={addDialogRef} open={showAddModal}>
         <div slot="headline">Recruit Player</div>
         <div slot="content">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -245,12 +264,12 @@ function TeamPlayersPage() {
       </md-dialog>
 
       {/* Delete Confirmation Dialog */}
-      <md-dialog open={!!playerToDelete} @close={() => setPlayerToDelete(null)}>
+      <md-dialog ref={deleteDialogRef} open={!!playerToDelete}>
         <div slot="headline">Release Player?</div>
         <div slot="content">Are you sure you want to remove this player from the active roster? Career stats will be preserved in the global registry.</div>
         <div slot="actions">
-          <md-text-button @click={() => setPlayerToDelete(null)}>Cancel</md-text-button>
-          <md-text-button style="color:var(--md-sys-color-error)" @click={confirmDeletePlayer} disabled={isDeleting}>Confirm Release</md-text-button>
+          <md-text-button onClick={() => setPlayerToDelete(null)}>Cancel</md-text-button>
+          <md-text-button style="color:var(--md-sys-color-error)" onClick={confirmDeletePlayer} disabled={isDeleting}>Confirm Release</md-text-button>
         </div>
       </md-dialog>
     </main>
