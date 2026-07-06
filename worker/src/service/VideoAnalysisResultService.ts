@@ -265,11 +265,7 @@ export class VideoAnalysisResultService {
                 
                 if (this.isUuid(resolvedTeamId)) {
                     const gameTeamStats = (await this.gameStatsService.getGameTeamStats(result.gameId, resolvedTeamId)) || new GameTeamStats();
-                    gameTeamStats.gameId = result.gameId;
-                    gameTeamStats.teamId = resolvedTeamId;
-                    gameTeamStats.color = teamData.color;
-                    gameTeamStats.type = teamData.type;
-                    gameTeamStats.description = teamData.description;
+                    Object.assign(gameTeamStats, { gameId: result.gameId, teamId: resolvedTeamId, ...teamData });
                     await this.gameStatsService.saveGameTeamStats(gameTeamStats);
                 }
             }
@@ -302,11 +298,7 @@ export class VideoAnalysisResultService {
                         await this.playerRepository.save(player);
                     }
                     const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerId)) || new GamePlayerStats();
-                    gamePlayerStats.gameId = result.gameId;
-                    gamePlayerStats.playerId = playerId;
-                    gamePlayerStats.teamId = playerTeamId && this.isUuid(playerTeamId) ? playerTeamId : null;
-                    gamePlayerStats.jerseyNumber = playerData.jerseyNumber;
-                    gamePlayerStats.description = playerData.description;
+                    Object.assign(gamePlayerStats, { gameId: result.gameId, playerId, ...playerData });
                     await this.gameStatsService.saveGamePlayerStats(gamePlayerStats);
                 } else {
                     this.logger.error(`[persistIdentifiedEntities] Invalid playerId after resolution: ${playerId}`, { phase: 'results_processing' });
