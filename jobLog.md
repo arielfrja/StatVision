@@ -539,3 +539,22 @@ These tests must be run from a standard x86_64 Linux/macOS environment (or CI):
    cd sandbox && npx ts-node prod_upload_test.ts
    ```
 5. **TEMP_ID resolution** — After pipeline, verify `game_events.assigned_team_id` is not null for all events in the completed game
+
+## [2026-07-06] Promote to Production: Type Fixes & Docs
+**Branch:** `fix/type-check-and-testing` → `master` (direct, since test env not fully published)
+
+### Actions
+- Merged `fix/type-check-and-testing` → `test` → pushed → CI ✅ + Deploy ✅ on test
+- Documented environment limitations in `AGENTS.md` (direct-to-master workflow, no Auth0 tokens, no SA key, Android build restriction)
+- Merged `fix/type-check-and-testing` → `master` → pushed (`fd4d287`) → CI ✅ + Deploy ✅
+- **Production API:** Health check 200 OK at `statvision-api-prod` (0.58s)
+
+### Changes Deployed
+- 12 files: type declarations for SWR/tailwindcss, vitest alias fix, Header test mock fix, 6 files implicit any fixes
+- Roadmap: Stabilization Sprint marked completed
+- Knowledge: Environment limitations + workflow documented
+
+### Deployed to Master
+- `origin/master` → statvision-api-prod ✅
+- `origin/master` → statvision-worker-prod ✅
+- `origin/master` → Vercel frontend (if applicable)
