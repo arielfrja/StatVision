@@ -1,68 +1,7 @@
-@import "tailwindcss";
-@source "../components";
-@source "../app";
-
-@import "./analysis-table.css";
-
-@theme {
-  /* Minimalist Utility Palette */
-  --color-primary-bg: #0A0A0B;
-  --color-surface: #161618;
-  --color-surface-high: #1c1c1e;
-  --color-border-main: #27272a;
-  --color-border-ghost: #1e1e20;
-
-  --color-accent: #3B82F6; /* Surgical Blue */
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-
-  --color-tx-primary: #FAFAFA;
-  --color-tx-secondary: #A1A1AA;
-  --color-tx-dim: #71717a;
-
-  /* Standardized Typography */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
-
-  /* Sharp Roundness */
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
-}
-
 :root {
-  --bg-main: #0A0A0B;
-  --bg-card: #161618;
-  --border-main: #27272a;
-  --text-main: #FAFAFA;
-  --text-muted: #A1A1AA;
-  --accent: #3B82F6;
-
-  /* Material 3 Design Token Overrides */
-  --md-sys-color-primary: #3B82F6;
-  --md-sys-color-on-primary: #ffffff;
-  --md-sys-color-surface: #161618;
-  --md-sys-color-on-surface: #FAFAFA;
-  --md-sys-color-on-surface-variant: #A1A1AA;
-  --md-sys-color-outline: #27272a;
-  --md-sys-color-surface-container: #161618;
-  --md-sys-color-surface-container-high: #1c1c1e;
-  --md-sys-color-error: #EF4444;
-  --md-sys-color-tertiary: #10B981; /* Used for success */
-
-  --md-sys-shape-corner-extra-small: 4px;
-  --md-sys-shape-corner-small: 4px;
-  --md-sys-shape-corner-medium: 4px;
-  --md-sys-shape-corner-large: 4px;
-  --md-sys-shape-corner-extra-large: 4px;
-  --md-sys-shape-corner-full: 4px;
-
-  --md-sys-typescale-body-large-font: var(--font-inter);
-  --md-sys-typescale-label-large-font: var(--font-inter);
+  color-scheme: dark;
 }
 
-/* CSS Reset */
 * {
   box-sizing: border-box;
   padding: 0;
@@ -71,83 +10,60 @@
 
 html, body {
   height: 100%;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5; /* Tightened for density */
+  font-family: Roboto, system-ui, sans-serif;
 }
 
-/* Professional Layout */
 .main-content-wrapper {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  /* Account for fixed bottom nav on mobile */
-  padding-bottom: 64px; 
+  padding-bottom: 80px;
 }
 
 @media (min-width: 768px) {
   .main-content-wrapper {
-    padding-left: 256px;
+    padding-left: 360px;
     padding-bottom: 0;
   }
 }
 
+.md-side-nav {
+  display: none;
+}
+
+.md-header-brand {
+  display: flex;
+}
+
+@media (min-width: 768px) {
+  .md-side-nav {
+    display: flex;
+  }
+  .md-header-brand {
+    display: none;
+  }
+  md-navigation-bar {
+    display: none;
+  }
+}
+
 .main-content-container {
-  padding: 1.5rem; /* Reduced from 2rem for density */
+  padding: 24px;
   width: 100%;
-  max-width: 1600px;
+  max-width: 1200px;
   margin: 0 auto;
   flex: 1;
 }
 
-/* Minimalist Utility Cards */
-.utility-card {
-  background: var(--bg-card);
-  border-radius: 4px; /* Reduced from 12px */
-  padding: 1.25rem;
-  border: 1px solid var(--border-main);
-}
-
-/* Professional Buttons */
-button {
-  cursor: pointer;
-  transition: all 0.15s ease;
-  outline: none;
-  font-weight: 500;
-}
-
-/* Scrollbar - Surgical & Discrete */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: rgba(255,255,255,0.15);
   border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-}
-
-/* High-Density Typography */
-.mono-stat {
-  font-family: var(--font-mono);
-  letter-spacing: -0.01em;
-}
-
-.label-caps {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
 }

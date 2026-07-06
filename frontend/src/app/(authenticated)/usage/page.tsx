@@ -3,12 +3,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
-import Loader from '@/components/Loader';
-import Button from '@/components/Button';
+import '@material/web/progress/circular-progress.js';
+import '@material/web/icon/icon.js';
+import '@material/web/labs/card/outlined-card.js';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area 
 } from 'recharts';
+import '@material/web/button/outlined-button.js';
 import { Info, Zap, Video, Clock } from 'lucide-react';
 
 const UsageDashboard = () => {
@@ -54,33 +56,36 @@ const UsageDashboard = () => {
   const totalVideoMinutes = Math.round((summary?.totalVideoSeconds || 0) / 60);
 
   if (summaryLoading || dailyLoading) return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <Loader size="large" />
+    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh'}}>
+      <md-circular-progress indeterminate></md-circular-progress>
     </div>
   );
 
   return (
-    <div className="pb-16 flex flex-col gap-10 animate-in fade-in duration-300">
+    <div style={{paddingBottom: '64px', display: 'flex', flexDirection: 'column', gap: '40px'}}>
       
       {/* Header Section */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">
+      <header style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+        <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
+            <div style={{width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--md-sys-color-primary)'}} />
+            <span style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em'}}>
               RESOURCE MONITOR
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-tx-primary">AI Usage & Credits</h1>
-          <p className="text-xs text-tx-secondary font-medium uppercase tracking-widest">Tracking tokens and processing throughput</p>
+          <h1 style={{fontSize: '24px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--md-sys-color-on-surface)', margin: 0}}>AI Usage & Credits</h1>
+          <p style={{fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Tracking tokens and processing throughput</p>
         </div>
         
-        <div className="flex items-center gap-2 bg-surface border border-border-main p-1 rounded-md">
+        <div style={{display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', padding: '4px', borderRadius: '6px', alignSelf: 'flex-start'}}>
            {['7d', '30d', '90d'].map(p => (
              <button 
                key={p}
                onClick={() => setPeriod(p)}
-               className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-all ${period === p ? 'bg-accent text-white' : 'text-tx-secondary hover:text-tx-primary'}`}
+               style={period === p 
+                 ? {padding: '6px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', borderRadius: '4px', backgroundColor: 'var(--md-sys-color-primary)', color: '#fff', border: 'none', cursor: 'pointer'} 
+                 : {padding: '6px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', borderRadius: '4px', backgroundColor: 'transparent', color: 'var(--md-sys-color-on-surface-variant)', border: 'none', cursor: 'pointer'}
+               }
              >
                {p}
              </button>
@@ -89,53 +94,53 @@ const UsageDashboard = () => {
       </header>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <div className="utility-card p-6 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-tx-dim opacity-60">
-               <Zap size={14} />
-               <span className="text-[10px] font-bold uppercase tracking-widest">Total Tokens</span>
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '24px'}}>
+         <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6}}>
+               <Zap size={14} style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
+               <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Total Tokens</span>
             </div>
-            <div className="text-3xl font-black text-tx-primary mono-stat">{totalTokens.toLocaleString()}</div>
-            <p className="text-[9px] text-tx-secondary uppercase tracking-tighter">Consumption for current period</p>
+            <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>{totalTokens.toLocaleString()}</div>
+            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Consumption for current period</p>
          </div>
 
-         <div className="utility-card p-6 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-tx-dim opacity-60">
-               <Video size={14} />
-               <span className="text-[10px] font-bold uppercase tracking-widest">Video Processed</span>
+         <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6}}>
+               <Video size={14} style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
+               <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Video Processed</span>
             </div>
-            <div className="text-3xl font-black text-tx-primary mono-stat">{totalVideoMinutes}m</div>
-            <p className="text-[9px] text-tx-secondary uppercase tracking-tighter">Total analysis duration</p>
+            <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>{totalVideoMinutes}m</div>
+            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Total analysis duration</p>
          </div>
 
-         <div className="utility-card p-6 flex flex-col gap-2 border-l-2 border-accent">
-            <div className="flex items-center justify-between mb-1">
-               <div className="flex items-center gap-2 text-accent">
+         <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '2px solid var(--md-sys-color-primary)'}}>
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px'}}>
+               <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-primary)'}}>
                   <Clock size={14} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Estimated Value</span>
+                  <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Estimated Value</span>
                </div>
                <div title="Based on standard token pricing">
-                  <Info size={12} className="text-tx-dim opacity-40 cursor-help" />
+                  <Info size={12} style={{color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.4, cursor: 'help'}} />
                </div>
             </div>
-            <div className="text-3xl font-black text-tx-primary mono-stat">${(totalTokens * 0.000000125).toFixed(2)}</div>
-            <p className="text-[9px] text-tx-secondary uppercase tracking-tighter">Projected cost estimate</p>
+            <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>${(totalTokens * 0.000000125).toFixed(2)}</div>
+            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Projected cost estimate</p>
          </div>
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 gap-8">
-         <section className="bg-surface border border-border-main rounded-md p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-               <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Daily Token Consumption</h3>
-               <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                     <div className="w-2 h-2 rounded-full bg-accent" />
-                     <span className="text-[9px] font-bold uppercase text-tx-secondary">Gemini 3 Flash</span>
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '32px'}}>
+         <md-outlined-card style={{padding: '32px', width: '100%', boxSizing: 'border-box'}}>
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px'}}>
+               <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Daily Token Consumption</h3>
+               <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                     <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--md-sys-color-primary)'}} />
+                     <span style={{fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--md-sys-color-on-surface-variant)'}}>Gemini 3 Flash</span>
                   </div>
                </div>
             </div>
-            <div className="h-[300px] w-full">
+            <div style={{height: '300px', width: '100%'}}>
                {isClient && (
                   <ResponsiveContainer width="100%" height="100%">
                      <AreaChart data={chartData}>
@@ -169,13 +174,13 @@ const UsageDashboard = () => {
                   </ResponsiveContainer>
                )}
             </div>
-         </section>
+         </md-outlined-card>
 
-         <section className="bg-surface border border-border-main rounded-md p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-               <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Video Throughput (Seconds)</h3>
+         <md-outlined-card style={{padding: '32px', width: '100%', boxSizing: 'border-box'}}>
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px'}}>
+               <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Video Throughput (Seconds)</h3>
             </div>
-            <div className="h-[200px] w-full">
+            <div style={{height: '200px', width: '100%'}}>
                {isClient && (
                   <ResponsiveContainer width="100%" height="100%">
                      <BarChart data={chartData}>
@@ -202,32 +207,32 @@ const UsageDashboard = () => {
                   </ResponsiveContainer>
                )}
             </div>
-         </section>
+         </md-outlined-card>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-         <section className="flex-1 bg-surface border border-border-main rounded-md p-6">
-            <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest mb-6">Usage Policies</h3>
-            <div className="space-y-4">
+      <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
+         <section style={{flex: '1', backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px'}}>
+             <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: '24px'}}>Usage Policies</h3>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
                {[
                  { label: 'Standard Rate', val: '0.000125 / 1k Tokens' },
                  { label: 'Quota Limit', val: '500,000 Tokens / Day' },
                  { label: 'Video Cap', val: '120 Minutes / Job' }
                ].map((item, i) => (
-                 <div key={i} className="flex justify-between items-center pb-4 border-b border-border-main last:border-0 last:pb-0">
-                   <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-tight">{item.label}</span>
-                   <span className="text-[10px] font-black text-tx-primary uppercase tracking-tight">{item.val}</span>
+                 <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '16px', borderBottom: i < 2 ? '1px solid var(--md-sys-color-outline-variant)' : 'none'}}>
+                   <span style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em'}}>{item.label}</span>
+                   <span style={{fontSize: '10px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', textTransform: 'uppercase', letterSpacing: '-0.01em'}}>{item.val}</span>
                  </div>
                ))}
             </div>
          </section>
 
-         <section className="flex-1 utility-card p-6 border-l-2 border-warning bg-warning/5">
-            <h3 className="text-[10px] font-bold text-warning uppercase tracking-widest mb-4">Optimization Advisory</h3>
-            <p className="text-[11px] text-tx-secondary font-medium leading-relaxed mb-4">
-              Your token consumption is currently within optimal parameters. Using <span className="text-tx-primary font-bold">JERSEY_COLORS</span> identity mode instead of <span className="text-tx-primary font-bold">INTERACTION_BASED</span> can reduce token usage by up to 15% for multi-turn sessions.
+         <section style={{flex: '1', backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', borderLeft: '2px solid var(--md-sys-color-secondary)'}}>
+            <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: '16px'}}>Optimization Advisory</h3>
+            <p style={{fontSize: '11px', color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, lineHeight: 1.625, margin: 0, marginBottom: '16px'}}>
+              Your token consumption is currently within optimal parameters. Using <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>JERSEY_COLORS</span> identity mode instead of <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>INTERACTION_BASED</span> can reduce token usage by up to 15% for multi-turn sessions.
             </p>
-            <Button variant="outline" size="sm" className="w-full">View Optimization Guide</Button>
+            <md-outlined-button>View Optimization Guide</md-outlined-button>
          </section>
       </div>
     </div>

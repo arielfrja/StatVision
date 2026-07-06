@@ -4,8 +4,9 @@ import { GameEvent } from '@/types/gameEvent';
 import { PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
 import { ALLOWED_EVENT_TYPES } from '@/constants/eventTypes';
-import Button from '../Button';
-
+import '@material/web/button/filled-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/icon/icon.js';
 import '@material/web/select/filled-select.js';
 import '@material/web/select/select-option.js';
 
@@ -56,52 +57,88 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
     };
 
     return (
-        <div className="bg-surface border border-border-main rounded-md p-6 flex flex-col gap-8 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="flex justify-between items-start">
-                <div className="flex flex-col gap-1">
-                    <h3 className="text-lg font-bold text-tx-primary tracking-tight uppercase">Edit Analytics Event</h3>
-                    <p className="text-[10px] font-bold text-accent uppercase tracking-widest mono-stat">
+        <div
+            style={{
+                backgroundColor: 'var(--md-sys-color-surface)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                borderRadius: '6px',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '32px',
+            }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)', letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+                        Edit Analytics Event
+                    </h3>
+                    <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         TIMESTAMP: {event.absoluteTimestamp.toFixed(2)}s
                     </p>
                 </div>
                 {onDelete && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        icon="delete" 
+                    <md-text-button 
                         onClick={handleDelete}
-                        isLoading={isDeleting}
-                        className="!text-error hover:!bg-error/10"
-                    />
+                        disabled={isDeleting}
+                        style={{color: 'var(--md-sys-color-error)'}}
+                    >
+                        <md-icon slot="icon">delete</md-icon>
+                    </md-text-button>
                 )}
             </div>
 
-            <div className="space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Event Type Selection */}
-                <div className="space-y-3">
-                    <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Classification</label>
-                    <div className="grid grid-cols-2 gap-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                        Classification
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                         {ALLOWED_EVENT_TYPES.map(type => (
                             <button
                                 key={type}
                                 onClick={() => setEventType(type as any)}
-                                className={`py-2 px-3 rounded border text-[10px] font-bold uppercase tracking-tight transition-all text-left flex items-center justify-between group ${
-                                    eventType === type 
-                                        ? 'bg-accent/10 border-accent text-accent' 
-                                        : 'bg-primary-bg border-border-main text-tx-secondary hover:border-tx-dim'
-                                }`}
+                                style={{
+                                    padding: '8px 12px',
+                                    borderRadius: '4px',
+                                    border: '1px solid',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '-0.025em',
+                                    textAlign: 'left',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    backgroundColor: eventType === type
+                                        ? 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)'
+                                        : 'var(--md-sys-color-surface-container-high)',
+                                    borderColor: eventType === type
+                                        ? 'var(--md-sys-color-primary)'
+                                        : 'var(--md-sys-color-outline-variant)',
+                                    color: eventType === type
+                                        ? 'var(--md-sys-color-primary)'
+                                        : 'var(--md-sys-color-on-surface-variant)',
+                                    transition: 'border-color 200ms, background-color 200ms',
+                                }}
                             >
                                 {type.replace('_', ' ')}
-                                {eventType === type && <span className="material-symbols-outlined text-xs">check_circle</span>}
+                                {eventType === type && (
+                                    <md-icon style={{ fontSize: '12px' }}>check_circle</md-icon>
+                                )}
                             </button>
                         ))}
                     </div>
                 </div>
 
                 {/* Team & Player Assignment */}
-                <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Target Team</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                            Target Team
+                        </label>
                         {/* @ts-ignore */}
                         <md-filled-select
                             value={assignedTeamId}
@@ -109,7 +146,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                                 setAssignedTeamId(e.target.value);
                                 setAssignedPlayerId(''); 
                             }}
-                            className="w-full"
+                            style={{ width: '100%' }}
                         >
                             <md-select-option value=""><span>Unassigned</span></md-select-option>
                             {allTeams.map(team => (
@@ -118,14 +155,16 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                         </md-filled-select>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-tx-dim uppercase tracking-wider">Assigned Personnel</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                            Assigned Personnel
+                        </label>
                         {/* @ts-ignore */}
                         <md-filled-select
                             value={assignedPlayerId}
                             onchange={(e: any) => setAssignedPlayerId(e.target.value)}
                             disabled={!assignedTeamId}
-                            className="w-full"
+                            style={{ width: '100%' }}
                         >
                             <md-select-option value=""><span>Unassigned</span></md-select-option>
                             {allPlayers
@@ -140,23 +179,21 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                 </div>
             </div>
 
-            <div className="flex gap-3 pt-6 border-t border-border-main">
-                <Button 
-                    variant="ghost"
+            <div style={{ display: 'flex', gap: '12px', paddingTop: '24px', borderTop: '1px solid var(--md-sys-color-outline-variant)' }}>
+                <md-text-button 
                     onClick={onCancel} 
-                    fullWidth
                     disabled={isSaving}
+                    style={{ width: '100%' }}
                 >
                     Discard
-                </Button>
-                <Button 
+                </md-text-button>
+                <md-filled-button 
                     onClick={handleSave} 
-                    isLoading={isSaving}
-                    fullWidth
-                    className="flex-[2]"
+                    disabled={isSaving}
+                    style={{ width: '100%', flex: 2 }}
                 >
                     Update Analytics
-                </Button>
+                </md-filled-button>
             </div>
         </div>
     );

@@ -22,7 +22,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
   }, []);
 
   if (!mounted) {
-    return <div className="bg-primary-bg min-h-screen">{children}</div>;
+    return <div style={{ background: 'var(--md-sys-color-surface)', minHeight: '100vh' }}>{children}</div>;
   }
 
   return (

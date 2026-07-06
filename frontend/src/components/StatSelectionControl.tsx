@@ -1,12 +1,10 @@
-/* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import axios from 'axios';
-import Button from './Button';
-import Loader from './Loader';
-
-// Import Material Web Components
+import '@material/web/progress/circular-progress.js';
 import '@material/web/checkbox/checkbox.js';
+import '@material/web/button/filled-button.js';
+import '@material/web/icon/icon.js';
 
 interface StatSelectionControlProps {
     onPreferencesChanged: (visibleStats: string[]) => void;
@@ -63,7 +61,6 @@ const StatSelectionControl: React.FC<StatSelectionControlProps> = ({ onPreferenc
         const newVisibleStats = visibleStats.includes(statId)
             ? visibleStats.filter(id => id !== statId)
             : [...visibleStats, statId];
-        
         setVisibleStats(newVisibleStats);
     };
 
@@ -84,35 +81,77 @@ const StatSelectionControl: React.FC<StatSelectionControlProps> = ({ onPreferenc
 
     if (isInitialLoading) {
         return (
-            <div className="p-6 bg-container-low rounded-2xl mb-8 flex flex-col items-center justify-center min-h-[300px] border border-bd-ghost">
-                <Loader size="medium" label="Loading Preferences" />
+            <div style={{
+                padding: '24px',
+                background: 'var(--md-sys-color-surface-container-high)',
+                borderRadius: '16px',
+                marginBottom: '32px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '300px',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+            }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '48px 0' }}>
+                    <md-circular-progress indeterminate></md-circular-progress>
+                    <span style={{ color: 'var(--md-sys-color-on-surface-variant)', fontSize: '13px' }}>Loading Preferences</span>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-6 bg-container-low rounded-2xl mb-8 border border-bd-ghost">
-            <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6">Customize Displayed Stats</h3>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mb-8">
+        <div style={{
+            padding: '24px',
+            background: 'var(--md-sys-color-surface-container-high)',
+            borderRadius: '16px',
+            marginBottom: '32px',
+            border: '1px solid var(--md-sys-color-outline-variant)',
+        }}>
+            <h3 style={{
+                fontSize: '14px',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--md-sys-color-on-surface)',
+                marginBottom: '24px',
+            }}>Customize Displayed Stats</h3>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                gap: '12px',
+                marginBottom: '32px',
+            }}>
                 {ALL_STATS.map(stat => (
-                    <label key={stat.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-container-highest transition-colors group">
+                    <label key={stat.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '8px',
+                    }}>
                         <md-checkbox
                             checked={visibleStats.includes(stat.id)}
                             onchange={() => handleToggleStat(stat.id)}
-                            className="scale-90"
+                            style={{ transform: 'scale(0.9)' }}
                         ></md-checkbox>
-                        <span className="text-xs font-bold text-tx-secondary group-hover:text-white transition-colors">{stat.label}</span>
+                        <span style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--md-sys-color-on-surface-variant)',
+                        }}>{stat.label}</span>
                     </label>
                 ))}
             </div>
-            <Button 
-                onClick={handleSave} 
-                isLoading={isLoading} 
-                icon="save"
-                variant="primary"
+            <md-filled-button
+                onClick={handleSave}
+                disabled={isLoading}
             >
+                <md-icon slot="icon">save</md-icon>
                 Save Preferences
-            </Button>
+            </md-filled-button>
         </div>
     );
 };

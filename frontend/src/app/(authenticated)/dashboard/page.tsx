@@ -5,8 +5,13 @@ import React, { useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { Game, GameStatus } from '@/types/game';
 import { GameTeamStats } from '@/types/stats';
-import Loader from '@/components/Loader';
-import Button from '@/components/Button';
+import '@material/web/progress/circular-progress.js';
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/icon/icon.js';
+import '@material/web/labs/card/outlined-card.js';
+import '@material/web/list/list.js';
+import '@material/web/list/list-item.js';
 import Link from 'next/link';
 import { JobProgressBar } from '@/components/JobProgressBar';
 
@@ -31,183 +36,483 @@ const PerformanceDashboardPage = () => {
   }, [activeGame]);
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <Loader size="large" />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <md-circular-progress indeterminate></md-circular-progress>
     </div>
   );
 
   if (!games || games.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <div className="w-16 h-16 rounded-md bg-surface border border-border-main flex items-center justify-center mb-6">
-          <span className="material-symbols-outlined text-3xl text-tx-dim opacity-40">upload_file</span>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '8px',
+          backgroundColor: 'var(--md-sys-color-surface)',
+          border: '1px solid var(--md-sys-color-outline-variant)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '24px',
+        }}>
+          <md-icon style={{ fontSize: '28px', opacity: '0.4', color: 'var(--md-sys-color-on-surface-variant)' }}>
+            upload_file
+          </md-icon>
         </div>
-        <h1 className="text-xl font-bold text-tx-primary mb-2">No Active Records</h1>
-        <p className="text-sm text-tx-secondary mb-8 max-w-xs mx-auto uppercase tracking-wider font-medium">Upload game footage to activate the performance analytics dashboard.</p>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', marginBottom: '8px' }}>
+          No Active Records
+        </h1>
+        <p style={{
+          fontSize: '14px',
+          color: 'var(--md-sys-color-on-surface-variant)',
+          marginBottom: '32px',
+          maxWidth: '320px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          fontWeight: 500,
+        }}>
+          Upload game footage to activate the performance analytics dashboard.
+        </p>
         <Link href="/games" passHref>
-          <Button size="lg" className="px-10">Upload Game</Button>
+          <md-filled-button>Upload Game</md-filled-button>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="pb-16 flex flex-col gap-10 animate-in fade-in duration-300">
-      
+    <div style={{ paddingBottom: '64px', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+
       {/* Professional System Alert for Pending Uploads */}
       {pendingUpload && (
-        <div className="p-5 bg-accent/5 border border-accent/20 rounded-md flex flex-col md:flex-row md:items-center justify-between gap-4">
-           <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
-                <span className="material-symbols-outlined">restart_alt</span>
+        <md-outlined-card style={{
+          backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface))',
+        }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: '16px',
+            padding: '20px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--md-sys-color-primary)',
+              }}>
+                <md-icon>restart_alt</md-icon>
               </div>
               <div>
-                 <h3 className="text-sm font-bold text-tx-primary uppercase tracking-wider">Unfinished Upload Detected</h3>
-                 <p className="text-xs text-tx-secondary font-medium">Process for "<span className="text-accent font-bold">{pendingUpload.name}</span>" was interrupted. System is ready to resume.</p>
+                <h3 style={{
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  color: 'var(--md-sys-color-on-surface)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}>
+                  Unfinished Upload Detected
+                </h3>
+                <p style={{
+                  fontSize: '12px',
+                  color: 'var(--md-sys-color-on-surface-variant)',
+                  fontWeight: 500,
+                  margin: 0,
+                }}>
+                  Process for "<span style={{ color: 'var(--md-sys-color-primary)', fontWeight: 700 }}>{pendingUpload.name}</span>" was interrupted. System is ready to resume.
+                </p>
               </div>
-           </div>
-           <Link href={`/games?resume=${pendingUpload.id}`} passHref>
-              <Button size="sm">Resume Stream</Button>
-           </Link>
-        </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <Link href={`/games?resume=${pendingUpload.id}`} passHref>
+                <md-filled-button>Resume Stream</md-filled-button>
+              </Link>
+            </div>
+          </div>
+        </md-outlined-card>
       )}
 
       {/* Header Section */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className={`w-1.5 h-1.5 rounded-full ${activeGame?.status === GameStatus.PROCESSING ? 'bg-accent animate-pulse' : 'bg-success'}`} />
-            <span className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">
+      <header style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        gap: '24px',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <div style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: activeGame?.status === GameStatus.PROCESSING
+                ? 'var(--md-sys-color-primary)'
+                : 'var(--md-sys-color-tertiary)',
+              animation: activeGame?.status === GameStatus.PROCESSING
+                ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                : 'none',
+            }} />
+            <span style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              color: 'var(--md-sys-color-on-surface-variant)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+            }}>
               {activeGame?.status === GameStatus.PROCESSING ? 'ENGINE: ANALYZING' : 'ENGINE: STANDBY'}
             </span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-tx-primary">Performance Dashboard</h1>
-          <p className="text-xs text-tx-secondary font-medium uppercase tracking-widest">{activeGame?.name || 'Session Ready'}</p>
+          <h1 style={{
+            fontSize: '24px',
+            fontWeight: 700,
+            letterSpacing: '-0.025em',
+            color: 'var(--md-sys-color-on-surface)',
+            margin: 0,
+          }}>
+            Performance Dashboard
+          </h1>
+          <p style={{
+            fontSize: '12px',
+            color: 'var(--md-sys-color-on-surface-variant)',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            margin: 0,
+          }}>
+            {activeGame?.name || 'Session Ready'}
+          </p>
         </div>
-        
-        <div className="flex flex-col md:items-end gap-3 min-w-[280px]">
-           {activeGame?.status === GameStatus.PROCESSING && (
-             <div className="w-full">
-                <JobProgressBar gameId={activeGame.id} />
-             </div>
-           )}
-           <Link href="/games" passHref>
-             <Button variant="outline" size="sm" icon="grid_view">Gallery View</Button>
-           </Link>
+
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: '12px',
+          width: '100%',
+        }}>
+          {activeGame?.status === GameStatus.PROCESSING && (
+            <div style={{ width: '100%' }}>
+              <JobProgressBar gameId={activeGame.id} />
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Link href="/games" passHref>
+              <md-outlined-button><md-icon slot="icon">grid_view</md-icon>Gallery View</md-outlined-button>
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: '24px',
+        alignItems: 'start',
+      }}>
+
         {/* Main Column: Activity & Preview */}
-        <div className="lg:col-span-8 space-y-8">
-          
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+
           {/* Professional Video Placeholder/Preview */}
-          <section className="bg-surface border border-border-main rounded-md aspect-video flex flex-col items-center justify-center relative overflow-hidden group shadow-2xl">
-            {activeGame?.videoUrl ? (
-              <div className="text-center">
-                 <span className="material-symbols-outlined text-5xl text-tx-dim opacity-10 mb-4">analytics</span>
-                 <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Analytics Feed Ready</p>
-                 <div className="absolute bottom-4 right-4 text-[9px] font-bold text-tx-dim mono-stat opacity-30">
-                   STREAM_ID: {activeGame.id.slice(0,12)}
-                 </div>
-              </div>
-            ) : (
-              <div className="text-center px-6">
-                 <span className="material-symbols-outlined text-5xl text-tx-dim opacity-5 mb-4">videocam_off</span>
-                 <p className="text-xs font-bold text-tx-dim uppercase tracking-widest">No Active Video Stream</p>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-primary-bg/50 to-transparent pointer-events-none" />
+          <section style={{
+            position: 'relative',
+            aspectRatio: '16 / 9',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <md-outlined-card style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {activeGame?.videoUrl ? (
+                <div style={{ textAlign: 'center' }}>
+                  <md-icon style={{ fontSize: '48px', opacity: '0.1', marginBottom: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    analytics
+                  </md-icon>
+                  <p style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    margin: 0,
+                  }}>
+                    Analytics Feed Ready
+                  </p>
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    right: '16px',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    fontFamily: 'monospace',
+                    opacity: '0.3',
+                  }}>
+                    STREAM_ID: {activeGame.id.slice(0, 12)}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '0 24px' }}>
+                  <md-icon style={{ fontSize: '48px', opacity: '0.05', marginBottom: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    videocam_off
+                  </md-icon>
+                  <p style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    margin: 0,
+                  }}>
+                    No Active Video Stream
+                  </p>
+                </div>
+              )}
+              <div style={{
+                position: 'absolute',
+                inset: '0',
+                background: 'linear-gradient(to top, color-mix(in srgb, var(--md-sys-color-surface) 50%, transparent), transparent)',
+                pointerEvents: 'none',
+              }} />
+            </md-outlined-card>
           </section>
 
           {/* Activity Stream */}
-          <section className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Recent System Detections</h3>
-                <span className="text-[9px] font-bold text-accent uppercase tracking-widest">Live Log</span>
-              </div>
-              <div className="flex flex-col gap-px bg-border-main border border-border-main rounded-md overflow-hidden">
-                {recentEvents.length > 0 ? (
-                    recentEvents.map((event, i) => (
-                        <div key={event.id || i} className="bg-surface p-4 flex items-center justify-between hover:bg-surface-high transition-colors">
-                            <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 rounded bg-primary-bg flex items-center justify-center text-tx-secondary border border-border-main">
-                                    <span className="material-symbols-outlined text-lg">
-                                    {event.eventType.toLowerCase().includes('shot') || event.eventType.toLowerCase().includes('3pt') ? 'sports_basketball' : 
-                                    event.eventType.toLowerCase().includes('steal') || event.eventType.toLowerCase().includes('block') ? 'pan_tool' : 'pending_actions'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <h4 className="text-xs font-bold uppercase text-tx-primary tracking-tight">{event.eventType.replace(/_/g, ' ')}</h4>
-                                    <p className="text-[10px] text-tx-secondary font-medium uppercase mt-0.5 tracking-tighter">
-                                    {event.assignedPlayerId ? 'Verified Target' : 'Detection Pending Assignment'}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-bold text-tx-dim mono-stat">
-                                    {Math.floor(event.absoluteTimestamp / 60)}:{(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}
-                                </p>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div className="py-12 bg-surface text-center">
-                        <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Awaiting Engine Synchronization...</p>
-                    </div>
-                )}
-              </div>
+          <section style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+              <h3 style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: 'var(--md-sys-color-on-surface-variant)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                margin: 0,
+              }}>
+                Recent System Detections
+              </h3>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: 700,
+                color: 'var(--md-sys-color-primary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}>
+                Live Log
+              </span>
+            </div>
+            <md-outlined-card>
+              {recentEvents.length > 0 ? (
+                <md-list>
+                  {recentEvents.map((event, i) => (
+                    <md-list-item
+                      key={event.id || i}
+                      type="text-icon"
+                      headline={event.eventType.replace(/_/g, ' ')}
+                      supportingText={event.assignedPlayerId ? 'Verified Target' : 'Detection Pending Assignment'}
+                    >
+                      <md-icon slot="start">
+                        {event.eventType.toLowerCase().includes('shot') || event.eventType.toLowerCase().includes('3pt') ? 'sports_basketball' :
+                         event.eventType.toLowerCase().includes('steal') || event.eventType.toLowerCase().includes('block') ? 'pan_tool' : 'pending_actions'}
+                      </md-icon>
+                      <div slot="end" style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: 'var(--md-sys-color-on-surface-variant)',
+                        fontFamily: 'monospace',
+                      }}>
+                        {Math.floor(event.absoluteTimestamp / 60)}:{(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}
+                      </div>
+                    </md-list-item>
+                  ))}
+                </md-list>
+              ) : (
+                <div style={{ padding: '48px 0', textAlign: 'center' }}>
+                  <p style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    margin: 0,
+                  }}>
+                    Awaiting Engine Synchronization...
+                  </p>
+                </div>
+              )}
+            </md-outlined-card>
           </section>
         </div>
 
         {/* Sidebar Column: Metrics & Health */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          <section className="utility-card p-6 flex flex-col gap-6">
-            <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Session Scoring</h3>
-            <div className="space-y-6">
-              {activeGame?.teamStats?.length ? (
-                activeGame.teamStats.slice(0, 2).map((ts: GameTeamStats, idx: number) => (
-                  <div key={ts.teamId}>
-                    <div className="flex justify-between items-end mb-2">
-                        <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-wider">{idx === 0 ? 'Home' : 'Away'}</span>
-                        <span className="text-3xl font-black text-tx-primary mono-stat leading-none">{ts.points || 0}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          <md-outlined-card>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <h3 style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: 'var(--md-sys-color-on-surface-variant)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                margin: 0,
+              }}>
+                Session Scoring
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {activeGame?.teamStats?.length ? (
+                  activeGame.teamStats.slice(0, 2).map((ts: GameTeamStats, idx: number) => (
+                    <div key={ts.teamId}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-end',
+                        marginBottom: '8px',
+                      }}>
+                        <span style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: 'var(--md-sys-color-on-surface-variant)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}>
+                          {idx === 0 ? 'Home' : 'Away'}
+                        </span>
+                        <span style={{
+                          fontSize: '30px',
+                          fontWeight: 900,
+                          color: 'var(--md-sys-color-on-surface)',
+                          fontFamily: 'monospace',
+                          lineHeight: '1',
+                        }}>
+                          {ts.points || 0}
+                        </span>
+                      </div>
+                      <div style={{
+                        height: '4px',
+                        width: '100%',
+                        backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                        borderRadius: '9999px',
+                        overflow: 'hidden',
+                        border: '1px solid var(--md-sys-color-outline-variant)',
+                      }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${Math.min(ts.points, 100)}%`,
+                          backgroundColor: idx === 0 ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary)',
+                          borderRadius: '9999px',
+                        }} />
+                      </div>
                     </div>
-                    <div className="h-1 w-full bg-primary-bg rounded-full overflow-hidden border border-border-main">
-                      <div className={`h-full ${idx === 0 ? 'bg-accent' : 'bg-warning'}`} style={{ width: `${Math.min(ts.points, 100)}%` }} />
-                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                    <p style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: 'var(--md-sys-color-on-surface-variant)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.1em',
+                      margin: 0,
+                    }}>
+                      Syncing Scoreboard...
+                    </p>
                   </div>
-                ))
-              ) : (
-                <div className="py-6 text-center">
-                    <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">Syncing Scoreboard...</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </section>
+          </md-outlined-card>
 
-          <section className="bg-surface border border-border-main rounded-md p-6 border-l-2 border-accent">
-            <h3 className="text-[10px] font-bold text-accent uppercase tracking-widest mb-6">Engine Diagnostics</h3>
-            <div className="space-y-4">
-               {[
-                 { label: 'Inference', val: 'Operational', color: 'text-success' },
-                 { label: 'Cloud Storage', val: 'Synchronized', color: 'text-tx-secondary' },
-                 { label: 'Metadata API', val: 'Active', color: 'text-tx-secondary' }
-               ].map((log, i) => (
-                 <div key={i} className="flex justify-between items-center">
-                   <span className="text-[9px] font-bold uppercase text-tx-dim tracking-tight">[{log.label}]</span>
-                   <span className={`text-[9px] font-bold uppercase tracking-tight ${log.color}`}>{log.val}</span>
-                 </div>
-               ))}
+          <md-outlined-card>
+            <div style={{
+              padding: '24px',
+              borderLeft: '4px solid var(--md-sys-color-primary)',
+            }}>
+              <h3 style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: 'var(--md-sys-color-primary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                marginBottom: '24px',
+                margin: '0 0 24px 0',
+              }}>
+                Engine Diagnostics
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[
+                  { label: 'Inference', val: 'Operational', color: 'var(--md-sys-color-tertiary)' },
+                  { label: 'Cloud Storage', val: 'Synchronized', color: 'var(--md-sys-color-on-surface-variant)' },
+                  { label: 'Metadata API', val: 'Active', color: 'var(--md-sys-color-on-surface-variant)' }
+                ].map((log, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: 'var(--md-sys-color-on-surface-variant)',
+                      letterSpacing: '-0.01em',
+                    }}>
+                      [{log.label}]
+                    </span>
+                    <span style={{
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '-0.01em',
+                      color: log.color,
+                    }}>
+                      {log.val}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </section>
+          </md-outlined-card>
 
-          <Link href="/games" passHref>
-             <button className="w-full flex items-center justify-between px-5 py-4 bg-surface border border-border-main rounded-md text-tx-secondary hover:text-accent transition-all group">
-                <span className="text-[10px] font-bold uppercase tracking-widest">Access Game Archive</span>
-                <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">chevron_right</span>
-             </button>
+          <Link href="/games" passHref style={{ textDecoration: 'none', display: 'block' }}>
+            <md-outlined-card style={{ width: '100%', cursor: 'pointer' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '18px 20px',
+              }}>
+                <span style={{
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  color: 'var(--md-sys-color-on-surface-variant)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                }}>
+                  Access Game Archive
+                </span>
+                <md-icon style={{ fontSize: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                  chevron_right
+                </md-icon>
+              </div>
+            </md-outlined-card>
           </Link>
         </div>
       </div>

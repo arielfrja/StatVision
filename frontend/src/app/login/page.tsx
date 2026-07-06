@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 import { useAuth0 } from '@/app/user-provider';
 import { useRouter } from 'next/navigation';
-import Loader from '@/components/Loader';
+import '@material/web/progress/circular-progress.js';
+import '@material/web/icon/icon.js';
 
 export default function LoginPage() {
   const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
@@ -21,37 +22,179 @@ export default function LoginPage() {
   }, [isLoading, isAuthenticated, loginWithRedirect, router]);
 
   return (
-    <main className="min-h-screen bg-stadium flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'var(--md-sys-color-surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
       {/* Background Atmosphere */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-electric/10 blur-[120px] rounded-full" />
-        <div className="absolute -top-40 -right-40 w-96 h-96 border border-electric/5 rounded-full" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 border border-electric/5 rounded-full" />
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+          opacity: 0.2,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '800px',
+            height: '800px',
+            background: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
+            filter: 'blur(120px)',
+            borderRadius: '9999px',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: '-160px',
+            right: '-160px',
+            width: '384px',
+            height: '384px',
+            border: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent)',
+            borderRadius: '9999px',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '-160px',
+            left: '-160px',
+            width: '384px',
+            height: '384px',
+            border: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent)',
+            borderRadius: '9999px',
+          }}
+        />
       </div>
 
-      <div className="z-10 flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-2xl bg-electric flex items-center justify-center shadow-[0_0_40px_var(--primary-glow)] mb-10 group animate-pulse">
-          <span className="material-symbols-outlined text-4xl text-[#00373a] font-bold">query_stats</span>
+      <div
+        style={{
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '16px',
+            background: 'var(--md-sys-color-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '40px',
+          }}
+        >
+          <md-icon style={{ fontSize: '2.25rem', color: '#00373a', fontWeight: 700 }}>
+            query_stats
+          </md-icon>
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter mb-4 uppercase">STATVISION</h1>
-        <p className="text-electric font-bold text-xs uppercase tracking-[0.4em] mb-12">Elite Basketball Intelligence</p>
+        <h1
+          style={{
+            fontSize: '4.5rem',
+            fontWeight: 900,
+            fontStyle: 'italic',
+            letterSpacing: '-0.05em',
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            color: 'var(--md-sys-color-on-surface)',
+          }}
+        >
+          STATVISION
+        </h1>
+        <p
+          style={{
+            color: 'var(--md-sys-color-primary)',
+            fontWeight: 700,
+            fontSize: '0.75rem',
+            lineHeight: '1rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.4em',
+            marginBottom: '48px',
+          }}
+        >
+          Elite Basketball Intelligence
+        </p>
 
-        <div className="flex flex-col items-center gap-6">
-          <Loader />
-          <div className="space-y-1">
-            <p className="text-tx-secondary font-bold text-[10px] uppercase tracking-widest">
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '24px',
+          }}
+        >
+          <md-circular-progress indeterminate></md-circular-progress>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            <p
+              style={{
+                color: 'var(--md-sys-color-on-surface-variant)',
+                fontWeight: 700,
+                fontSize: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}
+            >
               {isAuthenticated ? 'Finalizing Sync' : 'Accessing Stadium Gates'}
             </p>
-            <p className="text-tx-dim font-medium text-[9px] uppercase tracking-widest animate-pulse italic">
-              Preparing Player Vaults • AI Warmup
+            <p
+              style={{
+                color: 'var(--md-sys-color-on-surface-variant)',
+                fontWeight: 500,
+                fontSize: '9px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                fontStyle: 'italic',
+                opacity: 0.7,
+              }}
+            >
+              Preparing Player Vaults &#x2022; AI Warmup
             </p>
           </div>
         </div>
       </div>
 
       {/* Decorative Bottom Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-electric/30 to-transparent" />
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background:
+            'linear-gradient(to right, transparent, color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent), transparent)',
+        }}
+      />
     </main>
   );
 }

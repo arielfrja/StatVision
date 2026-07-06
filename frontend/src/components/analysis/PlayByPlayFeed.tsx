@@ -1,6 +1,10 @@
 'use client';
 import React from 'react';
 import { PlayerTeamHistory } from '@/types/player';
+import '@material/web/list/list.js';
+import '@material/web/list/list-item.js';
+import '@material/web/icon/icon.js';
+import '@material/web/iconbutton/icon-button.js';
 
 interface PlayByPlayFeedProps {
     events: any[];
@@ -23,9 +27,25 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
 }) => {
     if (!events || events.length === 0) {
         return (
-            <div className="utility-card py-20 text-center border-dashed border-2 bg-transparent">
-                <span className="material-symbols-outlined text-4xl text-tx-dim mb-4 opacity-20">history</span>
-                <p className="text-xs font-medium text-tx-dim uppercase tracking-widest">No plays recorded for this game.</p>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '80px 16px',
+                textAlign: 'center',
+                border: '2px dashed var(--md-sys-color-outline-variant)',
+                borderRadius: '12px',
+                gap: '16px',
+            }}>
+                <md-icon style={{ fontSize: '40px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.3 }}>history</md-icon>
+                <span style={{
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                }}>No plays recorded for this game.</span>
             </div>
         );
     }
@@ -33,66 +53,103 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
     const sortedEvents = [...events].sort((a,b) => b.absoluteTimestamp - a.absoluteTimestamp);
 
     return (
-        <div className="flex flex-col h-full bg-surface border border-border-main rounded-md overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-surface-high border-b border-border-main">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-tx-secondary">Game Log</span>
-                <span className="text-[10px] font-medium text-tx-dim italic">{events.length} Events Detected</span>
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            backgroundColor: 'var(--md-sys-color-surface)',
+            border: '1px solid var(--md-sys-color-outline-variant)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+        }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 16px',
+                backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+            }}>
+                <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                }}>Game Log</span>
+                <span style={{
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    fontStyle: 'italic',
+                }}>{events.length} Events Detected</span>
             </div>
             
-            <div className="flex-1 overflow-y-auto no-scrollbar">
-                <table className="md-table md-box-score-table">
-                    <thead className="sticky top-0 z-20">
-                        <tr>
-                            <th className="w-16 text-center">TIME</th>
-                            <th className="w-12">TEAM</th>
-                            <th>ACTION</th>
-                            <th className="w-10 text-right"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedEvents.map((event) => {
-                            const isHome = event.teamId === homeTeamId;
-                            const timeStr = `${Math.floor(event.absoluteTimestamp / 60)}:${(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}`;
-                            const assignedPlayer = allPlayers.find(p => p.playerId === event.assignedPlayerId);
-                            
-                            return (
-                                <tr
-                                    key={event.id}
-                                    className="interactive"
-                                    onClick={() => onRowClick(event.absoluteTimestamp)}
-                                >
-                                    <td className="text-center font-bold text-accent mono-stat">
+            <div style={{
+                flex: 1,
+                overflowY: 'auto',
+            }}>
+                <md-list>
+                    {sortedEvents.map((event) => {
+                        const isHome = event.teamId === homeTeamId;
+                        const timeStr = `${Math.floor(event.absoluteTimestamp / 60)}:${(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}`;
+                        const assignedPlayer = allPlayers.find(p => p.playerId === event.assignedPlayerId);
+                        
+                        return (
+                            <md-list-item
+                                key={event.id}
+                                type="button"
+                                onClick={() => onRowClick(event.absoluteTimestamp)}
+                            >
+                                <div slot="start" style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isHome 
+                                        ? 'var(--md-sys-color-primary)' 
+                                        : 'var(--md-sys-color-secondary)',
+                                    flexShrink: 0,
+                                }} />
+                                <span slot="headline" style={{
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.02em',
+                                }}>
+                                    {event.eventType.replace(/_/g, ' ')}
+                                </span>
+                                <span slot="supporting-text" style={{
+                                    fontSize: '11px',
+                                    fontWeight: 500,
+                                }}>
+                                    {assignedPlayer ? 
+                                        `${assignedPlayer.player.name} (#${assignedPlayer.jerseyNumber})` : 
+                                        'Unassigned'}
+                                </span>
+                                <div slot="end" style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                }}>
+                                    <span style={{
+                                        fontFamily: 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        color: 'var(--md-sys-color-primary)',
+                                    }}>
                                         {timeStr}
-                                    </td>
-                                    <td>
-                                        <div className={`w-2 h-2 rounded-full ${isHome ? 'bg-accent' : 'bg-warning'}`}></div>
-                                    </td>
-                                    <td>
-                                        <div className="flex flex-col py-1">
-                                            <span className="text-xs font-bold text-tx-primary uppercase tracking-tight">
-                                                {event.eventType.replace(/_/g, ' ')}
-                                            </span>
-                                            <span className="text-[10px] text-tx-secondary font-medium">
-                                                {assignedPlayer ? 
-                                                    `${assignedPlayer.player.name} (#${assignedPlayer.jerseyNumber})` : 
-                                                    'Unassigned'}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="text-right">
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); if (onEditEvent) onEditEvent(event); }}
-                                            className="p-1.5 rounded text-tx-dim hover:text-accent hover:bg-accent/10 transition-colors"
-                                            title="Edit Event"
-                                        >
-                                            <span className="material-symbols-outlined text-sm">edit_square</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                                    </span>
+                                    <md-icon-button
+                                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (onEditEvent) onEditEvent(event); }}
+                                        title="Edit Event"
+                                    >
+                                        <md-icon>edit_square</md-icon>
+                                    </md-icon-button>
+                                </div>
+                            </md-list-item>
+                        );
+                    })}
+                </md-list>
             </div>
         </div>
     );

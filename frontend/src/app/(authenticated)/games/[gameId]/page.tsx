@@ -9,7 +9,7 @@ import { Team } from '@/types/team';
 import { PlayerTeamHistory } from '@/types/player';
 import { GameEvent } from '@/types/gameEvent';
 import { GameTeamStats } from '@/types/stats';
-import Loader from '@/components/Loader';
+import '@material/web/progress/circular-progress.js';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
 
@@ -23,9 +23,12 @@ import IdentifiedEntitiesTable from '@/components/IdentifiedEntitiesTable';
 import { CoachReport } from './CoachReport';
 import EntityAssignmentModal from '@/components/EntityAssignmentModal';
 import { JobProgressBar } from '@/components/JobProgressBar';
-import ConfirmationModal from '@/components/ConfirmationModal';
-import Button from '@/components/Button';
+import '@material/web/dialog/dialog.js';
 
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/icon/icon.js';
 import '@material/web/tabs/tabs.js';
 import '@material/web/tabs/primary-tab.js';
 
@@ -35,6 +38,17 @@ function AnalysisPage() {
     const { isAuthenticated, getAccessTokenSilently } = useAuth0();
     const router = useRouter();
     const playerRef = useRef(null);
+
+    // Responsive breakpoint
+    const [isDesktop, setIsDesktop] = useState(false);
+
+    useEffect(() => {
+        const mq = window.matchMedia('(min-width: 1024px)');
+        setIsDesktop(mq.matches);
+        const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
 
     // Data Fetching
     const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
@@ -139,13 +153,31 @@ function AnalysisPage() {
             }));
     }, [game]);
 
-    if (isDataLoading && !game) return <div className="flex items-center justify-center h-[80vh]"><Loader /></div>;
+    if (isDataLoading && !game) return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '80vh',
+        }}>
+            <md-circular-progress indeterminate></md-circular-progress>
+        </div>
+    );
 
     if (error || !game) {
         return (
-            <div className="p-12 text-center">
-                <h1 className="text-xl font-semibold mb-4">Error Loading Video Intelligence</h1>
-                <Button onClick={() => router.push('/games')}>Back to List</Button>
+            <div style={{
+                padding: '48px',
+                textAlign: 'center',
+            }}>
+                <h1 style={{
+                    fontSize: '20px',
+                    fontWeight: 600,
+                    margin: 0,
+                    marginBottom: '16px',
+                    color: 'var(--md-sys-color-on-surface)',
+                }}>Error Loading Video Intelligence</h1>
+                <md-filled-button onClick={() => router.push('/games')}>Back to List</md-filled-button>
             </div>
         );
     }
@@ -154,83 +186,289 @@ function AnalysisPage() {
     const awayStats = game.teamStats.find((ts: GameTeamStats) => ts.teamId === game.awayTeamId);
 
     return (
-        <div className="flex flex-col gap-6 pb-20">
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            paddingBottom: '80px',
+        }}>
             
             {/* Professional Scoreboard Header */}
-            <header className="bg-surface border border-border-main rounded-md overflow-hidden">
-                <div className="flex flex-col md:flex-row items-stretch">
+            <header style={{
+                backgroundColor: 'var(--md-sys-color-surface)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                borderRadius: '6px',
+                overflow: 'hidden',
+            }}>
+                <div data-scoreboard-inner style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                }}>
                     {/* Teams & Score */}
-                    <div className="flex-1 flex items-center justify-center gap-8 py-8 px-10 border-b md:border-b-0 md:border-r border-border-main bg-primary-bg/50">
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-16 h-16 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-2xl font-black">
+                    <div style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '32px',
+                        paddingTop: '32px',
+                        paddingBottom: '32px',
+                        paddingLeft: '40px',
+                        paddingRight: '40px',
+                        borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                        backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container) 50%, transparent)',
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '8px',
+                        }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '50%',
+                                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
+                                border: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--md-sys-color-primary)',
+                                fontSize: '24px',
+                                fontWeight: 900,
+                            }}>
                                 {game.homeTeam?.name?.charAt(0).toUpperCase() || 'H'}
                             </div>
-                            <span className="text-xs font-bold text-tx-secondary uppercase tracking-widest">{game.homeTeam?.name || 'HOME'}</span>
+                            <span style={{
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em',
+                            }}>{game.homeTeam?.name || 'HOME'}</span>
                         </div>
                         
-                        <div className="flex items-center gap-6">
-                            <span className="text-5xl font-black text-tx-primary mono-stat">{homeStats?.points || 0}</span>
-                            <div className="flex flex-col items-center">
-                                <span className="text-[10px] font-black text-tx-dim uppercase tracking-tighter">FINAL</span>
-                                <div className="h-px w-8 bg-border-main my-1"></div>
-                                <span className="text-[10px] font-bold text-accent uppercase tracking-widest italic">{game.gameType.replace(/_/g, ' ')}</span>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '24px',
+                        }}>
+                            <span style={{
+                                fontSize: '48px',
+                                fontWeight: 900,
+                                color: 'var(--md-sys-color-on-surface)',
+                                fontFamily: "'SF Mono', 'Fira Code', 'Roboto Mono', monospace",
+                            }}>{homeStats?.points || 0}</span>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                            }}>
+                                <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 900,
+                                    color: 'var(--md-sys-color-on-surface-variant)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '-0.05em',
+                                }}>FINAL</span>
+                                <div style={{
+                                    height: '1px',
+                                    width: '32px',
+                                    backgroundColor: 'var(--md-sys-color-outline-variant)',
+                                    marginTop: '4px',
+                                    marginBottom: '4px',
+                                }}></div>
+                                <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    color: 'var(--md-sys-color-primary)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.1em',
+                                    fontStyle: 'italic',
+                                }}>{game.gameType.replace(/_/g, ' ')}</span>
                             </div>
-                            <span className="text-5xl font-black text-tx-primary mono-stat">{awayStats?.points || 0}</span>
+                            <span style={{
+                                fontSize: '48px',
+                                fontWeight: 900,
+                                color: 'var(--md-sys-color-on-surface)',
+                                fontFamily: "'SF Mono', 'Fira Code', 'Roboto Mono', monospace",
+                            }}>{awayStats?.points || 0}</span>
                         </div>
 
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-16 h-16 rounded-full bg-warning/10 border border-warning/20 flex items-center justify-center text-warning text-2xl font-black">
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '8px',
+                        }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '50%',
+                                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-secondary) 10%, transparent)',
+                                border: '1px solid color-mix(in srgb, var(--md-sys-color-secondary) 20%, transparent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--md-sys-color-secondary)',
+                                fontSize: '24px',
+                                fontWeight: 900,
+                            }}>
                                 {game.awayTeam?.name?.charAt(0).toUpperCase() || 'A'}
                             </div>
-                            <span className="text-xs font-bold text-tx-secondary uppercase tracking-widest">{game.awayTeam?.name || 'AWAY'}</span>
+                            <span style={{
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em',
+                            }}>{game.awayTeam?.name || 'AWAY'}</span>
                         </div>
                     </div>
 
                     {/* Metadata & Actions */}
-                    <div className="w-full md:w-80 p-6 flex flex-col justify-between bg-surface gap-6">
+                    <div style={{
+                        padding: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        backgroundColor: 'var(--md-sys-color-surface)',
+                        gap: '24px',
+                    }}>
                         <div>
-                            <h1 className="text-sm font-bold text-tx-primary mb-1 uppercase tracking-tight truncate">{game.name}</h1>
-                            <p className="text-[11px] text-tx-dim font-medium uppercase tracking-wider flex items-center gap-2">
-                                <span className="material-symbols-outlined text-[14px]">location_on</span>
+                            <h1 style={{
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: 'var(--md-sys-color-on-surface)',
+                                margin: 0,
+                                marginBottom: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '-0.025em',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                            }}>{game.name}</h1>
+                            <p style={{
+                                fontSize: '11px',
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                fontWeight: 500,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                margin: 0,
+                            }}>
+                                <md-icon style={{fontSize: '14px'}}>location_on</md-icon>
                                 {game.location || 'Stadium Vision Arena'}
                             </p>
-                            <p className="text-[11px] text-tx-dim font-medium uppercase tracking-wider flex items-center gap-2 mt-1">
-                                <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                            <p style={{
+                                fontSize: '11px',
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                fontWeight: 500,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginTop: '4px',
+                            }}>
+                                <md-icon style={{fontSize: '14px'}}>calendar_today</md-icon>
                                 {game.gameDate ? new Date(game.gameDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Unknown Date'}
                             </p>
                         </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" icon="assignment_ind" fullWidth onClick={() => setShowAssignmentModal(true)}>
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                        }}>
+                            <md-outlined-button onClick={() => setShowAssignmentModal(true)} style={{width: '100%'}}>
+                                <md-icon slot="icon">assignment_ind</md-icon>
                                 Roster
-                            </Button>
-                            <Button variant="ghost" size="sm" icon="delete" onClick={() => setShowDeleteConfirm(true)} className="!text-error hover:!bg-error/10" />
+                            </md-outlined-button>
+                            <md-text-button onClick={() => setShowDeleteConfirm(true)}>
+                                <md-icon slot="icon">delete</md-icon>
+                            </md-text-button>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* Analysis Workspace */}
-            <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <main style={{
+                display: 'flex',
+                flexDirection: isDesktop ? 'row' : 'column',
+                gap: '24px',
+                alignItems: 'flex-start',
+            }}>
                 
                 {/* Video & Controls (Primary Column) */}
-                <div className="lg:col-span-8 space-y-6">
-                    <div className="bg-black border border-border-main rounded-md overflow-hidden aspect-video relative group shadow-2xl">
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '24px',
+                    flex: isDesktop ? '8' : '0 0 100%',
+                    width: isDesktop ? 'auto' : '100%',
+                }}>
+                    <div style={{
+                        backgroundColor: '#000',
+                        border: '1px solid var(--md-sys-color-outline-variant)',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        aspectRatio: '16 / 9',
+                        position: 'relative',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    }}>
                         <VideoPlayer 
                             videoUrl={game.videoUrl} 
                             playerRef={playerRef} 
                             onProgress={handleProgress}
                             onDuration={handleDuration}
                         />
-                        <div className="absolute top-4 left-4 z-20">
-                             <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded border border-white/10 flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-error animate-pulse"></div>
-                                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Live Analysis Feed</span>
+                        <div style={{
+                            position: 'absolute',
+                            top: '16px',
+                            left: '16px',
+                            zIndex: 20,
+                        }}>
+                             <div style={{
+                                paddingLeft: '12px',
+                                paddingRight: '12px',
+                                paddingTop: '4px',
+                                paddingBottom: '4px',
+                                backgroundColor: 'color-mix(in srgb, #000 60%, transparent)',
+                                backdropFilter: 'blur(12px)',
+                                WebkitBackdropFilter: 'blur(12px)',
+                                borderRadius: '4px',
+                                border: '1px solid color-mix(in srgb, #fff 10%, transparent)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                             }}>
+                                <div data-live-dot style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--md-sys-color-error)',
+                                }}></div>
+                                <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    color: '#fff',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.1em',
+                                }}>Live Analysis Feed</span>
                              </div>
                         </div>
                     </div>
 
                     {duration > 0 && (
-                        <div className="bg-surface border border-border-main rounded-md p-2">
+                        <div style={{
+                            backgroundColor: 'var(--md-sys-color-surface)',
+                            border: '1px solid var(--md-sys-color-outline-variant)',
+                            borderRadius: '6px',
+                            padding: '8px',
+                        }}>
                             <TimelineReview 
                                 events={game.events || []}
                                 duration={duration}
@@ -246,41 +484,55 @@ function AnalysisPage() {
                     )}
 
                     {/* Desktop Content Tabs */}
-                    <div className="hidden lg:flex flex-col gap-4">
-                        {/* @ts-ignore */}
-                        <md-tabs 
-                            onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}
-                            active-tab-index={activeTab}
-                        >
+                    {isDesktop && (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                        }}>
                             {/* @ts-ignore */}
-                            <md-primary-tab>
-                                <md-icon slot="icon">analytics</md-icon>
-                                <span>Box Score</span>
-                            </md-primary-tab>
-                            {/* @ts-ignore */}
-                            <md-primary-tab>
-                                <md-icon slot="icon">group</md-icon>
-                                <span>Identified Personnel</span>
-                            </md-primary-tab>
-                            {/* @ts-ignore */}
-                            <md-primary-tab>
-                                <md-icon slot="icon">smart_toy</md-icon>
-                                <span>Coach Report</span>
-                            </md-primary-tab>
-                        </md-tabs>
+                            <md-tabs 
+                                onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}
+                                active-tab-index={activeTab}
+                            >
+                                {/* @ts-ignore */}
+                                <md-primary-tab>
+                                    <md-icon slot="icon">analytics</md-icon>
+                                    <span>Box Score</span>
+                                </md-primary-tab>
+                                {/* @ts-ignore */}
+                                <md-primary-tab>
+                                    <md-icon slot="icon">group</md-icon>
+                                    <span>Identified Personnel</span>
+                                </md-primary-tab>
+                                {/* @ts-ignore */}
+                                <md-primary-tab>
+                                    <md-icon slot="icon">smart_toy</md-icon>
+                                    <span>Coach Report</span>
+                                </md-primary-tab>
+                            </md-tabs>
 
-                        <div className="mt-2">
-                            {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} onEditPlayer={(id) => console.log('Edit player', id)} />}
-                            {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
-                            {activeTab === 2 && <CoachReport game={game} />}
+                            <div style={{marginTop: '8px'}}>
+                                {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} onEditPlayer={(id) => console.log('Edit player', id)} />}
+                                {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                                {activeTab === 2 && <CoachReport game={game} />}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Play-by-Play (Secondary Column) */}
-                <div className="lg:col-span-4 flex flex-col h-[calc(100vh-160px)] lg:sticky lg:top-6">
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: isDesktop ? 'calc(100vh - 160px)' : 'auto',
+                    position: isDesktop ? 'sticky' : 'static',
+                    top: isDesktop ? '24px' : 'auto',
+                    flex: isDesktop ? '4' : '0 0 100%',
+                    width: isDesktop ? 'auto' : '100%',
+                }}>
                     {selectedEvent ? (
-                        <div className="flex-1">
+                        <div style={{flex: 1}}>
                             <EventEditor 
                                 event={selectedEvent}
                                 allTeams={[game.homeTeam, game.awayTeam].filter(Boolean) as Team[]}
@@ -303,21 +555,32 @@ function AnalysisPage() {
                 </div>
 
                 {/* Mobile Tabs (Fallback) */}
-                <div className="lg:hidden col-span-1 space-y-6">
-                     <div className="flex flex-col gap-4">
-                        {/* @ts-ignore */}
-                        <md-tabs onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}>
+                {!isDesktop && (
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '24px',
+                        width: '100%',
+                    }}>
+                         <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                         }}>
                             {/* @ts-ignore */}
-                            <md-primary-tab>Box Score</md-primary-tab>
-                            {/* @ts-ignore */}
-                            <md-primary-tab>Personnel</md-primary-tab>
-                        </md-tabs>
-                        <div>
-                            {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} />}
-                            {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                            <md-tabs onchange={(e: any) => setActiveTab(e.target.activeTabIndex)}>
+                                {/* @ts-ignore */}
+                                <md-primary-tab>Box Score</md-primary-tab>
+                                {/* @ts-ignore */}
+                                <md-primary-tab>Personnel</md-primary-tab>
+                            </md-tabs>
+                            <div>
+                                {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} />}
+                                {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </main>
 
             {/* Modals */}
@@ -328,28 +591,45 @@ function AnalysisPage() {
                 onAssignmentComplete={mutate}
             />
 
-            <ConfirmationModal 
-                isOpen={showDeleteConfirm}
-                header="Delete Analysis?"
-                message="This will permanently remove all stats and video data for this game. This action cannot be undone."
-                okButtonText="Confirm Deletion"
-                cancelButtonText="Cancel"
-                variant="danger"
-                isLoading={isDeleting}
-                onConfirm={handleDeleteGame}
-                onCancel={() => setShowDeleteConfirm(false)}
-            />
+            <md-dialog open={showDeleteConfirm} @close={() => setShowDeleteConfirm(false)}>
+              <div slot="headline">Delete Analysis?</div>
+              <div slot="content">This will permanently remove all stats and video data for this game. This action cannot be undone.</div>
+              <div slot="actions">
+                <md-text-button @click={() => setShowDeleteConfirm(false)}>Cancel</md-text-button>
+                <md-text-button style="color:var(--md-sys-color-error)" @click={handleDeleteGame} disabled={isDeleting}>Confirm Deletion</md-text-button>
+              </div>
+            </md-dialog>
 
-            <ConfirmationModal 
-                isOpen={!!eventToDelete}
-                header="Delete Event?"
-                message="Are you sure you want to remove this log entry from the play-by-play feed?"
-                okButtonText="Delete Entry"
-                cancelButtonText="Keep It"
-                variant="danger"
-                onConfirm={confirmDeleteEvent}
-                onCancel={() => setEventToDelete(null)}
-            />
+            <md-dialog open={!!eventToDelete} @close={() => setEventToDelete(null)}>
+              <div slot="headline">Delete Event?</div>
+              <div slot="content">Are you sure you want to remove this log entry from the play-by-play feed?</div>
+              <div slot="actions">
+                <md-text-button @click={() => setEventToDelete(null)}>Keep It</md-text-button>
+                <md-text-button style="color:var(--md-sys-color-error)" @click={confirmDeleteEvent}>Delete Entry</md-text-button>
+              </div>
+            </md-dialog>
+
+            <style>{`
+                @media (min-width: 768px) {
+                    [data-scoreboard-inner] {
+                        flex-direction: row !important;
+                    }
+                    [data-scoreboard-inner] > div:first-child {
+                        border-bottom: none !important;
+                        border-right: 1px solid var(--md-sys-color-outline-variant) !important;
+                    }
+                    [data-scoreboard-inner] > div:last-child {
+                        width: 320px !important;
+                    }
+                }
+                @keyframes live-pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                }
+                [data-live-dot] {
+                    animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+            `}</style>
         </div>
     );
 }

@@ -12,10 +12,33 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
 
   if (!progress) {
     return (
-      <div className="flex flex-col gap-2 w-full p-4 bg-surface-high border border-border-main rounded-md">
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-tx-secondary">Awaiting Engine...</span>
-          <span className="text-[10px] text-tx-dim">{isConnected ? "FIREBASE: ACTIVE" : "FIREBASE: CONNECTING..."}</span>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        width: '100%',
+        padding: '16px',
+        background: 'var(--md-sys-color-surface-container-high)',
+        border: '1px solid var(--md-sys-color-outline-variant)',
+        borderRadius: '8px',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--md-sys-color-on-surface-variant)',
+          }}>Awaiting Engine...</span>
+          <span style={{
+            fontSize: '10px',
+            color: 'var(--md-sys-color-on-surface-variant)',
+            opacity: 0.7,
+          }}>{isConnected ? "FIREBASE: ACTIVE" : "FIREBASE: CONNECTING..."}</span>
         </div>
         {/* @ts-ignore */}
         <md-linear-progress indeterminate style={{ '--md-linear-progress-track-height': '2px' }} />
@@ -24,26 +47,66 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
   }
 
   return (
-    <div className="flex flex-col gap-3 w-full p-4 bg-surface border border-border-main rounded-md">
-      <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-accent">{progress.status}</span>
-          <span className="text-xs text-tx-secondary font-medium">{progress.details}</span>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      width: '100%',
+      padding: '16px',
+      background: 'var(--md-sys-color-surface)',
+      border: '1px solid var(--md-sys-color-outline-variant)',
+      borderRadius: '8px',
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+      }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+        }}>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'var(--md-sys-color-primary)',
+          }}>{progress.status}</span>
+          <span style={{
+            fontSize: '12px',
+            color: 'var(--md-sys-color-on-surface-variant)',
+            fontWeight: 500,
+          }}>{progress.details}</span>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-sm font-mono font-bold text-tx-primary">{progress.progress}%</span>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '4px',
+        }}>
+          <span style={{
+            fontSize: '14px',
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            color: 'var(--md-sys-color-on-surface)',
+          }}>{progress.progress}%</span>
           {progress.progress === 100 && (
-            <span className="text-success text-[10px] font-bold uppercase tracking-tight">Verified</span>
+            <span style={{
+              color: 'var(--md-sys-color-tertiary)',
+              fontSize: '10px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.01em',
+            }}>Verified</span>
           )}
         </div>
       </div>
       {/* @ts-ignore */}
-      <md-linear-progress 
-        value={progress.progress / 100} 
-        style={{ 
-            '--md-linear-progress-track-height': '4px',
-            '--md-sys-color-primary': 'var(--accent)' 
-        }} 
+      <md-linear-progress
+        value={progress.progress / 100}
+        style={{ '--md-linear-progress-track-height': '4px' }}
       />
     </div>
   );

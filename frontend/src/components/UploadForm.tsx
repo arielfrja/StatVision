@@ -7,9 +7,10 @@ import axios from 'axios';
 import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
 import { Game, GameStatus } from '@/types/game';
-import Button from '@/components/Button';
-import Loader from '@/components/Loader';
-
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/progress/circular-progress.js';
 import '@material/web/textfield/filled-text-field.js';
 import '@material/web/icon/icon.js';
 import '@material/web/progress/linear-progress.js';
@@ -91,7 +92,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
         fetchExistingUpload();
     }, [activeGameId, mounted]);
 
-    if (!mounted) return <div className="flex items-center justify-center h-[400px]"><Loader size="large" /></div>;
+    if (!mounted) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px' }}><md-circular-progress indeterminate></md-circular-progress></div>;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -316,41 +317,95 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
 
     if (status === 'COMPLETE') {
         return (
-            <div className="max-w-xl mx-auto p-12 bg-surface rounded-md border border-border-main text-center animate-in fade-in zoom-in-95">
-                <span className="material-symbols-outlined text-5xl text-success mb-6">check_circle</span>
-                <h3 className="text-xl font-bold text-tx-primary mb-2">Upload Successful</h3>
-                <p className="text-sm text-tx-secondary mb-10 max-w-xs mx-auto">
-                    The video for <span className="text-tx-primary font-bold">{gameName}</span> is now being processed by the AI engine.
+            <div
+                style={{
+                    maxWidth: '576px',
+                    margin: '0 auto',
+                    padding: '48px',
+                    backgroundColor: 'var(--md-sys-color-surface)',
+                    borderRadius: '6px',
+                    border: '1px solid var(--md-sys-color-outline-variant)',
+                    textAlign: 'center',
+                }}
+            >
+                <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-tertiary)', marginBottom: '24px' }}>check_circle</md-icon>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)', marginBottom: '8px' }}>Upload Successful</h3>
+                <p style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '40px', maxWidth: '320px', marginLeft: 'auto', marginRight: 'auto' }}>
+                    The video for <span style={{ color: 'var(--md-sys-color-on-surface)', fontWeight: 'bold' }}>{gameName}</span> is now being processed by the AI engine.
                 </p>
-                <Button onClick={onUploadComplete} fullWidth size="lg">Open Dashboard</Button>
+                <md-filled-button onClick={onUploadComplete} style={{width: '100%'}}>Open Dashboard</md-filled-button>
             </div>
         );
     }
 
     return (
-        <div className="max-w-xl mx-auto p-8 bg-surface rounded-md border border-border-main space-y-8">
-            <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-tx-secondary">Game Upload</h3>
-                <p className="text-xs text-tx-dim">Upload raw footage to begin automated event detection.</p>
+        <div
+            style={{
+                maxWidth: '576px',
+                margin: '0 auto',
+                padding: '32px',
+                backgroundColor: 'var(--md-sys-color-surface)',
+                borderRadius: '6px',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '32px',
+            }}
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                    Game Upload
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6 }}>
+                    Upload raw footage to begin automated event detection.
+                </p>
             </div>
 
-            <div className="space-y-6">
-                <div className={`relative border border-dashed rounded-md p-12 text-center transition-colors group ${file ? 'border-accent bg-accent/5' : 'border-border-main bg-primary-bg hover:border-tx-dim'}`}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div
+                    style={{
+                        position: 'relative',
+                        border: '1px dashed',
+                        borderRadius: '6px',
+                        padding: '48px',
+                        textAlign: 'center',
+                        borderColor: file ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-outline-variant)',
+                        backgroundColor: file
+                            ? 'color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent)'
+                            : 'var(--md-sys-color-surface-container-high)',
+                    }}
+                >
                     <input
                         type="file"
                         accept="video/*"
                         onChange={handleFileChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            opacity: 0,
+                            cursor: 'pointer',
+                            zIndex: 10,
+                            width: '100%',
+                            height: '100%',
+                        }}
                         disabled={isProcessing}
                     />
-                    <div className="flex flex-col items-center">
-                        <span className={`material-symbols-outlined text-4xl mb-4 ${file ? 'text-accent' : 'text-tx-dim group-hover:text-tx-secondary'}`}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <md-icon
+                            style={{
+                                fontSize: '36px',
+                                marginBottom: '16px',
+                                color: file ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-on-surface-variant)',
+                            }}
+                        >
                             {file ? 'video_file' : 'upload_file'}
-                        </span>
-                        <p className="text-sm font-bold text-tx-primary mb-1">
+                        </md-icon>
+                        <p style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)', marginBottom: '4px' }}>
                             {file ? file.name : 'Select game recording'}
                         </p>
-                        <p className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">MP4 / MOV / AVI</p>
+                        <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6 }}>
+                            MP4 / MOV / AVI
+                        </p>
                     </div>
                 </div>
 
@@ -359,60 +414,79 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     label="Game Title"
                     value={gameName}
                     onInput={(e: any) => setGameName(e.target.value)}
-                    className="w-full"
+                    style={{ width: '100%', '--md-sys-shape-corner-extra-small': '4px' }}
                     disabled={isProcessing}
-                    style={{ '--md-sys-shape-corner-extra-small': '4px' }}
                 />
             </div>
 
             {(isProcessing || status === 'FINALIZING') && (
-                <div className="p-4 bg-surface-high rounded-md border border-border-main space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-accent">{progressLabel}</span>
-                        <span className="text-[10px] font-bold text-tx-primary mono-stat">{progress}%</span>
+                <div
+                    style={{
+                        padding: '16px',
+                        backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                        borderRadius: '6px',
+                        border: '1px solid var(--md-sys-color-outline-variant)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--md-sys-color-primary)' }}>
+                            {progressLabel}
+                        </span>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)' }}>
+                            {progress}%
+                        </span>
                     </div>
                     {/* @ts-ignore */}
-                    <md-linear-progress value={progress / 100} style={{ '--md-sys-color-primary': 'var(--accent)' }} />
+                    <md-linear-progress value={progress / 100} style={{ '--md-sys-color-primary': 'var(--md-sys-color-primary)' }} />
                 </div>
             )}
 
             {error && (
-                <div className="p-4 bg-error/10 border border-error/30 text-error rounded-md flex items-center gap-3">
-                    <span className="material-symbols-outlined text-base">error</span>
-                    <span className="text-xs font-medium">{error}</span>
+                <div
+                    style={{
+                        padding: '16px',
+                        backgroundColor: 'color-mix(in srgb, var(--md-sys-color-error) 10%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--md-sys-color-error) 30%, transparent)',
+                        color: 'var(--md-sys-color-error)',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                    }}
+                >
+                    <md-icon style={{ fontSize: '16px' }}>error</md-icon>
+                    <span style={{ fontSize: '12px', fontWeight: 500 }}>{error}</span>
                 </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-6 border-t border-border-main">
-                <Button variant="ghost" onClick={handleCancel}>Cancel</Button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '24px', borderTop: '1px solid var(--md-sys-color-outline-variant)' }}>
+                <md-text-button onClick={handleCancel}>Cancel</md-text-button>
                 
                 {isExplicitResume && isResumable ? (
                     <>
-                        <Button 
-                            variant="outline" 
+                        <md-outlined-button 
                             onClick={handleStartAgain} 
                             disabled={isProcessing}
                         >
                             Start Again
-                        </Button>
-                        <Button 
+                        </md-outlined-button>
+                        <md-filled-button 
                             onClick={handleFastUpload} 
-                            isLoading={isProcessing} 
-                            disabled={!file} 
-                            size="lg"
+                            disabled={isProcessing || !file}
                         >
                             Resume Upload
-                        </Button>
+                        </md-filled-button>
                     </>
                 ) : (
-                    <Button 
+                    <md-filled-button 
                         onClick={handleFastUpload} 
-                        isLoading={isProcessing} 
-                        disabled={!file} 
-                        size="lg"
+                        disabled={isProcessing || !file}
                     >
                         Upload
-                    </Button>
+                    </md-filled-button>
                 )}
             </div>
         </div>

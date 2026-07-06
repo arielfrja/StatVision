@@ -27,20 +27,27 @@ export class JobWatchdogService {
 
         const staleJobs = await this.jobRepository.find({
             where: {
-                status: Not(In([VideoAnalysisJobStatus.COMPLETED, VideoAnalysisJobStatus.FAILED])),
+                status: Not(In([VideoAnalysisJobStatus.COMPLETED, VideoAnalysisJobStatus.FAILED, VideoAnalysisJobStatus.FINALIZING])),
                 processingHeartbeatAt: LessThan(staleDate)
             }
         });
 
-        if (staleJobs.length === 0) {
-            logger.info(`[WATCHDOG] No stale jobs found.`);
-            return { checked: 0, failed: 0 };
+        // Don't kill jobs that have all chunks completed — they're waiting for finalization, not stuck
+        const killableJobs = staleJobs.filter(job =>
+            !(job.totalChunks > 0 && job.totalChunks === job.completedChunks)
+        );
+
+        if (killableJobs.length === 0) {
+            logger.info(staleJobs.length > 0
+                ? `[WATCHDOG] ${staleJobs.length} stale job(s) have all chunks completed — skipping (pending finalization).`
+                : `[WATCHDOG] No stale jobs found.`);
+            return { checked: staleJobs.length, failed: 0 };
         }
 
-        logger.warn(`[WATCHDOG] Found ${staleJobs.length} stale jobs. Marking as FAILED.`);
+        logger.warn(`[WATCHDOG] Found ${killableJobs.length} truly stale jobs (${staleJobs.length - killableJobs.length} have all chunks completed). Marking as FAILED.`);
 
         let failedCount = 0;
-        for (const job of staleJobs) {
+        for (const job of killableJobs) {
             try {
                 const failureReason = `Job timed out. No heartbeat received for over ${STALE_THRESHOLD_MINUTES} minutes.`;
 
