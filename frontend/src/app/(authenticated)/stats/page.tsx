@@ -29,7 +29,7 @@ const StatsDashboardPage = () => {
       <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center', padding: '0 24px'}}>
         <div style={{position: 'relative', marginBottom: '32px'}}>
             <div style={{position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'var(--md-sys-color-primary)', filter: 'blur(100px)', opacity: 0.1, borderRadius: '50%'}}></div>
-            <md-icon style={{fontSize: '72px', color: 'var(--md-sys-color-on-surface-variant)', position: 'relative', zIndex: 10}}>analytics</md-icon>
+            <md-icon>analytics</md-icon>
         </div>
          <h1 style={{fontSize: '30px', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: '-0.025em', color: 'var(--md-sys-color-on-surface)', margin: 0, marginBottom: '16px'}}>Elite Analytics Locked</h1>
         <p style={{color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, maxWidth: '448px', margin: '0 auto', lineHeight: 1.625, marginBottom: '40px', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.1em'}}>
@@ -81,7 +81,7 @@ const StatsDashboardPage = () => {
       <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '32px'}}>
         {/* Main Content: Box Scores Summary */}
         <div style={{display: 'flex', flexDirection: 'column', gap: '32px'}}>
-          <md-elevated-card style={{padding: '24px', width: '100%', boxSizing: 'border-box'}}>
+          <md-elevated-card>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px'}}>
                 <div>
                     <h2 style={{fontSize: '20px', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: '-0.025em', color: 'var(--md-sys-color-on-surface)', margin: 0}}>Aggregated Efficiency</h2>
@@ -90,7 +90,7 @@ const StatsDashboardPage = () => {
             </div>
             
             <div style={{padding: '80px 0', textAlign: 'center', backgroundColor: 'var(--md-sys-color-surface-container-high)', borderRadius: '16px', border: '1px dashed var(--md-sys-color-outline-variant)'}}>
-                <md-icon style={{fontSize: '36px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '16px', opacity: 0.5}}>query_stats</md-icon>
+                <md-icon>query_stats</md-icon>
                 <p style={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, margin: 0}}>AI Aggregation in Progress</p>
                 <p style={{fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, margin: '8px auto 0', maxWidth: '320px'}}>
                     Advanced distribution charts will unlock once 3+ games are fully analyzed.
@@ -101,7 +101,7 @@ const StatsDashboardPage = () => {
 
         {/* Sidebar: System Readiness */}
         <div style={{display: 'flex', flexDirection: 'column', gap: '32px'}}>
-           <md-elevated-card style={{padding: '24px', width: '100%', boxSizing: 'border-box', borderLeft: '4px solid color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent)'}}>
+           <md-elevated-card>
                 <h3 style={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, margin: 0, marginBottom: '24px'}}>Engine Readiness</h3>
                 <div style={{display: 'flex', flexDirection: 'column', gap: '24px'}}>
                     {[
@@ -117,11 +117,11 @@ const StatsDashboardPage = () => {
                 </div>
            </md-elevated-card>
 
-           <md-elevated-card style={{padding: '24px', width: '100%', boxSizing: 'border-box', position: 'relative', overflow: 'hidden'}}>
+           <md-elevated-card>
                 <div style={{position: 'absolute', top: 0, right: 0, width: '128px', height: '128px', backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)', filter: 'blur(64px)', marginRight: '-64px', marginTop: '-64px'}}></div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', position: 'relative', zIndex: 10}}>
                     <div style={{width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'var(--md-sys-color-surface-container-high)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--md-sys-color-primary)', border: '1px solid var(--md-sys-color-outline-variant)'}}>
-                        <md-icon style={{fontSize: '24px'}}>auto_awesome</md-icon>
+                        <md-icon>auto_awesome</md-icon>
                     </div>
                     <div>
                         <h4 style={{fontWeight: 900, fontStyle: 'italic', letterSpacing: '-0.025em', textTransform: 'uppercase', color: 'var(--md-sys-color-on-surface)', margin: 0}}>AI Scout</h4>

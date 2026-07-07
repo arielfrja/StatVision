@@ -121,7 +121,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
     if (!isOpen) return null;
 
     return (
-        <md-dialog open={isOpen} onclose={onClose} style={{ maxWidth: '800px', width: '95vw' }}>
+        <md-dialog open={isOpen} onclose={onClose}>
             <div
                 slot="headline"
                 style={{
@@ -155,7 +155,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                     </div>
                 ) : identifiedEntities.length === 0 ? (
                     <div style={{ padding: '64px 0', textAlign: 'center' }}>
-                        <md-icon style={{ fontSize: '36px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '16px', opacity: 0.6 }}>person_off</md-icon>
+                        <md-icon>person_off</md-icon>
                         <p style={{ color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '10px' }}>
                             No temporary detections requiring assignment
                         </p>
@@ -304,8 +304,8 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                     width: '100%',
                 }}
             >
-                <md-text-button onClick={onClose} disabled={isSubmitting} style={{flex: 1}}>Cancel</md-text-button>
-                <md-filled-button onClick={handleSubmit} disabled={isSubmitting} style={{flex: 2}}>
+                <md-text-button onClick={onClose} disabled={isSubmitting}>Cancel</md-text-button>
+                <md-filled-button onClick={handleSubmit} disabled={isSubmitting}>
                     <md-icon slot="icon">verified</md-icon>
                     Synchronize Roster
                 </md-filled-button>

@@ -107,7 +107,7 @@ export default function LoginPage() {
             marginBottom: '40px',
           }}
         >
-          <md-icon style={{ fontSize: '2.25rem', color: '#00373a', fontWeight: 700 }}>
+          <md-icon>
             query_stats
           </md-icon>
         </div>

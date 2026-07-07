@@ -38,7 +38,7 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                 borderRadius: '12px',
                 gap: '16px',
             }}>
-                <md-icon style={{ fontSize: '40px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.3 }}>history</md-icon>
+                <md-icon>history</md-icon>
                 <span style={{
                     fontSize: '11px',
                     fontWeight: 500,

@@ -12,7 +12,7 @@ import '@material/web/labs/card/outlined-card.js';
 import '@material/web/dialog/dialog.js';
 import '@material/web/list/list.js';
 import '@material/web/list/list-item.js';
-import '@material/web/textfield/filled-text-field.js';
+import '@material/web/textfield/outlined-text-field.js';
 import ClientOnlyWrapper from '@/components/ClientOnlyWrapper';
 import { useParams, useRouter } from 'next/navigation';
 import { PlayerTeamHistory } from '@/types/player';
@@ -143,10 +143,10 @@ function TeamPlayersPage() {
   return (
     <main style={{ padding: '16px', maxWidth: '1280px', margin: '0 auto', paddingBottom: '96px' }}>
       {/* Team Header */}
-      <md-outlined-card style={{ padding: '24px', marginBottom: '48px' }}>
+      <md-outlined-card>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <button onClick={() => router.push('/teams')} style={{ color: 'var(--md-sys-color-primary)', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <md-icon style={{ fontSize: '14px' }}>arrow_back</md-icon>
+            <md-icon>arrow_back</md-icon>
             Back to Squads
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -160,7 +160,7 @@ function TeamPlayersPage() {
               justifyContent: 'center',
               color: 'var(--md-sys-color-on-primary)',
             }}>
-              <md-icon style={{ fontWeight: 700, fontSize: '24px' }}>shield</md-icon>
+              <md-icon>shield</md-icon>
             </div>
             <h1 style={{ fontSize: '36px', fontWeight: 900, fontStyle: 'italic', textTransform: 'uppercase', letterSpacing: '-0.05em', margin: 0 }}>{team.name}</h1>
           </div>
@@ -182,11 +182,11 @@ function TeamPlayersPage() {
           </div>
 
           {players.length === 0 ? (
-            <md-outlined-card style={{ padding: '80px 24px', textAlign: 'center', border: '2px dashed var(--md-sys-color-outline-variant)', background: 'transparent' }}>
+            <md-outlined-card>
               <p style={{ color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>No players recruited yet.</p>
             </md-outlined-card>
           ) : (
-            <md-list style={{ background: 'var(--md-sys-color-surface)', borderRadius: '12px' }}>
+            <md-list>
               {players.map((p) => (
                 <md-list-item key={p.id}>
                   <md-icon slot="start">person</md-icon>
@@ -208,17 +208,17 @@ function TeamPlayersPage() {
 
         {/* Right: Sidebar */}
         <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          <md-outlined-card style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+          <md-outlined-card>
             <h3 style={{ fontSize: '10px', fontWeight: 900, color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '0 0 16px 0', fontStyle: 'italic' }}>Squad Intelligence</h3>
             <p style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)', fontStyle: 'italic', fontWeight: 500, margin: 0, lineHeight: 1.6 }}>
               &ldquo;AI is currently analyzing the active roster. Team synergy metrics and archetypes will be generated once game data is associated with this squad.&rdquo;
             </p>
           </md-outlined-card>
 
-          <md-outlined-card style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+          <md-outlined-card>
             <h3 style={{ fontSize: '10px', fontWeight: 900, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '0 0 24px 0' }}>Season Performance</h3>
             <div style={{ padding: '32px 0', textAlign: 'center', border: '1px dashed var(--md-sys-color-outline-variant)', borderRadius: '12px' }}>
-              <md-icon style={{ fontSize: '32px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.2, marginBottom: '8px' }}>leaderboard</md-icon>
+              <md-icon>leaderboard</md-icon>
               <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
                 Waiting for Game Records
               </p>
@@ -232,28 +232,28 @@ function TeamPlayersPage() {
         <div slot="headline">Recruit Player</div>
         <div slot="content">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <md-filled-text-field
+            <md-outlined-text-field
               label="Full Name"
               value={newPlayerName}
               onInput={(e: any) => setNewPlayerName(e.target.value)}
               placeholder="e.g. Marcus Smart"
-            ></md-filled-text-field>
+            ></md-outlined-text-field>
             <div style={{ display: 'flex', gap: '16px' }}>
-              <md-filled-text-field
+              <md-outlined-text-field
                 label="Jersey #"
                 type="number"
                 value={newPlayerJersey}
                 onInput={(e: any) => setNewPlayerJersey(Number(e.target.value))}
                 placeholder="00"
                 style={{ width: '120px' }}
-              ></md-filled-text-field>
-              <md-filled-text-field
+              ></md-outlined-text-field>
+              <md-outlined-text-field
                 label="Description / Role"
                 value={newPlayerDescription}
                 onInput={(e: any) => setNewPlayerDescription(e.target.value)}
                 placeholder="e.g. Defensive Anchor"
                 style={{ flex: 1 }}
-              ></md-filled-text-field>
+              ></md-outlined-text-field>
             </div>
           </div>
         </div>

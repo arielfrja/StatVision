@@ -99,7 +99,7 @@ const PlayerTable = ({ players, title, visibleStats }: { players: (GamePlayerSta
                     border: '1px solid var(--md-sys-color-outline-variant)',
                 }}
             >
-                <md-icon style={{ fontSize: '36px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '16px', opacity: 0.6 }}>person_off</md-icon>
+                <md-icon>person_off</md-icon>
                 <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6 }}>
                     No players found for this team.
                 </p>
@@ -125,11 +125,6 @@ const PlayerTable = ({ players, title, visibleStats }: { players: (GamePlayerSta
 
     return (
         <md-outlined-card
-            style={{
-                width: '100%',
-                overflow: 'hidden',
-                borderRadius: '16px',
-            }}
         >
             {/* Table header row */}
             <div
@@ -161,7 +156,7 @@ const PlayerTable = ({ players, title, visibleStats }: { players: (GamePlayerSta
                     >
                         {header.label}
                         {sortColumn === header.id && (
-                            <md-icon style={{ fontSize: '14px', color: 'var(--md-sys-color-primary)' }}>
+                            <md-icon>
                                 {sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}
                             </md-icon>
                         )}
@@ -170,7 +165,7 @@ const PlayerTable = ({ players, title, visibleStats }: { players: (GamePlayerSta
             </div>
 
             {/* Player rows as md-list */}
-            <md-list style={{ width: '100%', background: 'transparent' }}>
+            <md-list className="fill-width">
                 {sortedPlayers.map((playerStat) => (
                     <md-list-item
                         key={playerStat.playerId}

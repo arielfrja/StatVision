@@ -19,7 +19,7 @@ const FeatureCard = ({ icon, title, description }: { icon: string, title: string
     textAlign: 'center',
     gap: '12px',
   }}>
-    <md-icon style={{ fontSize: '40px', color: 'var(--md-sys-color-primary)' }}>{icon}</md-icon>
+    <md-icon>{icon}</md-icon>
     <h3 style={{
       fontSize: '16px',
       fontWeight: 700,
@@ -112,7 +112,7 @@ export default function LandingPage() {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <md-icon style={{ color: '#0A0A0B', fontSize: '24px', fontWeight: 700 }}>query_stats</md-icon>
+              <md-icon>query_stats</md-icon>
             </div>
             <h2 style={{
               fontSize: '24px',

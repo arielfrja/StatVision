@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ErudaInit from './eruda-init';
+import { ThemeProvider } from '@/lib/ThemeContext';
 import { initGlobalErrorLogging } from '@/utils/logToBackend';
 
 const UserProviderWrapper = dynamic(() => import('./user-provider'), { ssr: false });
@@ -28,7 +29,9 @@ export default function ClientProviders({ children }: { children: React.ReactNod
   return (
     <UserProviderWrapper>
       <ErudaInit />
-      {children}
+      <ThemeProvider>
+        {children}
+      </ThemeProvider>
     </UserProviderWrapper>
   );
 }

@@ -6,11 +6,10 @@ import '@material/web/labs/navigationbar/navigation-bar.js';
 import '@material/web/labs/navigationtab/navigation-tab.js';
 
 const navItems = [
-  { label: 'Live', icon: 'dashboard', path: '/dashboard' },
   { label: 'Games', icon: 'sports_basketball', path: '/games' },
   { label: 'Teams', icon: 'groups', path: '/teams' },
-  { label: 'Stats', icon: 'leaderboard', path: '/stats' },
   { label: 'Usage', icon: 'data_usage', path: '/usage' },
+  { label: 'Settings', icon: 'settings', path: '/settings' },
 ];
 
 const BottomNav = () => {

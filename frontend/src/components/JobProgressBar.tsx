@@ -41,7 +41,7 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
           }}>{isConnected ? "FIREBASE: ACTIVE" : "FIREBASE: CONNECTING..."}</span>
         </div>
         {/* @ts-ignore */}
-        <md-linear-progress indeterminate style={{ '--md-linear-progress-track-height': '2px' }} />
+        <md-linear-progress indeterminate />
       </div>
     );
   }
@@ -106,7 +106,6 @@ export const JobProgressBar: React.FC<JobProgressBarProps> = ({ jobId, gameId })
       {/* @ts-ignore */}
       <md-linear-progress
         value={progress.progress / 100}
-        style={{ '--md-linear-progress-track-height': '4px' }}
       />
     </div>
   );

@@ -91,11 +91,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                 border: '1px solid var(--md-sys-color-outline-variant)',
                 borderRadius: '8px',
             }}>
-                <md-icon style={{
-                    fontSize: '36px',
-                    color: 'var(--md-sys-color-on-surface-variant)',
-                    marginBottom: '16px',
-                }}>
+                <md-icon>
                     group_off
                 </md-icon>
                 <p style={{
@@ -140,10 +136,6 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
             {teamsWithPlayers.map((team: TeamWithPlayers) => (
                 <md-outlined-card
                     key={team.id}
-                    style={{
-                        borderRadius: '12px',
-                        overflow: 'hidden',
-                    }}
                 >
                     {/* Team Header */}
                     <div style={{
@@ -208,16 +200,10 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
 
                     {/* Players List */}
                     {team.players.length > 0 ? (
-                        <md-list style={{ padding: 0 }}>
+                        <md-list>
                             {team.players.map((player: EnrichedPlayer, idx: number) => (
                                 <md-list-item
                                     key={player.id}
-                                    style={{
-                                        borderBottom: idx < team.players.length - 1
-                                            ? '1px solid var(--md-sys-color-outline-variant)'
-                                            : 'none',
-                                        minHeight: '52px',
-                                    }}
                                 >
                                     <span slot="headline" style={{
                                         fontSize: '14px',

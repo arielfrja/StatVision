@@ -13,7 +13,7 @@ import '@material/web/icon/icon.js';
 import '@material/web/labs/card/elevated-card.js';
 import '@material/web/labs/card/outlined-card.js';
 import '@material/web/dialog/dialog.js';
-import '@material/web/textfield/filled-text-field.js';
+import '@material/web/textfield/outlined-text-field.js';
 import { Team } from '@/types/team';
 import apiClient from '@/utils/apiClient';
 
@@ -73,9 +73,9 @@ const TeamsPage = () => {
       </header>
 
       {!teams || teams.length === 0 ? (
-        <md-outlined-card style={{ padding: '96px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', border: '2px dashed var(--md-sys-color-outline-variant)', background: 'transparent' }}>
+        <md-outlined-card>
           <div style={{ width: '80px', height: '80px', borderRadius: '40px', background: 'var(--md-sys-color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-            <md-icon style={{ fontSize: '36px', color: 'var(--md-sys-color-on-surface-variant)' }}>groups</md-icon>
+            <md-icon>groups</md-icon>
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 900, textTransform: 'uppercase', margin: '0 0 8px 0' }}>The Roster is Empty</h2>
           <p style={{ color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, maxWidth: '400px', margin: '0 auto 40px' }}>Create your first team to begin building elite rosters and tracking performance.</p>
@@ -86,13 +86,12 @@ const TeamsPage = () => {
           {teams.map((team: Team) => (
             <md-elevated-card 
               key={team.id}
-              style={{ flex: '1 1 300px', cursor: 'pointer' }}
               onClick={() => router.push(`/teams/${team.id}`)}
             >
               <div style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
                 {/* Background decoration */}
                 <div style={{ position: 'absolute', top: 0, right: 0, padding: '16px', opacity: 0.1 }}>
-                  <md-icon style={{ fontSize: '96px' }}>sports_basketball</md-icon>
+                  <md-icon>sports_basketball</md-icon>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
@@ -108,7 +107,7 @@ const TeamsPage = () => {
                     border: team.isTemp ? '1px solid var(--md-sys-color-outline-variant)' : 'none',
                     color: team.isTemp ? 'var(--md-sys-color-on-surface)' : 'var(--md-sys-color-on-primary)',
                   }}>
-                    <md-icon style={{ fontWeight: 700 }}>{team.isTemp ? 'bolt' : 'shield'}</md-icon>
+                    <md-icon>{team.isTemp ? 'bolt' : 'shield'}</md-icon>
                   </div>
                   {team.isTemp && (
                     <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', background: 'var(--md-sys-color-surface)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--md-sys-color-outline-variant)' }}>Park Mode</span>
@@ -119,11 +118,11 @@ const TeamsPage = () => {
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '32px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <md-icon style={{ fontSize: '14px' }}>person</md-icon>
+                    <md-icon>person</md-icon>
                     <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{team.players?.length || 0} Roster</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid var(--md-sys-color-outline-variant)', paddingLeft: '24px' }}>
-                    <md-icon style={{ fontSize: '14px' }}>event</md-icon>
+                    <md-icon>event</md-icon>
                     <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Active</span>
                   </div>
                 </div>
@@ -131,7 +130,7 @@ const TeamsPage = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '24px', borderTop: '1px solid var(--md-sys-color-outline-variant)' }}>
                   <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     Manage Roster
-                    <md-icon style={{ fontSize: '14px' }}>arrow_forward</md-icon>
+                    <md-icon>arrow_forward</md-icon>
                   </span>
                   {!team.isTemp && <span style={{ fontSize: '10px', fontWeight: 900, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>Official Club</span>}
                 </div>
@@ -144,13 +143,13 @@ const TeamsPage = () => {
       <md-dialog ref={dialogRef} open={showModal}>
         <div slot="headline">Create New Squad</div>
         <div slot="content">
-          <md-filled-text-field
+          <md-outlined-text-field
             label="Team Name"
             value={newTeamName}
             onInput={(e: any) => setNewTeamName(e.target.value)}
             placeholder="e.g. Gotham City Knights"
             style={{ width: '100%' }}
-          ></md-filled-text-field>
+          ></md-outlined-text-field>
         </div>
         <div slot="actions">
           <md-text-button onClick={() => setShowModal(false)} disabled={isCreating}>Cancel</md-text-button>

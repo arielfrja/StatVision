@@ -46,20 +46,10 @@ const PlayerProfilePage = () => {
     <div style={{ paddingBottom: '64px' }}>
       {/* Player Hero Section */}
       <md-elevated-card
-        style={{
-          position: 'relative',
-          marginBottom: '48px',
-          overflow: 'hidden',
-          padding: '48px 32px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '40px',
-        }}
       >
         {/* Background Accent */}
         <div style={{ position: 'absolute', top: 0, right: 0, padding: '16px', opacity: 0.05, pointerEvents: 'none' }}>
-          <md-icon style={{ fontSize: '200px', color: 'var(--md-sys-color-on-surface)' }}>person</md-icon>
+          <md-icon>person</md-icon>
         </div>
 
         {/* Avatar + Badge */}
@@ -77,7 +67,7 @@ const PlayerProfilePage = () => {
               overflow: 'hidden',
             }}
           >
-            <md-icon style={{ fontSize: '72px', color: 'var(--md-sys-color-on-surface-variant)' }}>person</md-icon>
+            <md-icon>person</md-icon>
           </div>
           <div
             style={{
@@ -96,7 +86,7 @@ const PlayerProfilePage = () => {
               border: '4px solid var(--md-sys-color-surface)',
             }}
           >
-            <md-icon style={{ fontWeight: 900, fontSize: '24px' }}>grade</md-icon>
+            <md-icon>grade</md-icon>
           </div>
         </div>
 
@@ -120,7 +110,7 @@ const PlayerProfilePage = () => {
               padding: 0,
             }}
           >
-            <md-icon style={{ fontSize: '14px' }}>arrow_back</md-icon>
+            <md-icon>arrow_back</md-icon>
             Back to Team
           </button>
 
@@ -298,21 +288,8 @@ const PlayerProfilePage = () => {
               </div>
 
               <md-elevated-card
-                style={{
-                  paddingTop: '96px',
-                  paddingBottom: '96px',
-                  textAlign: 'center',
-                  border: '2px dashed var(--md-sys-color-outline-variant)',
-                  backgroundColor: 'transparent',
-                }}
               >
                 <md-icon
-                  style={{
-                    fontSize: '36px',
-                    color: 'var(--md-sys-color-on-surface-variant)',
-                    marginBottom: '16px',
-                    opacity: 0.3,
-                  }}
                 >
                   video_library
                 </md-icon>
@@ -341,12 +318,6 @@ const PlayerProfilePage = () => {
         {/* Right: Sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           <md-elevated-card
-            style={{
-              position: 'relative',
-              overflow: 'hidden',
-              borderLeft: '4px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)',
-              padding: '24px',
-            }}
           >
             {/* Decorative glow blob */}
             <div

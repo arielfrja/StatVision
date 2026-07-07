@@ -378,7 +378,7 @@ function AnalysisPage() {
                                 gap: '8px',
                                 margin: 0,
                             }}>
-                                <md-icon style={{fontSize: '14px'}}>location_on</md-icon>
+                                <md-icon>location_on</md-icon>
                                 {game.location || 'Stadium Vision Arena'}
                             </p>
                             <p style={{
@@ -392,7 +392,7 @@ function AnalysisPage() {
                                 gap: '8px',
                                 marginTop: '4px',
                             }}>
-                                <md-icon style={{fontSize: '14px'}}>calendar_today</md-icon>
+                                <md-icon>calendar_today</md-icon>
                                 {game.gameDate ? new Date(game.gameDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Unknown Date'}
                             </p>
                         </div>

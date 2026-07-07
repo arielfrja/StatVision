@@ -35,7 +35,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, playerRef, onProgre
                     border: '1px solid var(--md-sys-color-outline-variant)',
                 }}
             >
-                <md-icon style={{ fontSize: '36px', marginBottom: '16px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.3 }}>videocam_off</md-icon>
+                <md-icon>videocam_off</md-icon>
                 <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
                     No video linked or processing in progress.
                 </p>

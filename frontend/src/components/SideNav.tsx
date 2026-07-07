@@ -9,12 +9,10 @@ import '@material/web/list/list-item.js';
 import '@material/web/icon/icon.js';
 
 const navItems = [
-  { label: 'Performance', icon: 'dashboard', path: '/dashboard' },
   { label: 'Games', icon: 'sports_basketball', path: '/games' },
   { label: 'Teams', icon: 'groups', path: '/teams' },
-  { label: 'Players', icon: 'person', path: '/players' },
-  { label: 'Analytics', icon: 'leaderboard', path: '/stats' },
   { label: 'Usage', icon: 'data_usage', path: '/usage' },
+  { label: 'Settings', icon: 'settings', path: '/settings' },
 ];
 
 const SideNav = () => {
@@ -36,11 +34,11 @@ const SideNav = () => {
       borderRight: '1px solid var(--md-sys-color-outline-variant, #444)',
     }} className="md-side-nav">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 16px', marginBottom: '16px' }}>
-        <md-icon style={{ fontSize: '28px', color: 'var(--md-sys-color-primary)' }}>query_stats</md-icon>
+        <md-icon>query_stats</md-icon>
         <span style={{ fontSize: '1.25rem', fontWeight: 500 }}>StatVision</span>
       </div>
 
-      <md-list style={{ flex: 1 }}>
+      <md-list className="flex-1">
         {navItems.map((item) => {
           const isActive = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
           return (

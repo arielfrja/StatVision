@@ -81,7 +81,7 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
 
                 {/* Player List */}
                 {teamPlayers.length > 0 ? (
-                    <md-list style={{ padding: 0 }}>
+                    <md-list className="list-flush">
                         {teamPlayers.map((ps) => {
                             const plusMinusVal = ps.plusMinus ?? 0;
                             const statSummary = activeStatIds.map(id => {
@@ -93,11 +93,6 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
                             return (
                                 <md-list-item
                                     key={ps.playerId}
-                                    style={{
-                                        borderBottom: '1px solid var(--md-sys-color-outline-variant)',
-                                        minHeight: '52px',
-                                        transition: 'background-color 0.15s ease',
-                                    }}
                                 >
                                     <div slot="start" style={{
                                         fontWeight: 700,
@@ -159,7 +154,7 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
                                             }}
                                             title="Edit Player Stats"
                                         >
-                                            <md-icon style={{ fontSize: '18px' }}>edit_square</md-icon>
+                                            <md-icon>edit_square</md-icon>
                                         </button>
                                     </div>
                                 </md-list-item>
@@ -169,12 +164,8 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
                         {/* Totals row */}
                         {teamTotals && (
                             <>
-                                <md-divider style={{ margin: 0 }} />
-                                <md-list-item style={{
-                                    backgroundColor: 'var(--md-sys-color-surface-container-high)',
-                                    fontWeight: 700,
-                                    minHeight: '44px',
-                                }}>
+                                <md-divider />
+                                <md-list-item>
                                     <div slot="start" style={{
                                         fontWeight: 700,
                                         fontSize: '12px',

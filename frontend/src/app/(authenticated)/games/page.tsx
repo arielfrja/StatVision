@@ -118,7 +118,7 @@ const GamesPage = () => {
             {resumeGameId ? 'Recover Upload' : 'Initialize New Analysis'}
           </h1>
         </header>
-        <md-outlined-card style={{ padding: '4px' }}>
+        <md-outlined-card>
           <UploadForm
             initialGameId={resumeGameId || undefined}
             onUploadComplete={() => {
@@ -178,7 +178,7 @@ const GamesPage = () => {
             marginBottom: '24px',
             color: 'var(--md-sys-color-on-surface-variant)',
           }}>
-            <md-icon style={{ fontSize: '32px' }}>videocam_off</md-icon>
+            <md-icon>videocam_off</md-icon>
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', margin: '0 0 8px 0' }}>
             The Vault is Empty
@@ -241,7 +241,7 @@ const GamesPage = () => {
                         fontWeight: 700,
                         letterSpacing: '0.05em',
                       }}>
-                        <md-icon style={{ fontSize: '12px', animation: status.spin ? 'spin 2s linear infinite' : 'none' }}>
+                        <md-icon>
                           {status.icon}
                         </md-icon>
                         {status.label}
@@ -262,7 +262,7 @@ const GamesPage = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        <md-icon style={{ fontSize: '14px' }}>delete</md-icon>
+                        <md-icon>delete</md-icon>
                       </button>
                     </div>
                   </div>
@@ -333,7 +333,6 @@ const GamesPage = () => {
                   }}>
                     {canRetry ? (
                       <md-filled-button
-                        style={{ width: '100%' }}
                         onClick={(e) => handleRetry(e, game.id)}
                       >
                         <md-icon slot="icon">refresh</md-icon>
@@ -343,19 +342,19 @@ const GamesPage = () => {
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <md-icon style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>analytics</md-icon>
+                            <md-icon>analytics</md-icon>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
                               {game.events?.length || 0}
                             </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <md-icon style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)' }}>person</md-icon>
+                            <md-icon>person</md-icon>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
                               {game.playerStats?.length || 0}
                             </span>
                           </div>
                         </div>
-                        <md-icon style={{ fontSize: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>chevron_right</md-icon>
+                        <md-icon>chevron_right</md-icon>
                       </>
                     )}
                   </div>

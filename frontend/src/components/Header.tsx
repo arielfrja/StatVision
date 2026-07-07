@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth0 } from '@/app/user-provider';
 import '@material/web/button/text-button.js';
 import '@material/web/icon/icon.js';
+import '@material/web/iconbutton/icon-button.js';
 
 export default function Header() {
   const { isAuthenticated, logout } = useAuth0();
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -28,17 +31,22 @@ export default function Header() {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="md-header-brand">
-          <md-icon style={{ fontSize: '24px', color: 'var(--md-sys-color-primary)' }}>query_stats</md-icon>
+          <md-icon>query_stats</md-icon>
           <span style={{ fontSize: '1.25rem', fontWeight: 500 }}>StatVision</span>
         </div>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {mounted && isAuthenticated && (
-          <md-text-button onClick={() => logout({ logoutParams: { returnTo: typeof window !== 'undefined' ? window.location.origin : '' } })}>
-            <md-icon slot="icon">logout</md-icon>
-            Sign Out
-          </md-text-button>
+          <>
+            <md-icon-button onClick={() => router.push('/settings')}>
+              <md-icon>settings</md-icon>
+            </md-icon-button>
+            <md-text-button onClick={() => logout({ logoutParams: { returnTo: typeof window !== 'undefined' ? window.location.origin : '' } })}>
+              <md-icon slot="icon">logout</md-icon>
+              Sign Out
+            </md-text-button>
+          </>
         )}
       </div>
     </header>

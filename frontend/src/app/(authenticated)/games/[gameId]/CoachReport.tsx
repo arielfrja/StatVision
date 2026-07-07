@@ -141,7 +141,7 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
                         justifyContent: 'center',
                         marginBottom: '16px',
                     }}>
-                        <md-icon style={{fontSize: '30px', color: 'var(--md-sys-color-primary)'}}>psychology</md-icon>
+                        <md-icon>psychology</md-icon>
                     </div>
                     <h3 style={{
                         fontSize: '14px',

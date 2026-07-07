@@ -81,7 +81,6 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     <md-text-button 
                         onClick={handleDelete}
                         disabled={isDeleting}
-                        style={{color: 'var(--md-sys-color-error)'}}
                     >
                         <md-icon slot="icon">delete</md-icon>
                     </md-text-button>
@@ -126,7 +125,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                             >
                                 {type.replace('_', ' ')}
                                 {eventType === type && (
-                                    <md-icon style={{ fontSize: '12px' }}>check_circle</md-icon>
+                                    <md-icon>check_circle</md-icon>
                                 )}
                             </button>
                         ))}
@@ -183,14 +182,12 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                 <md-text-button 
                     onClick={onCancel} 
                     disabled={isSaving}
-                    style={{ width: '100%' }}
                 >
                     Discard
                 </md-text-button>
                 <md-filled-button 
                     onClick={handleSave} 
                     disabled={isSaving}
-                    style={{ width: '100%', flex: 2 }}
                 >
                     Update Analytics
                 </md-filled-button>

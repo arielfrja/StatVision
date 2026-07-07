@@ -130,7 +130,7 @@ const UsageDashboard = () => {
 
       {/* Charts Section */}
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '32px'}}>
-         <md-outlined-card style={{padding: '32px', width: '100%', boxSizing: 'border-box'}}>
+         <md-outlined-card>
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px'}}>
                <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Daily Token Consumption</h3>
                <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
@@ -176,7 +176,7 @@ const UsageDashboard = () => {
             </div>
          </md-outlined-card>
 
-         <md-outlined-card style={{padding: '32px', width: '100%', boxSizing: 'border-box'}}>
+         <md-outlined-card>
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px'}}>
                <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Video Throughput (Seconds)</h3>
             </div>

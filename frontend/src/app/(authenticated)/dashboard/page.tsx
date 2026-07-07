@@ -62,7 +62,7 @@ const PerformanceDashboardPage = () => {
           justifyContent: 'center',
           marginBottom: '24px',
         }}>
-          <md-icon style={{ fontSize: '28px', opacity: '0.4', color: 'var(--md-sys-color-on-surface-variant)' }}>
+          <md-icon>
             upload_file
           </md-icon>
         </div>
@@ -92,9 +92,7 @@ const PerformanceDashboardPage = () => {
 
       {/* Professional System Alert for Pending Uploads */}
       {pendingUpload && (
-        <md-outlined-card style={{
-          backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 8%, var(--md-sys-color-surface))',
-        }}>
+        <md-outlined-card>
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -236,18 +234,10 @@ const PerformanceDashboardPage = () => {
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <md-outlined-card style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              overflow: 'hidden',
-            }}>
+            <md-outlined-card className="fill-area">
               {activeGame?.videoUrl ? (
                 <div style={{ textAlign: 'center' }}>
-                  <md-icon style={{ fontSize: '48px', opacity: '0.1', marginBottom: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                  <md-icon>
                     analytics
                   </md-icon>
                   <p style={{
@@ -275,7 +265,7 @@ const PerformanceDashboardPage = () => {
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '0 24px' }}>
-                  <md-icon style={{ fontSize: '48px', opacity: '0.05', marginBottom: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                  <md-icon>
                     videocam_off
                   </md-icon>
                   <p style={{
@@ -492,7 +482,7 @@ const PerformanceDashboardPage = () => {
           </md-outlined-card>
 
           <Link href="/games" passHref style={{ textDecoration: 'none', display: 'block' }}>
-            <md-outlined-card style={{ width: '100%', cursor: 'pointer' }}>
+            <md-outlined-card className="fill-width pointer">
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -508,7 +498,7 @@ const PerformanceDashboardPage = () => {
                 }}>
                   Access Game Archive
                 </span>
-                <md-icon style={{ fontSize: '16px', color: 'var(--md-sys-color-on-surface-variant)' }}>
+                <md-icon>
                   chevron_right
                 </md-icon>
               </div>

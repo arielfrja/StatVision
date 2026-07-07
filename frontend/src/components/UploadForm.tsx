@@ -11,7 +11,7 @@ import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
 import '@material/web/button/text-button.js';
 import '@material/web/progress/circular-progress.js';
-import '@material/web/textfield/filled-text-field.js';
+import '@material/web/textfield/outlined-text-field.js';
 import '@material/web/icon/icon.js';
 import '@material/web/progress/linear-progress.js';
 
@@ -328,12 +328,12 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     textAlign: 'center',
                 }}
             >
-                <md-icon style={{ fontSize: '48px', color: 'var(--md-sys-color-tertiary)', marginBottom: '24px' }}>check_circle</md-icon>
+                <md-icon>check_circle</md-icon>
                 <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)', marginBottom: '8px' }}>Upload Successful</h3>
                 <p style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', marginBottom: '40px', maxWidth: '320px', marginLeft: 'auto', marginRight: 'auto' }}>
                     The video for <span style={{ color: 'var(--md-sys-color-on-surface)', fontWeight: 'bold' }}>{gameName}</span> is now being processed by the AI engine.
                 </p>
-                <md-filled-button onClick={onUploadComplete} style={{width: '100%'}}>Open Dashboard</md-filled-button>
+                <md-filled-button onClick={onUploadComplete}>Open Dashboard</md-filled-button>
             </div>
         );
     }
@@ -392,11 +392,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <md-icon
-                            style={{
-                                fontSize: '36px',
-                                marginBottom: '16px',
-                                color: file ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-on-surface-variant)',
-                            }}
                         >
                             {file ? 'video_file' : 'upload_file'}
                         </md-icon>
@@ -410,7 +405,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                 </div>
 
                 {/* @ts-ignore */}
-                <md-filled-text-field
+                <md-outlined-text-field
                     label="Game Title"
                     value={gameName}
                     onInput={(e: any) => setGameName(e.target.value)}
@@ -440,7 +435,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                         </span>
                     </div>
                     {/* @ts-ignore */}
-                    <md-linear-progress value={progress / 100} style={{ '--md-sys-color-primary': 'var(--md-sys-color-primary)' }} />
+                    <md-linear-progress value={progress / 100} />
                 </div>
             )}
 
@@ -457,7 +452,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onUploadComplete, onCancel, ini
                         gap: '12px',
                     }}
                 >
-                    <md-icon style={{ fontSize: '16px' }}>error</md-icon>
+                    <md-icon>error</md-icon>
                     <span style={{ fontSize: '12px', fontWeight: 500 }}>{error}</span>
                 </div>
             )}
