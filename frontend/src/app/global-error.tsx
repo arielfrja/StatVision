@@ -8,12 +8,58 @@ export default function GlobalError({
 }) {
   return (
     <html lang="en">
-      <body className="bg-primary-bg text-tx-primary flex flex-col items-center justify-center min-h-screen p-10 text-center">
-        <h2 className="text-2xl font-bold mb-4 uppercase tracking-tight">System Analysis Interrupted</h2>
-        <p className="text-sm text-tx-secondary mb-8">A critical error occurred in the intelligence engine.</p>
+      <body
+        style={{
+          background: 'var(--md-sys-color-surface)',
+          color: 'var(--md-sys-color-on-surface)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          padding: '40px',
+          textAlign: 'center',
+          margin: 0,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '1.5rem',
+            lineHeight: '2rem',
+            fontWeight: 700,
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            letterSpacing: '-0.025em',
+          }}
+        >
+          System Analysis Interrupted
+        </h2>
+        <p
+          style={{
+            fontSize: '0.875rem',
+            lineHeight: '1.25rem',
+            color: 'var(--md-sys-color-on-surface-variant)',
+            marginBottom: '32px',
+          }}
+        >
+          A critical error occurred in the intelligence engine.
+        </p>
         <button
           onClick={() => reset()}
-          className="px-6 py-3 bg-accent text-white rounded-md font-bold text-sm uppercase tracking-wider hover:brightness-110"
+          style={{
+            padding: '12px 24px',
+            background: 'var(--md-sys-color-primary)',
+            color: '#fff',
+            borderRadius: '6px',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            lineHeight: '1.25rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'filter 0.15s ease',
+          }}
         >
           Re-initialize Engine
         </button>

@@ -5,8 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
-import Loader from '@/components/Loader';
-import Button from '@/components/Button';
+
+// MD3 Components
+import '@material/web/progress/circular-progress.js';
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/icon/icon.js';
+import '@material/web/labs/card/elevated-card.js';
+import '@material/web/labs/card/outlined-card.js';
+
 import { Game, GameStatus } from '@/types/game';
 import UploadForm from '@/components/UploadForm';
 
@@ -19,7 +27,7 @@ const GamesPage = () => {
   const { data: games, isLoading, mutate } = useSWR<Game[]>('/games', {
     refreshInterval: 5000,
   });
-  
+
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [resumeGameId, setResumeGameId] = useState<string | null>(null);
 
@@ -34,39 +42,40 @@ const GamesPage = () => {
     switch (status) {
       case GameStatus.COMPLETED:
       case GameStatus.ANALYZED:
-        return { icon: 'check_circle', color: 'var(--color-success)', label: 'READY' };
+        return { icon: 'check_circle', color: 'var(--md-sys-color-tertiary)', label: 'READY' };
       case GameStatus.PROCESSING:
-        return { icon: 'sync', color: 'var(--accent)', label: 'ANALYZING', spin: true };
+        return { icon: 'sync', color: 'var(--md-sys-color-primary)', label: 'ANALYZING', spin: true };
       case GameStatus.FAILED:
-        return { icon: 'error', color: 'var(--color-error)', label: 'FAILED' };
+        return { icon: 'error', color: 'var(--md-sys-color-error)', label: 'FAILED' };
       case GameStatus.UPLOADED:
-        return { icon: 'cloud_done', color: 'var(--text-muted)', label: 'UPLOADED' };
+        return { icon: 'cloud_done', color: 'var(--md-sys-color-on-surface-variant)', label: 'UPLOADED' };
       case GameStatus.ASSIGNMENT_PENDING:
-        return { icon: 'person_search', color: 'var(--accent)', label: 'IDENTITY' };
+        return { icon: 'person_search', color: 'var(--md-sys-color-primary)', label: 'IDENTITY' };
       case GameStatus.PENDING:
-        return { icon: 'upload_file', color: 'var(--accent)', label: 'DRAFT' };
+        return { icon: 'upload_file', color: 'var(--md-sys-color-primary)', label: 'DRAFT' };
       default:
-        return { icon: 'pending', color: 'var(--text-muted)', label: status };
+        return { icon: 'pending', color: 'var(--md-sys-color-on-surface-variant)', label: status };
     }
   };
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center h-[80vh]">
-      <Loader size="large" />
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
+        <md-circular-progress indeterminate />
+      </div>
+    );
+  }
 
   const handleRetry = (e: React.MouseEvent, gameId: string) => {
-    e.stopPropagation(); // Prevent navigating to game page
+    e.stopPropagation();
     setResumeGameId(gameId);
     setIsUploadMode(true);
-    // Update URL without full refresh to maintain state
     router.replace(`/games?resume=${gameId}`);
   };
 
   const handleDelete = async (e: React.MouseEvent, gameId: string) => {
     e.stopPropagation();
-    
+
     if (!confirm('Are you sure you want to delete this game and all its data? This action cannot be undone.')) {
       return;
     }
@@ -76,8 +85,7 @@ const GamesPage = () => {
       await apiClient.delete(`/games/${gameId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      // Cleanup localStorage if this was the active resumable upload
+
       const activeUploadId = localStorage.getItem('statvision_active_upload_id');
       if (activeUploadId === gameId) {
         localStorage.removeItem('statvision_active_upload_id');
@@ -85,176 +93,284 @@ const GamesPage = () => {
         localStorage.removeItem('statvision_active_upload_filesize');
       }
 
-      mutate(); // Refresh the list
+      mutate();
     } catch (error) {
       console.error('Error deleting game:', error);
       alert('Failed to delete game. Please try again.');
     }
   };
 
-  if (isUploadMode) return (
-    <div className="max-w-4xl mx-auto pb-24">
-      <header className="mb-10 flex flex-col gap-4">
-        <button 
-          onClick={() => {
-            setIsUploadMode(false);
-            setResumeGameId(null);
-            router.replace('/games');
-          }} 
-          className="text-accent font-bold text-xs uppercase tracking-wider flex items-center gap-2 hover:text-tx-primary transition-colors"
-        >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
-          Return to Vault
-        </button>
-        <h1 className="text-3xl font-bold tracking-tight text-tx-primary">
-          {resumeGameId ? 'Recover Upload' : 'Initialize New Analysis'}
-        </h1>
-      </header>
-      <div className="bg-surface border border-border-main rounded-md p-1">
-        <UploadForm 
-          initialGameId={resumeGameId || undefined}
-          onUploadComplete={() => {
-            setIsUploadMode(false);
-            setResumeGameId(null);
-            router.replace('/games');
-            mutate();
-          }}
-          onCancel={() => {
-            setIsUploadMode(false);
-            setResumeGameId(null);
-            router.replace('/games');
-          }}
-        />
+  if (isUploadMode) {
+    return (
+      <div style={{ maxWidth: '896px', margin: '0 auto', paddingBottom: '96px' }}>
+        <header style={{ marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <md-text-button
+            onClick={() => {
+              setIsUploadMode(false);
+              setResumeGameId(null);
+              router.replace('/games');
+            }}
+          >
+            <md-icon slot="icon">arrow_back</md-icon>
+            Return to Vault
+          </md-text-button>
+          <h1 style={{ fontSize: '30px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--md-sys-color-on-surface)', margin: 0 }}>
+            {resumeGameId ? 'Recover Upload' : 'Initialize New Analysis'}
+          </h1>
+        </header>
+        <md-outlined-card>
+          <UploadForm
+            initialGameId={resumeGameId || undefined}
+            onUploadComplete={() => {
+              setIsUploadMode(false);
+              setResumeGameId(null);
+              router.replace('/games');
+              mutate();
+            }}
+            onCancel={() => {
+              setIsUploadMode(false);
+              setResumeGameId(null);
+              router.replace('/games');
+            }}
+          />
+        </md-outlined-card>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="pb-16 flex flex-col gap-10">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight text-tx-primary">Film Room</h1>
-          <p className="text-xs text-tx-secondary font-medium uppercase tracking-widest">Storage & Analysis Hub</p>
+    <div style={{ paddingBottom: '64px', display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      <header style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.025em', color: 'var(--md-sys-color-on-surface)', margin: 0 }}>
+            Film Room
+          </h1>
+          <p style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+            Storage & Analysis Hub
+          </p>
         </div>
-        <Button 
-          onClick={() => setIsUploadMode(true)}
-          icon="add_box"
-          size="lg"
-        >
+        <md-filled-button onClick={() => setIsUploadMode(true)}>
+          <md-icon slot="icon">add_box</md-icon>
           New Upload
-        </Button>
+        </md-filled-button>
       </header>
 
       {!games || games.length === 0 ? (
-          <section className="bg-primary-bg/50 py-32 flex flex-col items-center justify-center text-center border-dashed border border-border-main rounded-md">
-            <div className="w-16 h-16 rounded-md bg-surface border border-border-main flex items-center justify-center mb-6 text-tx-dim">
-              <span className="material-symbols-outlined text-3xl">videocam_off</span>
-            </div>
-            <h2 className="text-lg font-bold text-tx-primary mb-2">The Vault is Empty</h2>
-            <p className="text-sm text-tx-secondary max-w-xs mx-auto mb-10">Upload your first game to begin automated performance tracking.</p>
-            <Button 
-              onClick={() => setIsUploadMode(true)}
-              variant="outline"
-              size="lg"
-            >
-              Start Analysis
-            </Button>
-          </section>
+        <section style={{
+          padding: '128px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          border: '2px dashed var(--md-sys-color-outline-variant)',
+          borderRadius: '12px',
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '12px',
+            background: 'var(--md-sys-color-surface-container-high)',
+            border: '1px solid var(--md-sys-color-outline-variant)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '24px',
+            color: 'var(--md-sys-color-on-surface-variant)',
+          }}>
+            <md-icon>videocam_off</md-icon>
+          </div>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', margin: '0 0 8px 0' }}>
+            The Vault is Empty
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', maxWidth: '320px', margin: '0 auto 40px auto' }}>
+            Upload your first game to begin automated performance tracking.
+          </p>
+          <md-outlined-button onClick={() => setIsUploadMode(true)}>
+            Start Analysis
+          </md-outlined-button>
+        </section>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
           {games.map((game: Game) => {
             const status = getStatusDisplay(game.status);
             const date = new Date(game.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const canRetry = game.status === GameStatus.FAILED || game.status === GameStatus.PENDING;
-            
+
             return (
-              <div 
-                key={game.id}
-                onClick={() => !canRetry && router.push(`/games/${game.id}`)}
-                className={`bg-surface border border-border-main rounded-md group overflow-hidden flex flex-col transition-all duration-200 ${canRetry ? 'opacity-80' : 'cursor-pointer hover:border-accent'}`}
-              >
-                {/* Scoreboard-style Header */}
-                <div className="p-5 border-b border-border-main bg-primary-bg/30 flex items-center justify-between gap-4">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-bold text-tx-dim uppercase tracking-widest">{date}</span>
-                    <span className="text-[10px] font-bold text-accent uppercase tracking-tighter italic">{game.gameType.replace(/_/g, ' ')}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] font-bold tracking-wider" 
-                      style={{ color: status.color, borderColor: `${status.color}33`, background: `${status.color}0D` }}>
-                      <span className={`material-symbols-outlined text-[12px] ${status.spin ? 'animate-spin' : ''}`}>{status.icon}</span>
-                      {status.label}
-                    </span>
-
-                    <button 
-                      onClick={(e) => handleDelete(e, game.id)}
-                      className="text-tx-dim hover:text-color-error transition-colors p-1 rounded-full hover:bg-color-error/10 flex items-center justify-center"
-                      title="Delete Game"
-                    >
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Matchup Content */}
-                <div className="p-6 flex-1 flex flex-col gap-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                      <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent text-sm font-black">
-                        {game.homeTeam?.name?.charAt(0).toUpperCase() || 'H'}
-                      </div>
-                      <span className="text-[10px] font-bold text-tx-secondary uppercase truncate max-w-[80px]">{game.homeTeam?.name || 'HOME'}</span>
-                    </div>
-                    
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-xs font-black text-tx-dim uppercase tracking-tighter">VS</span>
+              <div key={game.id} style={{ flex: '1 1 300px', maxWidth: '100%', minWidth: '280px' }}>
+                <md-elevated-card
+                  onClick={() => !canRetry && router.push(`/games/${game.id}`)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: canRetry ? 'default' : 'pointer',
+                    opacity: canRetry ? 0.8 : 1,
+                  }}
+                >
+                  {/* Scoreboard-style Header */}
+                  <div style={{
+                    padding: '20px',
+                    borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        {date}
+                      </span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '-0.025em', fontStyle: 'italic' }}>
+                        {game.gameType.replace(/_/g, ' ')}
+                      </span>
                     </div>
 
-                    <div className="flex flex-col items-center gap-1 flex-1">
-                      <div className="w-10 h-10 rounded-full bg-warning/10 border border-warning/20 flex items-center justify-center text-warning text-sm font-black">
-                        {game.awayTeam?.name?.charAt(0).toUpperCase() || 'A'}
-                      </div>
-                      <span className="text-[10px] font-bold text-tx-secondary uppercase truncate max-w-[80px]">{game.awayTeam?.name || 'AWAY'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        border: '1px solid',
+                        borderColor: `color-mix(in srgb, ${status.color} 20%, transparent)`,
+                        background: `color-mix(in srgb, ${status.color} 5%, transparent)`,
+                        color: status.color,
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        letterSpacing: '0.05em',
+                      }}>
+                        <md-icon>
+                          {status.icon}
+                        </md-icon>
+                        {status.label}
+                      </span>
+
+                      <button
+                        onClick={(e) => handleDelete(e, game.id)}
+                        title="Delete Game"
+                        style={{
+                          color: 'var(--md-sys-color-on-surface-variant)',
+                          padding: '4px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: 'none',
+                          background: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <md-icon>delete</md-icon>
+                      </button>
                     </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-tx-primary text-center truncate group-hover:text-accent transition-colors">{game.name}</h3>
-                </div>
-
-                {/* Footer Stats / Actions */}
-                <div className="px-5 py-3 border-t border-border-main bg-primary-bg/20 flex items-center justify-between min-h-[44px]">
-                  {canRetry ? (
-                    <Button 
-                        variant="primary" 
-                        size="sm" 
-                        fullWidth 
-                        icon="refresh"
-                        onClick={(e) => handleRetry(e, game.id)}
-                    >
-                        Retry Upload
-                    </Button>
-                  ) : (
-                    <>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px] text-tx-dim">analytics</span>
-                            <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.events?.length || 0}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px] text-tx-dim">person</span>
-                            <span className="text-[10px] font-bold text-tx-dim uppercase mono-stat">{game.playerStats?.length || 0}</span>
-                            </div>
+                  {/* Matchup Content */}
+                  <div style={{ padding: '24px', flex: '1', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: '1' }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--md-sys-color-primary)',
+                          fontSize: '14px',
+                          fontWeight: 900,
+                        }}>
+                          {game.homeTeam?.name?.charAt(0).toUpperCase() || 'H'}
                         </div>
-                        <span className="material-symbols-outlined text-tx-dim group-hover:text-accent transition-all text-base">chevron_right</span>
-                    </>
-                  )}
-                </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
+                          {game.homeTeam?.name || 'HOME'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 900, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>VS</span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: '1' }}>
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '50%',
+                          background: 'color-mix(in srgb, var(--md-sys-color-secondary) 10%, transparent)',
+                          border: '1px solid color-mix(in srgb, var(--md-sys-color-secondary) 20%, transparent)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--md-sys-color-secondary)',
+                          fontSize: '14px',
+                          fontWeight: 900,
+                        }}>
+                          {game.awayTeam?.name?.charAt(0).toUpperCase() || 'A'}
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
+                          {game.awayTeam?.name || 'AWAY'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                      {game.name}
+                    </h3>
+                  </div>
+
+                  {/* Footer Stats / Actions */}
+                  <div style={{
+                    padding: '12px 20px',
+                    borderTop: '1px solid var(--md-sys-color-outline-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    minHeight: '44px',
+                  }}>
+                    {canRetry ? (
+                      <md-filled-button
+                        onClick={(e) => handleRetry(e, game.id)}
+                      >
+                        <md-icon slot="icon">refresh</md-icon>
+                        Retry Upload
+                      </md-filled-button>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <md-icon>analytics</md-icon>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
+                              {game.events?.length || 0}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <md-icon>person</md-icon>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
+                              {game.playerStats?.length || 0}
+                            </span>
+                          </div>
+                        </div>
+                        <md-icon>chevron_right</md-icon>
+                      </>
+                    )}
+                  </div>
+                </md-elevated-card>
               </div>
             );
           })}
         </div>
       )}
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

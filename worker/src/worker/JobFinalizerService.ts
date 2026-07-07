@@ -39,6 +39,9 @@ export class JobFinalizerService {
     public async finalizeJob(jobId: string): Promise<void> {
         this.logger.info(`[JobFinalizerService] Checking final status for job ${jobId}`, { phase: 'finalizing' });
 
+        // Update heartbeat immediately so the watchdog doesn't kill us while we aggregate
+        await this.jobRepository.update(jobId, { processingHeartbeatAt: new Date() }).catch(() => {});
+
         const job = await this.jobRepository.findOneById(jobId);
         if (!job) {
             this.logger.error(`[JobFinalizerService] Job ${jobId} not found.`, { phase: 'finalizing' });

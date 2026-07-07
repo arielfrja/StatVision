@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import Button from '@/components/Button';
 import { Game } from '@/types/game';
 import { appLogger as logger } from '@/utils/Logger';
+import '@material/web/button/filled-button.js';
+import '@material/web/icon/icon.js';
 
 interface CoachReportProps {
     game: Game;
@@ -40,59 +41,142 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
     };
 
     return (
-        <div className="flex flex-col gap-6 p-6 bg-surface border border-border-main rounded-md">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-border-main pb-6">
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            padding: '24px',
+            backgroundColor: 'var(--md-sys-color-surface)',
+            border: '1px solid var(--md-sys-color-outline-variant)',
+            borderRadius: '6px',
+        }}>
+            <div data-coach-report-header style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '16px',
+                borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                paddingBottom: '24px',
+            }}>
                 <div>
-                    <h2 className="text-xl font-black text-tx-primary uppercase tracking-tight">AI Virtual Coach</h2>
-                    <p className="text-xs text-tx-dim font-medium uppercase tracking-widest mt-1">Strategic Performance Insights</p>
+                    <h2 style={{
+                        fontSize: '20px',
+                        fontWeight: 900,
+                        color: 'var(--md-sys-color-on-surface)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '-0.025em',
+                        margin: 0,
+                    }}>AI Virtual Coach</h2>
+                    <p style={{
+                        fontSize: '12px',
+                        color: 'var(--md-sys-color-on-surface-variant)',
+                        fontWeight: 500,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        margin: '4px 0 0 0',
+                    }}>Strategic Performance Insights</p>
                 </div>
                 
-                <div className="flex items-center gap-3">
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                }}>
                     <select 
                         value={selectedTeamId} 
                         onChange={(e) => setSelectedTeamId(e.target.value)}
-                        className="bg-primary-bg border border-border-main text-tx-primary text-xs font-bold uppercase p-2 rounded focus:outline-none focus:border-accent"
+                        style={{
+                            backgroundColor: 'var(--md-sys-color-surface-container)',
+                            border: '1px solid var(--md-sys-color-outline-variant)',
+                            color: 'var(--md-sys-color-on-surface)',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            outline: 'none',
+                        }}
                     >
                         <option value={game.homeTeamId || ''}>{game.homeTeam?.name || 'Home Team'}</option>
                         <option value={game.awayTeamId || ''}>{game.awayTeam?.name || 'Away Team'}</option>
                     </select>
                     
-                    <Button 
+                    <md-filled-button 
                         onClick={generateReport} 
-                        isLoading={loading}
-                        icon="smart_toy"
-                        variant="primary"
+                        disabled={loading}
                     >
+                        <md-icon slot="icon">smart_toy</md-icon>
                         {report ? 'Regenerate Report' : 'Generate Report'}
-                    </Button>
+                    </md-filled-button>
                 </div>
             </div>
 
             {report ? (
-                <div className="whitespace-pre-wrap text-tx-secondary text-sm leading-relaxed coach-report-content">
+                <div data-coach-report-content style={{
+                    whiteSpace: 'pre-wrap',
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    fontSize: '14px',
+                    lineHeight: '1.625',
+                }}>
                     {report}
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4">
-                        <span className="material-symbols-outlined text-accent text-3xl">psychology</span>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingTop: '80px',
+                    paddingBottom: '80px',
+                    textAlign: 'center',
+                }}>
+                    <div style={{
+                        width: '64px',
+                        height: '64px',
+                        backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '16px',
+                    }}>
+                        <md-icon>psychology</md-icon>
                     </div>
-                    <h3 className="text-sm font-bold text-tx-primary uppercase tracking-tight">No Report Generated</h3>
-                    <p className="text-xs text-tx-dim mt-2 max-w-xs">
+                    <h3 style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: 'var(--md-sys-color-on-surface)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '-0.025em',
+                        margin: 0,
+                    }}>No Report Generated</h3>
+                    <p style={{
+                        fontSize: '12px',
+                        color: 'var(--md-sys-color-on-surface-variant)',
+                        marginTop: '8px',
+                        maxWidth: '320px',
+                        margin: '8px 0 0 0',
+                    }}>
                         Select a team and click "Generate Report" to have our AI analyze game events and player efficiency.
                     </p>
                 </div>
             )}
 
-            <style jsx global>{`
-                .coach-report-content h3 {
-                    color: var(--color-accent);
+            <style>{`
+                @media (min-width: 768px) {
+                    [data-coach-report-header] {
+                        flex-direction: row !important;
+                    }
+                }
+                [data-coach-report-content] h3 {
+                    color: var(--md-sys-color-primary);
                     text-transform: uppercase;
                     font-size: 0.875rem;
                     font-weight: 800;
                     letter-spacing: 0.05em;
                     margin-top: 1.5rem;
-                    border-left: 3px solid var(--color-accent);
+                    border-left: 3px solid var(--md-sys-color-primary);
                     padding-left: 0.75rem;
                 }
             `}</style>
