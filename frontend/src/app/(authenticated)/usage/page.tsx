@@ -51,7 +51,13 @@ const UsageDashboard = () => {
   }, [daily]);
 
   const totalTokens = summary?.totalTokens || 0;
+  const totalInputTokens = summary?.totalInputTokens || 0;
+  const totalOutputTokens = summary?.totalOutputTokens || 0;
   const totalVideoMinutes = Math.round((summary?.totalVideoSeconds || 0) / 60);
+  const pricing = summary?.pricing || { inputPricePer1M: 0.50, outputPricePer1M: 3.00, model: 'gemini-3-flash-preview' };
+  const inputPricePerToken = pricing.inputPricePer1M / 1000000;
+  const outputPricePerToken = pricing.outputPricePer1M / 1000000;
+  const estimatedCost = (totalInputTokens * inputPricePerToken) + (totalOutputTokens * outputPricePerToken);
 
   if (summaryLoading || dailyLoading) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -118,8 +124,8 @@ const UsageDashboard = () => {
                   <Info size={12} className="text-tx-dim opacity-40 cursor-help" />
                </div>
             </div>
-            <div className="text-3xl font-black text-tx-primary mono-stat">${(totalTokens * 0.000000125).toFixed(2)}</div>
-            <p className="text-[9px] text-tx-secondary uppercase tracking-tighter">Projected cost estimate</p>
+            <div className="text-3xl font-black text-tx-primary mono-stat">${estimatedCost.toFixed(4)}</div>
+            <p className="text-[9px] text-tx-secondary uppercase tracking-tighter">Est. cost ({pricing.model}: ${pricing.inputPricePer1M}/${pricing.outputPricePer1M} $/1M I/O)</p>
          </div>
       </div>
 
@@ -210,9 +216,9 @@ const UsageDashboard = () => {
             <h3 className="text-[10px] font-bold text-tx-dim uppercase tracking-widest mb-6">Usage Policies</h3>
             <div className="space-y-4">
                {[
-                 { label: 'Standard Rate', val: '0.000125 / 1k Tokens' },
-                 { label: 'Quota Limit', val: '500,000 Tokens / Day' },
-                 { label: 'Video Cap', val: '120 Minutes / Job' }
+                  { label: 'Input Rate', val: `$${pricing.inputPricePer1M.toFixed(2)} / 1M Tokens` },
+                  { label: 'Output Rate', val: `$${pricing.outputPricePer1M.toFixed(2)} / 1M Tokens` },
+                  { label: 'Video Cap', val: '120 Minutes / Job' }
                ].map((item, i) => (
                  <div key={i} className="flex justify-between items-center pb-4 border-b border-border-main last:border-0 last:pb-0">
                    <span className="text-[10px] font-bold text-tx-secondary uppercase tracking-tight">{item.label}</span>

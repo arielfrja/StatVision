@@ -84,9 +84,13 @@ export class AppContainer {
             commonLogger
         );
         
+        const geminiModelName = process.env.GEMINI_MODEL_NAME;
+        if (!geminiModelName) {
+            throw new Error('MISSING_CONFIG: GEMINI_MODEL_NAME environment variable is required.');
+        }
         const geminiProvider = new GeminiProvider(
             process.env.GEMINI_API_KEY || '',
-            process.env.GEMINI_MODEL_NAME || 'gemini-1.5-pro',
+            geminiModelName,
             commonLogger
         );
 

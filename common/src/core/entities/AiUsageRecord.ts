@@ -25,6 +25,12 @@ export class AiUsageRecord {
     @Column({ type: "float" })
     amount: number;
 
+    @Column({ name: "input_tokens", type: "float", nullable: true })
+    inputTokens: number | null;
+
+    @Column({ name: "output_tokens", type: "float", nullable: true })
+    outputTokens: number | null;
+
     @Column({ type: "varchar", nullable: true })
     model: string | null;
 

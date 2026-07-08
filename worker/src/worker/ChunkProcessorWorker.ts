@@ -220,9 +220,10 @@ export class ChunkProcessorWorker {
             // Record AI Usage
             if (analysisResult.usageMetadata) {
                 await this.aiUsageService.recordTokenUsage(
-                    job.userId, 
-                    analysisResult.usageMetadata.totalTokenCount,
-                    workerConfig.geminiModelName, // Fixed property name
+                    job.userId,
+                    analysisResult.usageMetadata.promptTokenCount,
+                    analysisResult.usageMetadata.candidatesTokenCount,
+                    workerConfig.geminiModelName,
                     chunk.id
                 ).catch(err => this.logger.warn(`Failed to record token usage: ${err.message}`));
             }

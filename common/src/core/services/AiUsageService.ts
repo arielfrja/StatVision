@@ -8,11 +8,13 @@ export class AiUsageService {
         this.repository = this.dataSource.getRepository(AiUsageRecord);
     }
 
-    async recordTokenUsage(userId: string, tokens: number, model: string, resourceId?: string): Promise<AiUsageRecord> {
+    async recordTokenUsage(userId: string, inputTokens: number, outputTokens: number, model: string, resourceId?: string): Promise<AiUsageRecord> {
         const record = new AiUsageRecord();
         record.userId = userId;
         record.type = AiUsageType.TOKEN;
-        record.amount = tokens;
+        record.amount = inputTokens + outputTokens;
+        record.inputTokens = inputTokens;
+        record.outputTokens = outputTokens;
         record.model = model;
         record.resourceId = resourceId || null;
         return await this.repository.save(record);
@@ -36,6 +38,8 @@ export class AiUsageService {
 
         const summary = {
             totalTokens: 0,
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
             totalVideoSeconds: 0,
             records: records
         };
@@ -43,6 +47,8 @@ export class AiUsageService {
         records.forEach(record => {
             if (record.type === AiUsageType.TOKEN) {
                 summary.totalTokens += record.amount;
+                summary.totalInputTokens += record.inputTokens || 0;
+                summary.totalOutputTokens += record.outputTokens || 0;
             } else if (record.type === AiUsageType.VIDEO_SECONDS) {
                 summary.totalVideoSeconds += record.amount;
             }

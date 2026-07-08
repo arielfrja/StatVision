@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { AiUsageService } from '@statvision/common';
 import logger from '../config/logger';
 
+const MODEL_PRICING = {
+    inputPricePer1M: 0.50,
+    outputPricePer1M: 3.00,
+    model: 'gemini-3-flash-preview',
+};
+
 export const usageRoutes = (aiUsageService: AiUsageService) => {
     const router = Router();
 
@@ -35,7 +41,7 @@ export const usageRoutes = (aiUsageService: AiUsageService) => {
             const end = req.query.end ? new Date(req.query.end as string) : new Date();
 
             const summary = await aiUsageService.getUsageSummary(userId, start, end);
-            res.json(summary);
+            res.json({ ...summary, pricing: MODEL_PRICING });
         } catch (error) {
             next(error);
         }
