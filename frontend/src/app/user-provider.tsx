@@ -52,12 +52,11 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
 
   const shouldUseMock = isMock;
 
-  if (!shouldUseMock && (!domain || !clientId || !baseUrl)) {
+  if (!domain || !clientId || !baseUrl) {
     throw new Error(
-      'Mock auth disabled but Auth0 env vars missing. ' +
-      'Set NEXT_PUBLIC_USE_MOCK_AUTH=true for mock mode, or configure ' +
-      'NEXT_PUBLIC_AUTH0_DOMAIN, NEXT_PUBLIC_AUTH0_CLIENT_ID, ' +
-      'and NEXT_PUBLIC_BASE_URL environment variables.'
+      'Missing Auth0 configuration. Set NEXT_PUBLIC_AUTH0_DOMAIN, ' +
+      'NEXT_PUBLIC_AUTH0_CLIENT_ID, and NEXT_PUBLIC_BASE_URL ' +
+      'environment variables.'
     );
   }
 
