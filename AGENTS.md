@@ -41,4 +41,4 @@ This file provides the foundational context and operational mandates for AI agen
    - Test on production
 3. **No Auth0 tokens:** The agent cannot generate Auth0 tokens from this terminal for API testing. Pipeline E2E tests (game creation, video upload) must be done by the user or via CI.
 4. **No GCP service account key:** The agent has `gcloud` CLI with user credentials (`arielfrja@gmail.com`) but cannot impersonate `pubsub-worker` (lacks `iam.serviceAccountTokenCreator`). Cannot generate OIDC identity tokens for webhook testing.
-5. **Android platform:** `next build` fails locally (lightningcss native binary incompatibility on android-arm64). Build verification relies on GitHub Actions CI. Playwright E2E tests also don't run on Android.
+5. **Android platform:** `npm run dev` works locally (confirmed HTTP 200). `next build` works locally with `turbopack: {}` in config. Build verification also runs via GitHub Actions CI.

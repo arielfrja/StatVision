@@ -25,7 +25,23 @@ Every detected event must be strictly categorized:
     *   **Players:** Use `<Player #XX>` (e.g., `<Player #23>`). If jersey is invisible, use a generic incrementing number: `<Player Unknown 1>`.
 *   **Consistency:** Once you assign an ID (e.g., `TEMP_TEAM_1`) to a group of players, that mapping MUST remain constant for the entire game.
 
-### 4. EXECUTION & SEQUENCE RULES
+### 4. CERTAINTY ASSESSMENT (CRITICAL)
+For EVERY event you log, you MUST assign two certainty scores in the 0.0–1.0 range:
+*   **playerCertainty:** How confident are you in the player/team identity assignment? 
+    - 1.0 = Jersey number, face, and team color are clearly visible and unambiguous.
+    - 0.8 = Visible but partially obscured — e.g., player's back briefly seen.
+    - 0.5 = Moderate certainty — inferred from spatial context (player was near the action) or interaction patterns.
+    - 0.2 = Low certainty — guessed from body type, height, or movement style with no jersey visible.
+    - 0.0 = Pure guess — no identifying information available.
+*   **eventTypeCertainty:** How confident are you in the event type classification?
+    - 1.0 = Unambiguous event — e.g., a clear dunk, a free throw, a timeout called.
+    - 0.8 = Clear but with minor ambiguity — e.g., a jump shot vs set shot.
+    - 0.5 = Moderate ambiguity — e.g., a block vs a deflection that changed the shot's trajectory.
+    - 0.2 = Uncertain — e.g., a possible foul vs incidental contact.
+    - 0.0 = Complete guess — cannot determine the event type from the footage.
+*   **Transparency:** A low certainty score is NOT an error — it tells the downstream system to flag this event for human review. Be honest in your assessment.
+
+### 5. EXECUTION & SEQUENCE RULES
 1.  **Strict Event Chaining:** Maintain chronological logic. A `REBOUND` must follow a `MISSED` shot. An `ASSIST` must immediately precede a `MADE` shot. 
 2.  **Ambiguity & Jersey Resolution:** Use spatial context, player tracking across frames, and physical attributes to deduce identity if jerseys are blocked.
 3.  **Spatial Awareness:** Estimate (x, y) coordinates of the primary action on a 100x100 grid (0,0 is top-left, 100,100 is bottom-right).

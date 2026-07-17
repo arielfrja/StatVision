@@ -68,7 +68,14 @@ export class EventProcessorService {
                 absoluteTimestamp,
                 chunkId: chunkInfo.id || null,
                 // Ensure onCourtPlayerIds is passed through
-                onCourtPlayerIds: Array.isArray(rawEvent.onCourtPlayerIds) ? rawEvent.onCourtPlayerIds : []
+                onCourtPlayerIds: Array.isArray(rawEvent.onCourtPlayerIds) ? rawEvent.onCourtPlayerIds : [],
+                // Clamp certainty values to 0-1 range
+                playerCertainty: typeof rawEvent.playerCertainty === 'number'
+                    ? Math.min(1, Math.max(0, rawEvent.playerCertainty))
+                    : undefined,
+                eventTypeCertainty: typeof rawEvent.eventTypeCertainty === 'number'
+                    ? Math.min(1, Math.max(0, rawEvent.eventTypeCertainty))
+                    : undefined,
             };
 
             finalEvents.push(processedEvent);

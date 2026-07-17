@@ -64,3 +64,4 @@ STADIUM_VISION_CONSULT/
 sandbox/*
 !sandbox/.gitkeep
 !sandbox/README.md
+.ai_workspace/

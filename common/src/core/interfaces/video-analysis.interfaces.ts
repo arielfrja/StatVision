@@ -37,4 +37,6 @@ export interface ProcessedGameEvent {
     identifiedJerseyNumber: number | null;
     videoClipStartTime: number;
     videoClipEndTime: number;
+    playerCertainty?: number; // 0.0-1.0 confidence in player/team identity assignment
+    eventTypeCertainty?: number; // 0.0-1.0 confidence in event type classification
 }

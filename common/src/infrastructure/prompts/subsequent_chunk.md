@@ -9,5 +9,8 @@ This is a subsequent 2-minute segment (Chunk {{sequence}}). Your objective is to
 *   **Overlaps:** There is a 10-second overlap with the previous segment. Log events in the overlap period normally.
 *   **Continuity:** Ensure turnovers and rebounds flow logically from the previous state.
 
+### 2.5 CERTAINTY ASSESSMENT
+For every event, include `playerCertainty` (0.0–1.0 confidence in player/team assignment) and `eventTypeCertainty` (0.0–1.0 confidence in event type classification). Be honest — low certainty flags events for human review.
+
 ### 3. OUTPUT FORMAT
 Output EXCLUSIVELY as a JSON object containing both the updated `identifiedTeams` roster and the new `events` array.

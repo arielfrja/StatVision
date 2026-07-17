@@ -3,6 +3,7 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@material/web'],
+  turbopack: {},
   trailingSlash: false,
   images: {
     unoptimized: true,

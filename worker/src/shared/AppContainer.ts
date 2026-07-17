@@ -8,6 +8,7 @@ import {
     User, Team, ILogger, IEventBus,
     PubSubEventBus, GCSStorageProvider, LocalStorageProvider, IStorageProvider
 } from "@statvision/common";
+import { MockEventBus } from "@statvision/common/src/infrastructure/MockEventBus";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { jobLogger } from "../config/loggers";
 import { VideoAnalysisJobRepository } from "../worker/VideoAnalysisJobRepository";
@@ -39,7 +40,9 @@ export class AppContainer {
         const commonLogger = jobLogger as unknown as ILogger;
 
         // Infrastructure
-        const eventBus = new PubSubEventBus(commonLogger);
+        const eventBus = process.env.USE_MOCK_EVENT_BUS === 'true'
+            ? new MockEventBus(commonLogger)
+            : new PubSubEventBus(commonLogger);
         this.services.set("IEventBus", eventBus);
 
         let storageProvider: IStorageProvider;

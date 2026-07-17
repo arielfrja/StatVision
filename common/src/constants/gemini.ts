@@ -104,6 +104,16 @@ export const EVENT_SCHEMA = {
                         description: "A list of IDs for all other players visible on the court during this event.",
                         items: { type: "string" },
                         nullable: true
+                    },
+                    playerCertainty: { 
+                        type: "number", 
+                        description: "Confidence level (0.0-1.0) in the player/team identity assignment. 1.0 = certain (jersey clearly visible), 0.5 = moderate (inferred from context), 0.0 = guess.",
+                        nullable: true 
+                    },
+                    eventTypeCertainty: { 
+                        type: "number", 
+                        description: "Confidence level (0.0-1.0) in the event type classification. 1.0 = certain (clear dunk), 0.7 = probable, 0.3 = uncertain (e.g., block vs deflection).",
+                        nullable: true 
                     }
                 },
                 required: ["eventType", "timestamp"]

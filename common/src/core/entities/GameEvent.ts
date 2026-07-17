@@ -90,4 +90,10 @@ export class GameEvent {
 
     @Column({ name: "video_clip_end_time", type: "float", nullable: true })
     videoClipEndTime: number | null;
+
+    @Column({ name: "player_certainty", type: "float", nullable: true })
+    playerCertainty: number | null;
+
+    @Column({ name: "event_type_certainty", type: "float", nullable: true })
+    eventTypeCertainty: number | null;
 }

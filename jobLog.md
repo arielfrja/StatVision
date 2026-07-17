@@ -637,3 +637,26 @@ These tests must be run from a standard x86_64 Linux/macOS environment (or CI):
 - [x] `game_events.assigned_team_id` populated (134/137 have team, 122/137 have player)
 - [x] `playerStats`/`teamStats` recalculated, home/away team IDs set
 - [ ] Evaluate whether to set `NEXT_PUBLIC_USE_MOCK_AUTH=true` on production Vercel to enable no-login E2E testing
+
+## [2026-07-17] Feature: Certainty Levels for Play Event Extraction
+**Objective:** Add `playerCertainty` and `eventTypeCertainty` fields to every play event, enabling downstream confidence-based filtering and human review flagging.
+
+### ✅ Completed Changes (8 files)
+- **EVENT_SCHEMA (`gemini.ts`):** Added `playerCertainty` (0–1, confidence in player/team identity) and `eventTypeCertainty` (0–1, confidence in event type classification) as nullable numbers.
+- **System Prompt (`system_instruction.md`):** Added section 4: CERTAINTY ASSESSMENT with detailed rubric for both certainty scores.
+- **First Chunk Prompt (`first_chunk.md`):** Updated output format example to include certainty fields.
+- **Subsequent Chunk Prompt (`subsequent_chunk.md`):** Added section 2.5 on certainty assessment.
+- **Interface (`video-analysis.interfaces.ts`):** Added `playerCertainty?: number` and `eventTypeCertainty?: number` to `ProcessedGameEvent`.
+- **Entity (`GameEvent.ts`):** Added `player_certainty` and `event_type_certainty` float columns (nullable).
+- **EventProcessorService:** Added 0–1 clamping logic for certainty values passed through from raw AI response.
+- **VideoAnalysisResultService:** Added certainty fields to destructuring exclusion (prevent leaking into eventDetails JSONB) with explicit clamped mapping.
+
+### 🛠 Verification
+- TypeScript compilation passes cleanly on all 3 packages: `common` ✅, `worker` ✅, `api` ✅ (zero errors).
+- `npm run dev` (port 3002): ✅ HTTP 200 — full page renders with StatVision UI.
+- `npm run build` (webpack on Android/SD695): ✅ Exit code 0 — compiled in 118s, 11 routes (7 static ○, 4 dynamic ƒ).
+
+### 🗄 Database Migration
+- **Migration created:** `common/src/migration/1784270848000-AddCertaintyColumnsToGameEvent.ts`
+- **Adds columns:** `player_certainty` (float, nullable) and `event_type_certainty` (float, nullable) to `game_events` table.
+- **Compiles:** ✅ Zero TypeScript errors.

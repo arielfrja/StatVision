@@ -138,8 +138,16 @@ export class VideoAnalysisResultService {
                     eventType, eventSubType, timestamp, isSuccessful, period, xCoord, yCoord, 
                     assignedPlayerId, assignedTeamId, onCourtPlayerIds, identifiedTeamColor, 
                     identifiedJerseyNumber, absoluteTimestamp, videoClipStartTime, videoClipEndTime,
-                    gameId, chunkId, ...details 
+                    playerCertainty, eventTypeCertainty, gameId, chunkId, ...details 
                 } = eventData;
+
+                // Persist certainty fields explicitly (clamped to 0-1)
+                event.playerCertainty = typeof playerCertainty === 'number'
+                    ? Math.min(1, Math.max(0, playerCertainty))
+                    : null;
+                event.eventTypeCertainty = typeof eventTypeCertainty === 'number'
+                    ? Math.min(1, Math.max(0, eventTypeCertainty))
+                    : null;
                 event.eventDetails = details;
 
                 // NEW: Resolve on-court player IDs

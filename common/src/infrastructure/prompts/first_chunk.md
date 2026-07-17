@@ -36,7 +36,9 @@ Output EXCLUSIVELY as a valid JSON object matching this structure:
       "assignedPlayerId": "TEMP_PLAYER_5",
       "assignedTeamId": "TEMP_TEAM_1",
       "xCoord": 0-100,
-      "yCoord": 0-100
+      "yCoord": 0-100,
+      "playerCertainty": 0.95,
+      "eventTypeCertainty": 0.9
     }
   ]
 }
