@@ -5,10 +5,9 @@ import {
     TeamRepository, PlayerRepository, GameRepository,
     GameEventRepository, GameTeamStatsRepository,
     GamePlayerStatsRepository, UserRepository,
-    User, Team, ILogger, IEventBus,
+    User, Team, ILogger, IEventBus, MockEventBus,
     PubSubEventBus, GCSStorageProvider, LocalStorageProvider, IStorageProvider
 } from "@statvision/common";
-import { MockEventBus } from "@statvision/common/src/infrastructure/MockEventBus";
 import { VideoAnalysisResultService } from "../service/VideoAnalysisResultService";
 import { jobLogger } from "../config/loggers";
 import { VideoAnalysisJobRepository } from "../worker/VideoAnalysisJobRepository";
