@@ -52,8 +52,8 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
       domain={domain!}
       clientId={clientId!}
       authorizationParams={{ redirect_uri: baseUrl, audience, scope: "openid profile email offline_access" }}
-      useRefreshTokens={true}
-      cacheLocation="localstorage"
+      useRefreshTokens={false}
+      cacheLocation="memory"
     >
       <Auth0RealBridge>{children}</Auth0RealBridge>
     </Auth0Provider>

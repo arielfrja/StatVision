@@ -47,6 +47,15 @@ import logRoutes from './routes/logRoutes';
 const app = express();
 app.disable('x-powered-by');
 
+// Security headers
+app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+});
+
 // CORS — allowlist from env CORS_ORIGINS (comma-separated), or localhost fallback
 // DO NOT use origin: '*' with credentials: true (CORS spec violation)
 const allowedOrigins = process.env.CORS_ORIGINS
@@ -68,7 +77,7 @@ app.use(loggingMiddleware);
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-    standardHeaders: true,
+    standardHeaders: false,
     legacyHeaders: false,
     message: { status: 'error', message: 'Too many requests, please try again later.' }
 });
@@ -112,9 +121,8 @@ AppDataSource.initialize()
             container.get<ProgressSubscriberService>(ProgressSubscriberService).startSubscribing();
         }
 
-        // Public Routes (No Auth)
+        // Public Routes (No Auth) — /api/log already registered above
         app.use("/", authRoutes(AppDataSource));
-        app.use("/api/log", logRoutes);
         app.use("/api/webhooks", webhookRoutes);
 
         // Apply authMiddleware to everything below

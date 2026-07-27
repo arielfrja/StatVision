@@ -1,0 +1,4 @@
+Contact: mailto:arielfrja@gmail.com
+Expires: 2027-07-27T00:00:00.000Z
+Preferred-Languages: en, he
+Canonical: https://frontend-cyan-eta-14.vercel.app/.well-known/security.txt
