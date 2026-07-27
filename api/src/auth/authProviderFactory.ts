@@ -7,8 +7,9 @@ let authProviderInstance: IAuthProvider;
 
 export const getAuthProvider = (jwksUri: string, audience: string, issuer: string): IAuthProvider => {
     if (!authProviderInstance) {
-        if (process.env.USE_MOCK_AUTH === 'true') {
-            logger.info("Using MockAuthProvider for authentication.");
+        // MockAuthProvider is only allowed in non-production environments
+        if (process.env.NODE_ENV !== 'production' && process.env.USE_MOCK_AUTH === 'true') {
+            logger.warn("Using MockAuthProvider for authentication (DEVELOPMENT ONLY).");
             authProviderInstance = new MockAuthProvider();
         } else {
             logger.info("Using Auth0Provider for authentication.");

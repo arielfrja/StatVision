@@ -45,11 +45,19 @@ import logRoutes from './routes/logRoutes';
 
 const app = express();
 
+// CORS — allowlist from env CORS_ORIGINS (comma-separated), or localhost fallback
+// DO NOT use origin: '*' with credentials: true (CORS spec violation)
+const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+    : ['http://localhost:3001', 'http://localhost:3002'];
 app.use(cors({
-    origin: '*',
-    credentials: true,
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (server-to-server, curl, etc.)
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        cb(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["*", "Content-Type", "Authorization", "x-goog-resumable"]
+    allowedHeaders: ["Content-Type", "Authorization", "x-goog-resumable"]
 }));
 app.use(express.json());
 app.use(loggingMiddleware);

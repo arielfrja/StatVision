@@ -25,6 +25,30 @@ const nextConfig = {
     config.resolve.alias['swr'] = path.resolve(process.cwd(), '../node_modules/swr');
     return config;
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "connect-src 'self' https://statvision-api-prod-chsbu3g4oa-uc.a.run.app https://dev-3os8m0zyfxmx60nn.us.auth0.com",
+              "img-src 'self' data: blob:",
+              "font-src 'self' data:",
+              "frame-src 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
