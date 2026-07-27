@@ -13,7 +13,8 @@ const authClient = new OAuth2Client();
  * Middleware to verify that the request came from Google Cloud (OIDC).
  */
 async function verifyGoogleOidc(req: any, res: any, next: any) {
-    if (process.env.NODE_ENV !== 'production') return next();
+    // Explicit opt-in to skip — never auto-skip based on NODE_ENV alone
+    if (process.env.SKIP_OIDC_VERIFY === 'true') return next();
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

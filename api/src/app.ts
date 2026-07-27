@@ -9,6 +9,7 @@ dotenv.config({ path: envPath });
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { AppDataSource } from "./data-source";
 import { authMiddleware } from "./middleware/authMiddleware";
 import { IAuthProvider } from "./auth/authProvider";
@@ -44,6 +45,7 @@ declare global {
 import logRoutes from './routes/logRoutes';
 
 const app = express();
+app.disable('x-powered-by');
 
 // CORS — allowlist from env CORS_ORIGINS (comma-separated), or localhost fallback
 // DO NOT use origin: '*' with credentials: true (CORS spec violation)
@@ -61,6 +63,16 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(loggingMiddleware);
+
+// Rate limiting — 100 requests per 15 min per IP
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { status: 'error', message: 'Too many requests, please try again later.' }
+});
+app.use(limiter);
 
 // Public route for client logs (must be before auth)
 app.use("/api/log", logRoutes);

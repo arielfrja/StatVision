@@ -16,10 +16,10 @@ const nextConfig = {
     unoptimized: true,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   webpack: (config: any) => {
     config.resolve.alias['swr'] = path.resolve(process.cwd(), '../node_modules/swr');

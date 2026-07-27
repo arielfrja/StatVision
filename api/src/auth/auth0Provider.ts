@@ -51,7 +51,9 @@ export class Auth0Provider implements IAuthProvider {
                 if (err.inner) {
                     logger.error("Auth0Provider: Inner Error Details:", err.inner);
                 }
-                res.status(err.status || 401).json({ message: err.message || "Unauthorized" });
+                // In production, don't leak JWT error details
+                const prodMessage = process.env.NODE_ENV === 'production' ? 'Unauthorized' : err.message;
+                res.status(err.status || 401).json({ message: prodMessage || "Unauthorized" });
                 return; // Stop processing on error
             }
             logger.debug("Auth0Provider: JWT Check successful."); // New log
