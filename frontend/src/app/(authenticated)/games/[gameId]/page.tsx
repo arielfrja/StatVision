@@ -52,6 +52,19 @@ function AnalysisPage() {
         return () => mq.removeEventListener('change', handler);
     }, []);
 
+    // Data Fetching
+    const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
+        refreshInterval: (data: Game | undefined) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
+    });
+
+    // UI State
+    const [activeTab, setActiveTab] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+    const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+    const [visibleStats, setVisibleStats] = useState<string[]>(['fieldGoalsMade', 'threePointersMade', 'freeThrowsMade', 'offensiveRebounds', 'defensiveRebounds', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'points', 'plusMinus']);
+
     useEffect(() => {
         const el = deleteConfirmRef.current;
         if (!el) return;
@@ -67,19 +80,6 @@ function AnalysisPage() {
         el.addEventListener('close', handler);
         return () => el.removeEventListener('close', handler);
     }, [eventToDelete]);
-
-    // Data Fetching
-    const { data: game, error, isLoading: isDataLoading, mutate } = useSWR<Game>(gameId ? `/games/${gameId}` : null, {
-        refreshInterval: (data: Game | undefined) => (data && (data.status === 'PROCESSING' || data.status === 'UPLOADED')) ? 3000 : 0,
-    });
-
-    // UI State
-    const [activeTab, setActiveTab] = useState(0);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
-    const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-    const [visibleStats, setVisibleStats] = useState<string[]>(['fieldGoalsMade', 'threePointersMade', 'freeThrowsMade', 'offensiveRebounds', 'defensiveRebounds', 'assists', 'steals', 'blocks', 'turnovers', 'fouls', 'points', 'plusMinus']);
 
     // Timeline & Editor State
     const [currentTime, setCurrentTime] = useState(0);

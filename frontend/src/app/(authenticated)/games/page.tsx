@@ -333,7 +333,7 @@ const GamesPage = () => {
                   }}>
                     {canRetry ? (
                       <md-filled-button
-                        onClick={(e) => handleRetry(e, game.id)}
+                        onClick={(e: React.MouseEvent<HTMLElement>) => handleRetry(e, game.id)}
                       >
                         <md-icon slot="icon">refresh</md-icon>
                         Retry Upload

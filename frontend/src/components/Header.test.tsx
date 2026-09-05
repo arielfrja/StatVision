@@ -15,6 +15,15 @@ vi.mock('next/link', () => {
   };
 });
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    back: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+}));
+
 describe('Header Component', () => {
   it('renders the brand name', () => {
     render(<Header />);

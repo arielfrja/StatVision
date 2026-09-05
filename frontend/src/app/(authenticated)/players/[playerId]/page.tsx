@@ -347,8 +347,7 @@ const PlayerProfilePage = () => {
                 fontStyle: 'italic',
                 position: 'relative',
                 zIndex: 10,
-                margin: 0,
-                marginBottom: '16px',
+                margin: '0 0 16px',
               }}
             >
               AI Scout
