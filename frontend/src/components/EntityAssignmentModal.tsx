@@ -4,10 +4,11 @@ import { useAuth0 } from '@/app/user-provider';
 import apiClient from '@/utils/apiClient';
 import { Player, PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
-import Loader from './Loader';
-import Button from './Button';
-
-// Import Material Web Components
+import '@material/web/progress/circular-progress.js';
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/icon/icon.js';
 import '@material/web/select/filled-select.js';
 import '@material/web/select/select-option.js';
 import '@material/web/dialog/dialog.js';
@@ -120,26 +121,68 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
     if (!isOpen) return null;
 
     return (
-        <md-dialog open={isOpen} onclose={onClose} style={{ maxWidth: '800px', width: '95vw' }} className="rounded-md overflow-hidden">
-            <div slot="headline" className="font-bold text-lg p-6 border-b border-border-main bg-surface-high text-tx-primary uppercase tracking-tight">
+        <md-dialog open={isOpen} onclose={onClose}>
+            <div
+                slot="headline"
+                style={{
+                    fontWeight: 'bold',
+                    fontSize: '18px',
+                    padding: '24px',
+                    borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                    backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                    color: 'var(--md-sys-color-on-surface)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '-0.025em',
+                }}
+            >
                 Personnel & Roster Synchronization
             </div>
-            <div slot="content" className="p-8 flex flex-col gap-10 bg-primary-bg overflow-y-auto max-h-[60vh] no-scrollbar">
+            <div
+                slot="content"
+                style={{
+                    padding: '32px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '40px',
+                    backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                    overflowY: 'auto',
+                    maxHeight: '60vh',
+                }}
+            >
                 {isLoading ? (
-                    <div className="py-20 flex justify-center"><Loader /></div>
+                    <div style={{ padding: '80px 0', display: 'flex', justifyContent: 'center' }}>
+                        <md-circular-progress indeterminate></md-circular-progress>
+                    </div>
                 ) : identifiedEntities.length === 0 ? (
-                    <div className="py-16 text-center">
-                        <span className="material-symbols-outlined text-4xl text-tx-dim mb-4">person_off</span>
-                        <p className="text-tx-secondary font-bold uppercase tracking-widest text-[10px]">No temporary detections requiring assignment</p>
+                    <div style={{ padding: '64px 0', textAlign: 'center' }}>
+                        <md-icon>person_off</md-icon>
+                        <p style={{ color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '10px' }}>
+                            No temporary detections requiring assignment
+                        </p>
                     </div>
                 ) : (
                     identifiedEntities.map(tempTeam => (
-                        <div key={tempTeam.id} className="space-y-4">
+                        <div key={tempTeam.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {/* Team Assignment Header (Read-Only first) */}
-                            <div className="p-5 border border-border-main rounded-md bg-surface flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex flex-col gap-1">
-                                    <h3 className="font-bold text-sm text-tx-primary uppercase">{tempTeam.name}</h3>
-                                    <p className="text-[10px] font-bold text-accent uppercase tracking-widest">TEMPORARY GROUP DETECTION</p>
+                            <div
+                                style={{
+                                    padding: '20px',
+                                    border: '1px solid var(--md-sys-color-outline-variant)',
+                                    borderRadius: '6px',
+                                    backgroundColor: 'var(--md-sys-color-surface)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px',
+                                    justifyContent: 'space-between',
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <h3 style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--md-sys-color-on-surface)', textTransform: 'uppercase' }}>
+                                        {tempTeam.name}
+                                    </h3>
+                                    <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        TEMPORARY GROUP DETECTION
+                                    </p>
                                 </div>
                                 
                                 {editingEntityId === tempTeam.id ? (
@@ -147,7 +190,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                         label="Official Team"
                                         value={tempTeam.id ? (teamMappings[tempTeam.id] || '') : ''}
                                         onchange={(e: any) => tempTeam.id && handleTeamMappingChange(tempTeam.id, e.target.value)}
-                                        className="min-w-[280px]"
+                                        style={{ minWidth: '280px' }}
                                     >
                                         <md-select-option value=""><span>Unassigned</span></md-select-option>
                                         {officialTeams.map(team => (
@@ -155,33 +198,60 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                         ))}
                                     </md-filled-select>
                                 ) : (
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-xs font-bold text-tx-secondary">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)' }}>
                                             {tempTeam.id && teamMappings[tempTeam.id] 
                                                 ? officialTeams.find(t => t.id === teamMappings[tempTeam.id])?.name 
                                                 : 'NO OFFICIAL TEAM ASSIGNED'}
                                         </span>
-                                        <Button variant="outline" size="sm" icon="edit" onClick={() => setEditingEntityId(tempTeam.id || null)}>
+                                        <md-outlined-button onClick={() => setEditingEntityId(tempTeam.id || null)}>
+                                            <md-icon slot="icon">edit</md-icon>
                                             Assign
-                                        </Button>
+                                        </md-outlined-button>
                                     </div>
                                 )}
                             </div>
 
                             {/* Player Assignments */}
-                            <div className="flex flex-col gap-2 pl-6 border-l border-border-main">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '24px', borderLeft: '1px solid var(--md-sys-color-outline-variant)' }}>
                                 {tempTeam.players.map(tempPlayer => {
                                     const currentTeamId = tempTeam.id ? teamMappings[tempTeam.id] : '';
                                     const isEditing = editingEntityId === tempPlayer.id;
                                     const assignedOfficialPlayer = officialPlayers.find(ph => ph.player.id === playerMappings[tempPlayer.id || '']);
 
                                     return (
-                                        <div key={tempPlayer.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-md bg-surface-high border border-border-main">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded bg-primary-bg border border-border-main flex items-center justify-center text-[10px] font-black text-accent mono-stat">
+                                        <div
+                                            key={tempPlayer.id}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '16px',
+                                                justifyContent: 'space-between',
+                                                padding: '16px',
+                                                borderRadius: '6px',
+                                                backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                                                border: '1px solid var(--md-sys-color-outline-variant)',
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '4px',
+                                                        backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                                                        border: '1px solid var(--md-sys-color-outline-variant)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '10px',
+                                                        fontWeight: 900,
+                                                        color: 'var(--md-sys-color-primary)',
+                                                    }}
+                                                >
                                                     {tempPlayer.jerseyNumber || '?'}
                                                 </div>
-                                                <span className="text-xs font-bold text-tx-primary uppercase tracking-tight">
+                                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface)', textTransform: 'uppercase', letterSpacing: '-0.025em' }}>
                                                     {tempPlayer.name || 'Identified Player'}
                                                 </span>
                                             </div>
@@ -191,7 +261,7 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                                     label="Official Roster"
                                                     value={tempPlayer.id ? (playerMappings[tempPlayer.id] || '') : ''}
                                                     onchange={(e: any) => tempPlayer.id && handlePlayerMappingChange(tempPlayer.id, e.target.value)}
-                                                    className="min-w-[240px]"
+                                                    style={{ minWidth: '240px' }}
                                                 >
                                                     <md-select-option value=""><span>Unassigned</span></md-select-option>
                                                     {officialPlayers
@@ -203,15 +273,16 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                                                     ))}
                                                 </md-filled-select>
                                             ) : (
-                                                <div className="flex items-center gap-4">
-                                                    <span className="text-[11px] font-bold text-tx-secondary uppercase">
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                    <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
                                                         {assignedOfficialPlayer 
                                                             ? `${assignedOfficialPlayer.player.name} (#${assignedOfficialPlayer.jerseyNumber})` 
                                                             : 'PENDING ASSIGNMENT'}
                                                     </span>
-                                                    <Button variant="ghost" size="sm" icon="edit_square" onClick={() => setEditingEntityId(tempPlayer.id || null)}>
+                                                    <md-text-button onClick={() => setEditingEntityId(tempPlayer.id || null)}>
+                                                        <md-icon slot="icon">edit_square</md-icon>
                                                         Assign
-                                                    </Button>
+                                                    </md-text-button>
                                                 </div>
                                             )}
                                         </div>
@@ -222,11 +293,22 @@ const EntityAssignmentModal: React.FC<EntityAssignmentModalProps> = ({ gameId, i
                     ))
                 )}
             </div>
-            <div slot="actions" className="p-6 border-t border-border-main bg-surface-high flex gap-4 w-full">
-                <Button variant="ghost" onClick={onClose} className="flex-1" disabled={isSubmitting}>Cancel</Button>
-                <Button onClick={handleSubmit} isLoading={isSubmitting} className="flex-[2]" icon="verified">
+            <div
+                slot="actions"
+                style={{
+                    padding: '24px',
+                    borderTop: '1px solid var(--md-sys-color-outline-variant)',
+                    backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                    display: 'flex',
+                    gap: '16px',
+                    width: '100%',
+                }}
+            >
+                <md-text-button onClick={onClose} disabled={isSubmitting}>Cancel</md-text-button>
+                <md-filled-button onClick={handleSubmit} disabled={isSubmitting}>
+                    <md-icon slot="icon">verified</md-icon>
                     Synchronize Roster
-                </Button>
+                </md-filled-button>
             </div>
         </md-dialog>
     );

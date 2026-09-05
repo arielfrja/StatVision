@@ -1,16 +1,89 @@
-import React from 'react';
+'use client';
+
+import Link from 'next/link';
+import '@material/web/icon/icon.js';
 
 export default function NotFound() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-10">
-      <div className="w-20 h-20 rounded-full bg-surface-high border border-border-main flex items-center justify-center mb-8">
-        <span className="material-symbols-outlined text-4xl text-tx-dim">error_outline</span>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        textAlign: 'center',
+        padding: '40px',
+      }}
+    >
+      <div
+        style={{
+          width: '80px',
+          height: '80px',
+          borderRadius: '9999px',
+          background: 'var(--md-sys-color-surface-container-high)',
+          border: '1px solid var(--md-sys-color-outline-variant)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '32px',
+        }}
+      >
+        <md-icon
+          style={{
+            fontSize: '2.25rem',
+            color: 'var(--md-sys-color-on-surface-variant)',
+          }}
+        >
+          error_outline
+        </md-icon>
       </div>
-      <h1 className="text-3xl font-bold text-tx-primary mb-2 uppercase tracking-tight">Resource Not Found</h1>
-      <p className="text-sm text-tx-secondary mb-10 max-w-xs mx-auto font-medium">The analytical data or segment you requested does not exist or has been archived.</p>
-      <a href="/dashboard" className="px-6 py-3 bg-accent text-white rounded-md font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all">
+      <h1
+        style={{
+          fontSize: '1.875rem',
+          lineHeight: '2.25rem',
+          fontWeight: 700,
+          color: 'var(--md-sys-color-on-surface)',
+          marginBottom: '8px',
+          textTransform: 'uppercase',
+          letterSpacing: '-0.025em',
+        }}
+      >
+        Resource Not Found
+      </h1>
+      <p
+        style={{
+          fontSize: '0.875rem',
+          lineHeight: '1.25rem',
+          color: 'var(--md-sys-color-on-surface-variant)',
+          marginBottom: '40px',
+          maxWidth: '320px',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          fontWeight: 500,
+        }}
+      >
+        The analytical data or segment you requested does not exist or has been
+        archived.
+      </p>
+      <Link
+        href="/dashboard"
+        style={{
+          padding: '12px 24px',
+          background: 'var(--md-sys-color-primary)',
+          color: '#fff',
+          borderRadius: '6px',
+          fontWeight: 700,
+          fontSize: '0.875rem',
+          lineHeight: '1.25rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          textDecoration: 'none',
+          transition: 'filter 0.15s ease',
+        }}
+      >
         Return to Dashboard
-      </a>
+      </Link>
     </div>
   );
 }

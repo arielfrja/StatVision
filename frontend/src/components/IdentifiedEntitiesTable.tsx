@@ -1,8 +1,13 @@
 import React from 'react';
 import { Player } from '@/types/player';
 import { Team } from '@/types/team';
-import Loader from './Loader';
-import Button from './Button';
+import '@material/web/progress/circular-progress.js';
+import '@material/web/button/text-button.js';
+import '@material/web/icon/icon.js';
+import '@material/web/list/list.js';
+import '@material/web/list/list-item.js';
+import '@material/web/divider/divider.js';
+import '@material/web/labs/card/outlined-card.js';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
 
@@ -32,107 +37,218 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
 
     if (isLoading) {
         return (
-            <div className="py-20 flex flex-col items-center justify-center">
-                <Loader size="large" label="Mapping Identities" />
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '48px 0',
+                gap: '16px',
+            }}>
+                <md-circular-progress indeterminate></md-circular-progress>
+                <span style={{
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                    fontSize: '13px',
+                }}>
+                    Mapping Identities
+                </span>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="p-8 bg-error/10 border border-error/30 rounded-md flex items-center gap-4 text-error">
-                <span className="material-symbols-outlined">error</span>
-                <p className="text-xs font-bold uppercase tracking-wider">{error.message || "Failed to fetch identified entities."}</p>
+            <div style={{
+                padding: '16px 24px',
+                backgroundColor: 'color-mix(in srgb, var(--md-sys-color-error) 10%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--md-sys-color-error) 30%, transparent)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                color: 'var(--md-sys-color-error)',
+            }}>
+                <md-icon>error</md-icon>
+                <p style={{
+                    margin: 0,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                }}>
+                    {error.message || "Failed to fetch identified entities."}
+                </p>
             </div>
         );
     }
 
     if (!teamsWithPlayers || teamsWithPlayers.length === 0) {
         return (
-            <div className="p-12 text-center bg-surface-high rounded-md border border-border-main">
-                <span className="material-symbols-outlined text-4xl text-tx-dim mb-4">group_off</span>
-                <p className="text-xs font-bold uppercase tracking-wider text-tx-dim">No entities identified in game events yet.</p>
+            <div style={{
+                padding: '48px 0',
+                textAlign: 'center',
+                backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                border: '1px solid var(--md-sys-color-outline-variant)',
+                borderRadius: '8px',
+            }}>
+                <md-icon>
+                    group_off
+                </md-icon>
+                <p style={{
+                    margin: 0,
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--md-sys-color-on-surface-variant)',
+                }}>
+                    No entities identified in game events yet.
+                </p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-8">
-            <div className="flex items-center justify-between px-2">
-                <h2 className="text-lg font-bold tracking-tight text-tx-primary">Identified Teams & Players</h2>
-                <div className="h-px flex-1 bg-border-main ml-6"></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Section title */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 8px',
+            }}>
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: 700,
+                    letterSpacing: '-0.02em',
+                    color: 'var(--md-sys-color-on-surface)',
+                }}>
+                    Identified Teams &amp; Players
+                </h2>
+                <div style={{
+                    height: '1px',
+                    flex: 1,
+                    backgroundColor: 'var(--md-sys-color-outline-variant)',
+                    marginLeft: '24px',
+                }} />
             </div>
-            
+
             {teamsWithPlayers.map((team: TeamWithPlayers) => (
-                <div key={team.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* Team Info Header */}
-                    <div className="px-4 py-3 bg-surface-high border-x border-t border-border-main rounded-t-md flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <h3 className="text-sm font-bold text-tx-primary">{team.name}</h3>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-tx-dim bg-primary-bg px-2 py-0.5 rounded border border-border-main">
+                <md-outlined-card
+                    key={team.id}
+                >
+                    {/* Team Header */}
+                    <div style={{
+                        padding: '12px 16px',
+                        backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                        borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                        }}>
+                            <h3 style={{
+                                margin: 0,
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: 'var(--md-sys-color-on-surface)',
+                            }}>
+                                {team.name}
+                            </h3>
+                            <span style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--md-sys-color-outline-variant)',
+                                backgroundColor: 'var(--md-sys-color-surface)',
+                            }}>
                                 {team.isTemp ? 'DETECTION GROUP' : 'OFFICIAL ROSTER'}
                             </span>
                         </div>
                         {!team.isTemp && (
-                            <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-success"></div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-tx-secondary">
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                            }}>
+                                <div style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--md-sys-color-tertiary)',
+                                }} />
+                                <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    color: 'var(--md-sys-color-on-surface-variant)',
+                                }}>
                                     SYNCED
                                 </span>
                             </div>
                         )}
                     </div>
 
-                    {/* Players Table */}
-                    <div className="md-scrollable-table-container rounded-t-none">
-                        <table className="md-table md-box-score-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th className="text-center">Jersey #</th>
-                                    <th>Visual Identity</th>
-                                    <th className="text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {team.players.length > 0 ? team.players.map((player: EnrichedPlayer) => (
-                                    <tr key={player.id} className="interactive group">
-                                        <td>
-                                            <span className="font-bold text-tx-primary">{player.name || 'Unknown Player'}</span>
-                                        </td>
-                                        <td className="text-center">
-                                            <span className="inline-block px-1.5 py-0.5 bg-surface-high border border-border-main rounded text-xs font-bold text-tx-primary min-w-[24px]">
-                                                {player.jerseyNumber ?? '-'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="text-[11px] text-tx-secondary uppercase tracking-tight">
-                                                {player.description ?? 'No visual data available'}
-                                            </span>
-                                        </td>
-                                        <td className="text-right">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                onClick={() => player.id && handleSwitchTeam(player.id)}
-                                                icon="swap_horiz"
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    {/* Players List */}
+                    {team.players.length > 0 ? (
+                        <md-list>
+                            {team.players.map((player: EnrichedPlayer, idx: number) => (
+                                <md-list-item
+                                    key={player.id}
+                                >
+                                    <span slot="headline" style={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: 'var(--md-sys-color-on-surface)',
+                                    }}>
+                                        {player.name || 'Unknown Player'}
+                                    </span>
+                                    <span slot="supporting-text" style={{
+                                        fontSize: '12px',
+                                        color: 'var(--md-sys-color-on-surface-variant)',
+                                    }}>
+                                        #{player.jerseyNumber ?? '-'} &middot; {player.description ?? 'No visual data available'}
+                                    </span>
+                                    <div slot="end">
+                                        {player.id && (
+                                            <md-text-button
+                                                onClick={() => handleSwitchTeam(player.id)}
+                                                style={{
+                                                    '--md-text-button-container-shape': '6px',
+                                                    fontSize: '12px',
+                                                } as React.CSSProperties}
                                             >
+                                                <md-icon slot="icon">swap_horiz</md-icon>
                                                 Switch Team
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr>
-                                        <td colSpan={4} className="py-8 text-center">
-                                             <p className="text-[10px] font-bold uppercase tracking-widest text-tx-dim">No players identified for this group</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                            </md-text-button>
+                                        )}
+                                    </div>
+                                </md-list-item>
+                            ))}
+                        </md-list>
+                    ) : (
+                        <div style={{
+                            padding: '36px 0',
+                            textAlign: 'center',
+                            color: 'var(--md-sys-color-on-surface-variant)',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                        }}>
+                            No players identified for this group
+                        </div>
+                    )}
+                </md-outlined-card>
             ))}
         </div>
     );

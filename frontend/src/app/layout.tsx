@@ -1,17 +1,6 @@
 import ClientProviders from './client-providers';
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "StatVision - Basketball Analytics",
@@ -24,12 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
+    <html lang="en">
       <head>
-        {/* eslint-disable-next-line @next/next/no-css-tags */}
         <link rel="stylesheet" href="/material-symbols.css" />
       </head>
-      <body className="antialiased">
+      <body>
         <ClientProviders>
           {children}
         </ClientProviders>
