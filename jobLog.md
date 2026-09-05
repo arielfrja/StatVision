@@ -660,3 +660,33 @@ These tests must be run from a standard x86_64 Linux/macOS environment (or CI):
 - **Migration created:** `common/src/migration/1784270848000-AddCertaintyColumnsToGameEvent.ts`
 - **Adds columns:** `player_certainty` (float, nullable) and `event_type_certainty` (float, nullable) to `game_events` table.
 - **Compiles:** ✅ Zero TypeScript errors.
+
+## [2026-09-05] Merge: Pure Material Web 3 UI Refactor → master
+**Objective:** Land `refactor/pure-material-web` (Material Web 3 redesign) on production via the direct-to-master workflow.
+
+### ✅ Completed
+- Merged `refactor/pure-material-web` (`0fc1319`) onto `origin/master` (`d25da07`).
+- **Conflict resolutions (3 files):**
+  - `frontend/src/app/(authenticated)/usage/page.tsx` — kept Material Web 3 display styling, restored master's accurate per-model I/O token pricing (`estimatedCost`) that the branch had replaced with a flat estimate.
+  - `AGENTS.md` — kept master's Android build note.
+  - `jobLog.md` — kept master's certainty-feature section.
+  - `scripts/*` — preserved executable bit from master.
+- **Refactor-introduced bugs fixed (merge commit 2):**
+  - `games/[gameId]/page.tsx` — dialog `useEffect`s moved below the state they reference (TS2448/TS2454).
+  - `games/page.tsx` — typed the retry `onClick` param (TS7006).
+  - `players/[playerId]/page.tsx` — removed duplicate `marginBottom` key (TS1117).
+  - `Header.test.tsx` — mocked `next/navigation` `useRouter`, now required by the refactored header.
+- **Verification:** `type-check` ✅ (0 errors), `lint` ✅ (0 errors, 4 warnings), `next build --webpack` ✅ (12 routes incl. new `/settings`), `vitest` unit ✅, `common`/`api`/`worker` builds ✅.
+
+### 🧪 QA Task List (Pure Material Web 3 UI)
+1. **Visual smoke test** — load `/`, `/login`, `/dashboard`, `/games`, `/stats`, `/teams`, `/usage` on both desktop and mobile widths. Confirm every page uses MD3 components (filled/elevated cards, tabs, text buttons, circular progress) and no stray Tailwind-era markup remains.
+2. **New settings page** — `/settings` renders, theme toggle (light/dark) persists across navigation (see `ThemeContext`).
+3. **Usage page pricing** — Estimated Cost card shows the real per-model $/1M I/O price (e.g. model + input/output rates), NOT the old flat `$0.000000125` estimate.
+4. **Game detail page** — Film Room tabs (Play-by-Play, Box Score, Event Editor, Coach Report) render, delete-game confirm dialog still works after the effect reordering.
+5. **Light/dark theme** — MD3 tokens (`--md-sys-color-*`) apply consistently; text contrast acceptable on both themes.
+6. **No console errors** — confirm clean console on a full page tour (React hydration/WebComponent warnings only if pre-existing).
+7. **Auth flows** — login/logout via Auth0 still works; `useRouter` navigation (e.g. header settings button) behaves.
+8. **E2E** — `tests/e2e/ui-redesign-verification.spec.ts` intended as the automated baseline; note `vitest run` currently also picks up the two Playwright specs (`basic`, `ui-redesign-verification`) which fail under vitest — pre-existing on master, unaffected by this merge.
+
+### ⚠️ Known
+- `npm audit` reports 33 vulnerabilities (2 low / 11 moderate / 20 high) — pre-existing dependency state, unchanged by this merge.
