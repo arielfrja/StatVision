@@ -1,38 +1,4 @@
-export const ALLOWED_EVENT_TYPES = [
-    "2pt Shot Attempt",
-    "2pt Shot Made",
-    "2pt Shot Missed",
-    "3pt Shot Attempt",
-    "3pt Shot Made",
-    "3pt Shot Missed",
-    "Assist",
-    "Block",
-    "Defensive Rebound",
-    "Dribble",
-    "End of Game",
-    "End of Period",
-    "Flagrant Foul",
-    "Foul",
-    "Free Throw Attempt",
-    "Free Throw Made",
-    "Free Throw Missed",
-    "Game Start",
-    "Jump Ball",
-    "Jump Ball Possession",
-    "Offensive Foul",
-    "Offensive Rebound",
-    "Out of Bounds",
-    "Pass",
-    "Period Start",
-    "Personal Foul",
-    "Possession Change",
-    "Rebound",
-    "Shooting Foul",
-    "Steal",
-    "Substitution",
-    "Technical Foul",
-    "Team Rebound",
-    "Timeout Taken",
-    "Turnover",
-    "Violation"
-];
+// Single source of truth lives in @statvision/common.
+// This module re-exports it to prevent type drift between api and worker.
+export { ALLOWED_EVENT_TYPES } from "@statvision/common";
+export type { EventType } from "@statvision/common";

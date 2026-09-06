@@ -78,13 +78,11 @@ export class GeminiProvider implements IVideoIntelligenceProvider {
                 });
             }
 
-            // --- STRICT MULTI-TURN CONSISTENCY RULE ---
-            userPrompt += `\n\n### CRITICAL INSTRUCTIONS FOR CONSISTENCY:
-1. **Reuse Known Entities**: You MUST first look at the 'KNOWN TEAMS' and 'KNOWN PLAYERS' lists provided below. 
-2. **Event Attribution**: For every event you identify, try to attribute it to an existing ID from these lists (e.g., 'TEMP_PLAYER_5' or 'TEMP_TEAM_1').
-3. **Adding New Entities**: Only if you are 100% certain a player/team is NOT in the lists, add a NEW entry to the 'identifiedTeams' or 'players' array and generate a new TEMP ID.
-4. **Maintain the Roster**: The 'identifiedTeams' object in your response MUST contain the full updated roster (all previously known entities plus any new ones found in this turn).
-5. **Context & Flow Awareness**: You have been provided with the history of previous analysis turns. Ensure your current detections (Score, Possession, Player Positions) flow logically from the state established in those turns.`;
+            // Roster continuity: reuse known IDs where possible, add new ones only for
+            // genuinely new entities, and always return the full updated roster.
+            if (!isFirstChunk) {
+                userPrompt += `\n\nRoster continuity: reuse IDs from KNOWN TEAMS / KNOWN PLAYERS below where possible. Only add a new entry with a new TEMP ID for a genuinely new entity. Always return the full updated roster in 'identifiedTeams'.`;
+            }
 
             // Inject known entities into user prompt for better consistency
             if (knownTeams.length > 0) {

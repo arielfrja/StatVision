@@ -1,27 +1,27 @@
-# Game Type Instructions
+# Game Rulesets
 
 <FULL_COURT>
-Standard full-court basketball rules apply. Scoring is 2 and 3 points. Track all core events (SHOT, REBOUND, ASSIST, TURNOVER, STEAL, BLOCK, FOUL, SUB, TIMEOUT) with high precision.
+Standard full-court basketball. 2PT and 3PT field goals, 1PT free throws.
 </FULL_COURT>
 
 <THREE_X_THREE>
-Official FIBA 3x3 rules apply. Played on a half-court. Scoring is 1 and 2 points. Play is continuous - 'check ball' at the top of the arc after dead balls. Track core events with emphasis on rapid transitions.
+FIBA 3x3 half-court rules. 1PT inside the arc, 2PT outside the arc.
 </THREE_X_THREE>
 
 <STREET_BALL>
-Streetball/Park rules apply. Usually half-court. Scoring is 1 and 2 points. High emphasis on individual dribble moves and physical play. Track events even if fouls are loosely called.
+Half-court streetball rules. 1PT inside, 2PT outside.
 </STREET_BALL>
 
 <ONE_X_ONE>
-1-on-1 isolation play. Scoring is 1 and 2 points. Focus on offensive player vs single defender. Track shot types and results meticulously.
+1-on-1 isolation play. Focus on offensive player vs single defender.
 </ONE_X_ONE>
 
-# Identity Mode Instructions
+# Identity Modes
 
 <JERSEY_COLORS>
-Identify teams primarily by their jersey colors. Assign TEMP_TEAM_1 and TEMP_TEAM_2 based on these colors.
+Identify teams primarily by jersey colors.
 </JERSEY_COLORS>
 
 <INTERACTION_BASED>
-Identify teams by observing interaction patterns: players who pass to each other, set screens, or celebrate together are teammates. Group players into TEMP_TEAM_1 and TEMP_TEAM_2 based on these dynamic social interactions.
+Identify teams by interaction patterns (passes, screens, bench celebrations).
 </INTERACTION_BASED>
