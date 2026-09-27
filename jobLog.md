@@ -807,3 +807,41 @@ PO story breakdown (PO-101 temporal rosters, E2 tiering as config-data) → Tech
 - Same console shows deployed frontend still carries old CSP: `firebase.googleapis.com` + `firebaseinstallations.googleapis.com` blocked (my CSP fixes run only on local :3001), plus `POST .../api/log 404` (exception-logging endpoint missing on preview host).
 - Decisions needed (NOT done): (a) preview→prod CORS allowlist strategy (preview hashes rotate — needs pattern/regex or point previews at test backend); (b) deploy frontend CSP fixes (frame-src Auth0, storage.googleapis.com, firebase hosts) — currently local-only; (c) `/api/log` 404 on preview host.
 - NEXT: user retests on http://localhost:3001 (local stack verified to GCS upload-URL step).
+
+## 2026-09-07 — Local env consolidated: root `.env.local` mirrors prod
+- Root `.env.local` created from prod Cloud Run env (`statvision-api-prod` + `statvision-worker-prod`, 30 vars) + local overrides (`GEMINI_MODEL_NAME=gemini-3.5-flash-lite`, `PORT=3000`, `USE_MOCK_EVENT_BUS=true`, localhost orchestrator/analyzer URLs, local upload/tmp dirs, `LOG_LEVEL=debug`). Originals backed up under `/tmp/opencode/`.
+- `api/.env` and root `.env` are now symlinks to `.env.local` (dotenv follows them; zero code changes; all three paths gitignored). This kills the `api/.env`-shadowing gotcha permanently for local runs.
+- API + worker restarted through the links: API prod DB + :3000 ✅, worker reconciled + PUSH mode ✅. Frontend untouched (:3001, own `frontend/.env.local`).
+
+## 2026-09-07 — demo.webm E2E: upload works, GCS "missing object" explained
+- 15-min/359MB demo.webm uploaded via Chromium (game `0127e52e`): resumable URL ✅, bytes streamed ✅, `upload-complete` ✅, game UPLOADED ✅, worker job `9d224f6f` created ✅, 359MB downloaded to worker temp ✅, chunk 0 sent to Gemini with NEW prompts ✅ — then failed ONLY on dead prod key (`API key not valid` 400).
+- Mystery of vanishing GCS object solved: `JobFinalizerService.onJobFinal` (`worker/src/worker/JobFinalizerService.ts:170-177`) DELETES the source video from GCS on job failure ("resource cleanup"). So failed jobs destroy their own input — attempts #1 (and likely #2/#3) were purged post-failure. Questionable design (destroys evidence), flagged, not changed.
+- Attempt #3 (game `1add564f`): bytes never visible in GCS ("not yet visible" polled) — same fate or incomplete finalize. Frontend shows finalization error.
+- Prod AI usage last success 2026-07-17 (676 records) — prod key likely dead for ~7 weeks; prod analysis probably broken regardless of this branch.
+- NEXT: user provides personal Gemini key as local-only override → restart worker → re-upload → full analysis expected.
+
+## 2026-09-07 — E2E VERIFIED: 3.5-flash-lite + new prompts on demo.webm (game 963a4758)
+- User-supplied `AQ.`-format key verified first through the exact SDK path (`@google/genai` + `gemini-3.5-flash-lite` test call ✅), then set as local-only `GEMINI_API_KEY` override; API+worker restarted.
+- Full re-upload (359MB) → UPLOADED, no "not visible" flakiness this time. Job `62bfa46c`, 9 chunks.
+- Mid-run check (3/9 chunks): **42 events** in prod DB, ALL within exported enum (2pt Shot Attempt 14, Def Rebound 9, 3pt Attempt 4, ...). `ai_usage_records` attributes `gemini-3.5-flash-lite` (35k in / 6k out). Certainty columns populated (e.g. 0.9/1.0), player IDs resolved to UUIDs (roster continuity holds).
+- This closes the plan's QA list items 1-3. Remaining: job completion → box-score regression check (item 5), usage page render (item 4).
+
+## 2026-09-07 — Fixed user's "Console TypeError: Failed to fetch" (Firebase vs CSP)
+- Reproduced in test browser: unhandled rejection from `@firebase/installations` (`firebaseinstallations.googleapis.com` blocked by `connect-src`) → Next dev error overlay. Trigger: `getAnalytics(app)` in `frontend/src/firebase-config.js` runs unconditionally on every page load.
+- Fix (`frontend/next.config.ts`, local branch): `connect-src` += `firebaseinstallations.googleapis.com` + RTDB hosts (`https+wss://statsvision-b87ee-default-rtdb.firebaseio.com`, needed by `useJobProgress`/`JobProgressBar` which was silently broken too). Verified: 0 console errors/exceptions on authenticated dashboard.
+- Left blocked (cosmetic, no overlay): gtag script, eruda CDN, Roboto Flex stylesheet. Same gaps exist in prod CSP — deploy of this branch fixes installations/RTDB there too.
+
+## 2026-09-07 — demo.webm analysis COMPLETE (game 963a4758, job 62bfa46c)
+- 9/9 chunks, game ANALYZED. **116 events**, all in-enum (38× 2pt Attempt, 27× Def Rebound, 9× Possession Change, 7× 3pt Attempt, 6× 2pt Made, ...). Team stats 2 rows, player stats 12 rows (box-score aggregation ✅).
+- Usage: `gemini-3.5-flash-lite` 97,242 in / 15,942 out ≈ **$0.07 for 15 min** (vs old $0.59/90-min figure for 3-flash-preview → ~4x cheaper per minute).
+- Confirmed: last `gemini-3-flash-preview` prod usage was 2026-07-17 — prod dormant 7+ weeks.
+- Plan QA list closed except usage-page render (item 4, trivially code-reviewed).
+
+## 2026-09-27 — DROPPED: Startup Enterprise System (founder decision)
+- Founder: "drop the enterprise system, i don't want it any more."
+- Deleted from disk (all untracked, ~600KB): `.agile_system/` (board, 15 agent workspaces, ceremonies, okrs), `dashboard/` (control-tower UI), `experiments/` (1 sample file), enterprise docs (`docs/strategy/`, `docs/market/`, `docs/feedback/`, `docs/meetings/`, `docs/research/`, `docs/ux/`, `docs/architecture/`, `docs/security/`, `docs/product/roadmap.md`), enterprise `.opencode` state (`commit-plan.md`, `commit-prep.md`, `docs/`, `integration-status.md`).
+- Deleted branch `feat/startup-enterprise-system` locally + remote (`git push origin --delete`).
+- Kept: tracked `.opencode/` July session history (certainty mission), `dashboard_prod.png`, all of `jobLog.md` (audit trail), project docs (`docs/product/MASTER_ROADMAP.md`, `STRATEGY.md`, `docs/technical/`).
+- Verified: no project code/docs referenced the removed paths (only jobLog history entries); `git status` clean apart from branch work (`frontend/next.config.ts`, `jobLog.md`).
+- Consequence: Step 4 of the Sept-27 plan (enterprise spike pipeline S3→S2→S1, Sprint 1 P0 slice) is void. Product backlog falls back to `docs/product/MASTER_ROADMAP.md` Phase 4/6 open items (multi-tenancy, temporal rosters, tiering, highlights) as normal dev tasks. Pricing stays deferred (no billing code) per founder's earlier call.
+- Note: sibling `../AutoAiStartup` dir (outside repo) untouched.
