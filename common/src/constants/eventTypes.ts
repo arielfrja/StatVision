@@ -35,4 +35,6 @@ export const ALLOWED_EVENT_TYPES = [
     "Timeout Taken",
     "Turnover",
     "Violation"
-];
+] as const;
+
+export type EventType = (typeof ALLOWED_EVENT_TYPES)[number];

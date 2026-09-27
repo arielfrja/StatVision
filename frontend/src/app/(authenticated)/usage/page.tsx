@@ -56,7 +56,7 @@ const UsageDashboard = () => {
   const totalInputTokens = summary?.totalInputTokens || 0;
   const totalOutputTokens = summary?.totalOutputTokens || 0;
   const totalVideoMinutes = Math.round((summary?.totalVideoSeconds || 0) / 60);
-  const pricing = summary?.pricing || { inputPricePer1M: 0.50, outputPricePer1M: 3.00, model: 'gemini-3-flash-preview' };
+  const pricing = summary?.pricing || { inputPricePer1M: 0.30, outputPricePer1M: 2.50, model: 'gemini-3.5-flash-lite' };
   const inputPricePerToken = pricing.inputPricePer1M / 1000000;
   const outputPricePerToken = pricing.outputPricePer1M / 1000000;
   const estimatedCost = (totalInputTokens * inputPricePerToken) + (totalOutputTokens * outputPricePerToken);

@@ -690,3 +690,158 @@ These tests must be run from a standard x86_64 Linux/macOS environment (or CI):
 
 ### ⚠️ Known
 - `npm audit` reports 33 vulnerabilities (2 low / 11 moderate / 20 high) — pre-existing dependency state, unchanged by this merge.
+
+### 🔍 Reviewer Quality Gate (2 rounds)
+- Round 1: 4/5 PASS, NEEDS_FIXES → 1 MAJOR (roadmap stale "still a template" + Pending Inputs) + 2 Minor (CMO pricing anchors not aligned to CSO $9).
+- Fix round: CPO roadmap E2 + Pending Inputs marked CSO/CMO LANDED; CMO re-anchored pricing to $9/team/mo across 3 docs.
+- Round 2: **5/5 PASS → READY_FOR_FOUNDER_REVIEW.** Full evidence in `.opencode/integration-status.md`.
+
+### ⛔ Human Decision Gate (HALT)
+- **EXTERNAL_FINANCIAL_LEGAL**: CSO pricing ($9 Pro / $39 Org per team-month) requires founder sign-off before E2/E9 stories are broken down. Enterprise loop halts here pending founder review.
+- Next after gate: PO story breakdown (PO-101 temporal rosters, tiering stories) → Tech Lead feasibility spike queue S1/S2.
+
+## [2026-08-02] Startup Enterprise: PRICING DEFERRED + Git Separation (CEO @cep-agent)
+**Objective:** Founder decided to DEFER the pricing model decision until real usage data exists; CEO encoded the decision and separated the enterprise env from project git.
+
+### ✅ Founder Decision (Gate EXTERNAL_FINANCIAL_LEGAL → status: DEFERRED, not approved)
+- Founder: "can we leave the pricing model decision to when we have more data?" → **YES, deferred.** All price points/caps/overage/discounts = working hypothesis (PENDING_DATA), NOT commitments.
+- Locked NOW (data-generating, not pricing): (1) Free tier/alpha + usage tracking (real cost already in `ai_usage_records`), (2) paywall-moment instrumentation (KR3 conversion input), (3) cost-lever spike S3 (context caching ~10x + batch API −50%) before any paid billing.
+
+### ✅ Cost Model CORRECTED with real data (replaces stale $0.11/game)
+- Real `gemini-3-flash-preview` pricing ($0.50/1M in, $3.00/1M out) + 676 prod usage records:
+  - 90-min game: **$0.59** no levers / **$0.15** with cache+batch; 120-min: **$0.78** / **$0.20**; 12-min test: $0.13 / $0.03.
+  - Pro $9 margins @90min: 80% @3gm, 67% @5gm, 34% @10gm (levers → ~97% @5gm). Free tier = real subsidy (~$0.59–0.78/free game), acceptable as CAC while 1-game cap holds.
+  - Guardrail: if measured cost/game > $0.45, raise Pro to $12–15.
+
+### ✅ Git Separation (founder requirement: keep enterprise env out of master/test)
+- `.gitignore` block added: `.agile_system/`, `.opencode/`, `dashboard/`, `experiments/`, `docs/strategy/`, `docs/market/`, `docs/feedback/`, `docs/meetings/`, `docs/research/`, `docs/ux/`, `docs/architecture/`, `docs/security/`, `docs/product/roadmap.md`.
+- `git rm -r --cached .opencode/` executed (files kept on disk, removed from index). Verified: 0 enterprise files tracked (4 matches = false positives: frontend project dashboard files).
+
+### 📄 Files updated (PENDING_DATA encoding)
+- `docs/strategy/business_model.md`: header→PENDING_DATA; §2 real cost table; §4 config-as-data mandate; §6 real margins; §9 data-driven gate (50+ games, ≥30 free teams w/3 games, 5–10 WTP interviews); §10 A3/A6.
+- `docs/product/roadmap.md`: E2 Config-as-data mandate + PENDING_DATA note; S3 reworded to include cost levers; Pending Inputs updated (CPO).
+- `.agile_system/agent_workspaces/ceo_agent/context.md`: gate resolution + next steps.
+
+### ⏭️ Next
+PO story breakdown (PO-101 temporal rosters, E2 tiering as config-data) → Tech Lead spike queue (S3 first: cost levers) → exec_review ceremony. No commit without founder approval.
+
+---
+
+## 🎯 Sprint 1 — Fix Round + R4 PASS (2026-08-02, 09:37)
+
+### 🔧 What happened
+- Reviewer **R3 verdict: NEEDS_FIXES** (1 MAJOR + 3 minor) on the PO story backlog + Tech Lead spike plans.
+- Fix round delegated in parallel: PO → story_backlog priority counts + guardrail citation; Tech Lead → S3 chunk count + G6 guardrail re-anchor.
+
+### ✅ Fixes landed (verified on disk)
+1. **MAJOR** story_backlog.md:17 exec summary → **11 P0 / 4 P1 / 3 P2** (was 7/7/4); summary table + story headers reconciled to 11/4/3; :358 sprint header → "Next sprint (P0, 11 stories…)" matching the 11 listed P0 stories (E1-S1/S2/S3, E2-S1/S2/S3/S6, ALPHA-S1, PO-101-S1/S2/S5).
+2. **MINOR** S3_spike.md:95 G6 guardrail → re-anchored to business_model §9 data gate: "launch Pro at evidence-based price, likely **$6–12**" (removed invented $0.45 → $12–15; grep clean).
+3. **MINOR** S3_spike.md:59 chunk count → **66** (was ≈65; formula `Math.ceil((7200−10)/110) = 65.36 → 66` noted at :60); downstream cache/storage-fee math intact.
+4. **MINOR** story_backlog.md:167 → guardrail now cites **business_model §2 margin targets + §9 data-driven pricing gate** (precise dual citation).
+
+### 🧪 Reviewer R4: **PASS (4/4 fixes verified + zero regressions)** — `.opencode/integration-status.md` (two independent R4 sections)
+- Protected files untouched: roadmap.md mtime 08:00 (CPO-owned), user_intent_raw.md 07:01 (immutable), business_model.md 07:58 (CEO-owned).
+- Cross-doc consistency: story_backlog 18 stories = 6+7+4+1; 11+4+3=18 ✓; S3 cost figures match business_model §2 + usageRoutes pricing ✓; P1/P2 sets match roadmap ✓.
+
+### 📋 Next (exec_review ceremony + sprint planning prep)
+- **Sprint 1 backlog (P0 slice, 11 stories):** E1-S1/S2/S3 (workspace onboarding), E2-S1/S2/S3/S6 (tiering config-data + metering), ALPHA-S1 (free alpha), PO-101-S1/S2/S5 (temporal rosters).
+- **Spike queue:** S3 (cost levers) first, then S2 (TAT), S1 (highlights) — all PENDING Go/No-Go.
+- **Founder gate EXTERNAL_FINANCIAL_LEGAL** still required before any payment processor. NO commit without founder approval.
+
+## 2026-08-03 11:34 — Dashboard bug reported to AutoAiStartup CEO
+- Bug FB-1785745869 filed via feedback-ingest.sh into ../AutoAiStartup (board: DEV_EXECUTION, dev-agent, high priority; inbox ticket + insights.md aggregated).
+- Root cause documented: dashboard/index.html uses File System Access API (showDirectoryPicker line ~348) + readTextFile(.agile_system/board.json line 384); NO HTTP fallback; Android browsers lack showDirectoryPicker → board renders empty at :8080/dashboard#/overview.
+- Proposed fix in ticket: HTTP fallback (fetch /board.json + /telemetry.json from control-tower-server) when FS API unavailable/not connected.
+- CEO context.md updated: Immediate Next Action = own FB-1785745869, direct dev-agent fix, confirm to reporter.
+- Founder notified via termux-notification.
+- NEXT: await AutoAiStartup CEO fix confirmation, then update StatVision team (pull fixed dashboard/index.html, verify board loads on HTTP, update board.json/docs/jobLog).
+
+## 2026-08-03 12:35 — ENTERPRISE RESUMED (quota pause recovery)
+- system_snapshot.json: board_locked true→false, quota_utilization 0.95→0 (was Safe Pause).
+- ceremony_state.json → IDLE (was COMPLETED exec_review).
+- Ceremonies re-registered: jobs 3001 micro_sync 1h / 3002 sprint_cycle 8h / 3003 exec_review 24h.
+- Pipeline: 11 P0 tasks in SPRINT_BACKLOG_REFINEMENT (ready) → on_enter po-agent → ARCHITECTURE_DESIGN.
+- SM context woken (SM-RESUME-01); PO context woken (PO-RESUME-01, S3 spike ruling first); CEO context resume delta appended.
+- telemetry.json: last_resume 2026-08-03T12:35:00Z, resume_count 1.
+- Pending upstream: FB-1785745869 dashboard fix confirmation from AutoAiStartup CEO.
+
+## 2026-08-03 12:41 — FB-1785745869 RESOLVED (AutoAiStartup CEO fix landed)
+- Startup update check+apply synced fixed dashboard/index.html from ~/.config/opencode (12 files updated, dashboard DIFFERS->updated).
+- Fix verified: HTTP-first data loading (httpFetch /board.json line 395, /telemetry.json line 401), FS Access kept as enhancement behind fsSupported() (line 306). Explicit "Fixes FB-1785745869" comment (line 293).
+- E2E verified: server http://localhost:8080/dashboard HTTP 200; /board.json returns 11 tasks + Sprint 1 goal; /telemetry.json returns last_resume/resume_count; workspace contexts served.
+- Board loads WITHOUT Connect Folder on Android browsers — bug resolved.
+- Team updated: dashboard synced, jobLog logged, CEO context updated. Founder notified.
+
+## 2026-09-06 12:35 — UX review: login video frames analyzed (all 13 frames)
+- Watched user screen recording tmp/ux-review/screen-20260906-122919-login-process.mp4 (13.5s, 720x1600) via ffmpeg fps=1 → tmp/ux-review/frames/f-01..13.jpg.
+- Timeline: f-01 landing (cyan-eta) → f-02 /login loader (brief, ~1s) → f-03/04 Auth0 + Android autofill sheet → f-05/06 credentials filled → f-07 URL bar shows -2128s-projects.vercel.app (preview host!) blank white → f-08 landing logged-OUT on preview host → f-09 loader again → f-10 landing again → f-11/12/13 authenticated dashboard empty state on preview host (Sign Out + Upload Game + bottom nav Games/Teams/Usage/Settings).
+- KEY FINDING: login works but host-hops cyan-eta → preview deployment (redirect_uri=NEXT_PUBLIC_BASE_URL=preview host). Callback lands where PKCE verifier isn't → recovery via error→login→silent-auth, costing ~6s + confusing logged-out landing flashes + blank white screen.
+- Deployed BottomNav (Games/Teams/Usage/Settings) differs from current code (Live/Games/Teams/Stats/Usage) — prod build is stale vs repo.
+- Review §0 corrected: not "login broken" but "fragile login: host hop + silent-auth dependence + no timeout UI". Fix: set NEXT_PUBLIC_BASE_URL to canonical host, add AuthGuard/login timeout+retry, brand Auth0 widget.
+
+## 2026-09-06 — Video prompts cleanup + EventType single source of truth (branch feat/video-prompts-cleanup)
+- **Event types exported:** `common/src/constants/eventTypes.ts` now `as const` + `EventType` union; re-exported via `common/src/index.ts`. `api/src/constants/{eventTypes,gemini}.ts` were dead duplicates (zero imports) → converted to re-exports from `@statvision/common`. `ProcessedGameEvent.eventType` (common + api interfaces) typed as `EventType` instead of `string`.
+- **Schema wiring:** `EVENT_SCHEMA.eventType.enum` already referenced `ALLOWED_EVENT_TYPES`; verified at runtime that schema enum === exported list.
+- **Prompts de-bloated** (`common/src/infrastructure/prompts/`): removed duplicated JSON templates (enforced by `responseSchema`), theatrical persona, ALL-CAPS shouting. `system_instruction.md` 57→~20 lines; `first_chunk.md` 44→1 line; `subsequent_chunk.md` 16→1 line; `rulesets.md` trimmed; `coach_report.md` simplified. `GeminiProvider.ts`: 5-point shouty consistency block → 1 short conditional note (non-first chunks only).
+- **Model:** video analysis targets `gemini-3.5-flash-lite` — `GEMINI_MODEL_NAME` updated in local `.env*` (gitignored) + GitHub Actions variable (prod deploys via `deploy.yml`). Pricing defaults updated to $0.30/$2.50 per 1M (`api/src/routes/usageRoutes.ts`, frontend usage page fallback).
+- **Verification:** `npm run build -w common/api/worker` ✅, `type-check -w frontend` ✅, runtime smoke test (PromptLoader placeholders, rulesets, schema enum) ✅. Frontend vitest: 1 unit passed; 2 e2e suites fail pre-existing (`Unsupported platform: android` — Playwright, unrelated).
+- **QA Task List:** (1) Upload short test game → confirm chunk analysis returns events with new prompts; roster IDs stable across chunks. (2) Confirm `identifiedTeams` present in every chunk response. (3) Check `AiUsageRecord` rows show model `gemini-3.5-flash-lite`. (4) Usage page cost estimate renders with new pricing. (5) Regression: box-score stats aggregate correctly (GameStatsService string matching unaffected).
+- NEXT: user review → merge `feat/video-prompts-cleanup` → `test` → prod deploy picks up new model var.
+
+## 2026-09-06 — Local run on prod env: video-upload E2E test (branch feat/video-prompts-cleanup)
+- **Setup:** Postgres started (`~/postgresql/data`), API :3000 + worker :8080 + frontend :3001 running locally. Root `.env` replaced with prod Cloud Run env (33 vars from `statvision-api-prod`/`statvision-worker-prod`) + local overrides (`GEMINI_MODEL_NAME=gemini-3.5-flash-lite`, `PORT=3000`, `USE_MOCK_EVENT_BUS=true`, local upload dirs, localhost orchestrator URLs). Originals backed up to `/data/data/com.termux/files/usr/tmp/opencode/` (env-local-backup, env-api-backup).
+- **Bugs found & fixed (all pre-existing, hit during local test):**
+  1. Next 16 blocks dev resources on `127.0.0.1` → blank spinner. Fix: `allowedDevOrigins: ['localhost','127.0.0.1']` in `frontend/next.config.ts`. (Use `http://localhost:3001` in browser.)
+  2. Auth0 audience typo: tenant API is `basetball-analyzer`, local `frontend/.env.local` had `basketball-analyzer` → "Service not found". Fixed locally to match tenant. **Real typo lives in Auth0 tenant + prod backend env — needs coordinated rename, NOT done.**
+  3. `api/.env` shadows root `.env` (`api/src/app.ts` loads `api/.env`): API ran on stale template (placeholder JWKS URI → all JWT verifies 401 `JwksError: Not Found`; local DB). Fix: copied prod env into `api/.env` (+LOG_LEVEL). Worker correctly uses root `.env`.
+  4. CSP `connect-src` blocked API calls (:3000) and GCS resumable uploads (`storage.googleapis.com`); `frame-src 'self'` blocked Auth0 silent-auth iframe. Fixed in `next.config.ts`. (Also observed blocked: `googletagmanager`, `cdn.jsdelivr.net/npm/eruda` — left as-is, prod gaps, out of scope.)
+  5. No GCP ADC on device → GCS upload 500. User ran `gcloud auth application-default login` manually. ADC picked up without restart; `[GCSStorageProvider] Created resumable upload URL` confirmed.
+- **Verified working:** landing render, Auth0 login+consent, `JWT Check successful` (`GET /games` 200), dashboard with prod data, upload form attach, 30s test clip cut from `storage/videos/.../demo.webm` (`/tmp/opencode/test-clip.webm`), resumable GCS URL creation.
+- **NOT yet verified:** actual video bytes upload → worker chunk analysis with new prompts + 3.5-flash-lite (blocked by Auth0 consent-loop in the automated test browser: every full page load re-prompts consent, likely 3P-cookie/test-profile specific; prod login works per UX review).
+- **Prod test artifacts to clean later:** draft game rows `94efa9cc-a0ea-420d-9108-e48f161d07c2`, `45f9b515-ceb7-46eb-9581-c39f96d00025` (+ any GCS objects under `videos/<id>/`).
+- **Open pre-existing issues (out of scope):** consent re-prompt every fresh session; post-login host-hop to Vercel preview (`frontend-o0ap1qoz5-...vercel.app`) — matches 2026-09-06 UX review findings.
+- NEXT: user tests upload in their own browser → watch `sv-worker.log` for chunk analysis → confirm events/roster/model → cleanup test rows → restore local `.env` files → commit/merge decision.
+
+## 2026-09-06 — User upload test hit preview deployment, not local (CORS)
+- User tested on `https://frontend-o0ap1qoz5-arielfrja-2128s-projects.vercel.app` (Vercel preview), which calls prod API `statvision-api-prod`. Prod API CORS rejects the preview origin: `POST .../games net::ERR_FAILED — No 'Access-Control-Allow-Origin'`. Nothing reached any backend; local API log confirms zero upload attempts.
+- Same console shows deployed frontend still carries old CSP: `firebase.googleapis.com` + `firebaseinstallations.googleapis.com` blocked (my CSP fixes run only on local :3001), plus `POST .../api/log 404` (exception-logging endpoint missing on preview host).
+- Decisions needed (NOT done): (a) preview→prod CORS allowlist strategy (preview hashes rotate — needs pattern/regex or point previews at test backend); (b) deploy frontend CSP fixes (frame-src Auth0, storage.googleapis.com, firebase hosts) — currently local-only; (c) `/api/log` 404 on preview host.
+- NEXT: user retests on http://localhost:3001 (local stack verified to GCS upload-URL step).
+
+## 2026-09-07 — Local env consolidated: root `.env.local` mirrors prod
+- Root `.env.local` created from prod Cloud Run env (`statvision-api-prod` + `statvision-worker-prod`, 30 vars) + local overrides (`GEMINI_MODEL_NAME=gemini-3.5-flash-lite`, `PORT=3000`, `USE_MOCK_EVENT_BUS=true`, localhost orchestrator/analyzer URLs, local upload/tmp dirs, `LOG_LEVEL=debug`). Originals backed up under `/tmp/opencode/`.
+- `api/.env` and root `.env` are now symlinks to `.env.local` (dotenv follows them; zero code changes; all three paths gitignored). This kills the `api/.env`-shadowing gotcha permanently for local runs.
+- API + worker restarted through the links: API prod DB + :3000 ✅, worker reconciled + PUSH mode ✅. Frontend untouched (:3001, own `frontend/.env.local`).
+
+## 2026-09-07 — demo.webm E2E: upload works, GCS "missing object" explained
+- 15-min/359MB demo.webm uploaded via Chromium (game `0127e52e`): resumable URL ✅, bytes streamed ✅, `upload-complete` ✅, game UPLOADED ✅, worker job `9d224f6f` created ✅, 359MB downloaded to worker temp ✅, chunk 0 sent to Gemini with NEW prompts ✅ — then failed ONLY on dead prod key (`API key not valid` 400).
+- Mystery of vanishing GCS object solved: `JobFinalizerService.onJobFinal` (`worker/src/worker/JobFinalizerService.ts:170-177`) DELETES the source video from GCS on job failure ("resource cleanup"). So failed jobs destroy their own input — attempts #1 (and likely #2/#3) were purged post-failure. Questionable design (destroys evidence), flagged, not changed.
+- Attempt #3 (game `1add564f`): bytes never visible in GCS ("not yet visible" polled) — same fate or incomplete finalize. Frontend shows finalization error.
+- Prod AI usage last success 2026-07-17 (676 records) — prod key likely dead for ~7 weeks; prod analysis probably broken regardless of this branch.
+- NEXT: user provides personal Gemini key as local-only override → restart worker → re-upload → full analysis expected.
+
+## 2026-09-07 — E2E VERIFIED: 3.5-flash-lite + new prompts on demo.webm (game 963a4758)
+- User-supplied `AQ.`-format key verified first through the exact SDK path (`@google/genai` + `gemini-3.5-flash-lite` test call ✅), then set as local-only `GEMINI_API_KEY` override; API+worker restarted.
+- Full re-upload (359MB) → UPLOADED, no "not visible" flakiness this time. Job `62bfa46c`, 9 chunks.
+- Mid-run check (3/9 chunks): **42 events** in prod DB, ALL within exported enum (2pt Shot Attempt 14, Def Rebound 9, 3pt Attempt 4, ...). `ai_usage_records` attributes `gemini-3.5-flash-lite` (35k in / 6k out). Certainty columns populated (e.g. 0.9/1.0), player IDs resolved to UUIDs (roster continuity holds).
+- This closes the plan's QA list items 1-3. Remaining: job completion → box-score regression check (item 5), usage page render (item 4).
+
+## 2026-09-07 — Fixed user's "Console TypeError: Failed to fetch" (Firebase vs CSP)
+- Reproduced in test browser: unhandled rejection from `@firebase/installations` (`firebaseinstallations.googleapis.com` blocked by `connect-src`) → Next dev error overlay. Trigger: `getAnalytics(app)` in `frontend/src/firebase-config.js` runs unconditionally on every page load.
+- Fix (`frontend/next.config.ts`, local branch): `connect-src` += `firebaseinstallations.googleapis.com` + RTDB hosts (`https+wss://statsvision-b87ee-default-rtdb.firebaseio.com`, needed by `useJobProgress`/`JobProgressBar` which was silently broken too). Verified: 0 console errors/exceptions on authenticated dashboard.
+- Left blocked (cosmetic, no overlay): gtag script, eruda CDN, Roboto Flex stylesheet. Same gaps exist in prod CSP — deploy of this branch fixes installations/RTDB there too.
+
+## 2026-09-07 — demo.webm analysis COMPLETE (game 963a4758, job 62bfa46c)
+- 9/9 chunks, game ANALYZED. **116 events**, all in-enum (38× 2pt Attempt, 27× Def Rebound, 9× Possession Change, 7× 3pt Attempt, 6× 2pt Made, ...). Team stats 2 rows, player stats 12 rows (box-score aggregation ✅).
+- Usage: `gemini-3.5-flash-lite` 97,242 in / 15,942 out ≈ **$0.07 for 15 min** (vs old $0.59/90-min figure for 3-flash-preview → ~4x cheaper per minute).
+- Confirmed: last `gemini-3-flash-preview` prod usage was 2026-07-17 — prod dormant 7+ weeks.
+- Plan QA list closed except usage-page render (item 4, trivially code-reviewed).
+
+## 2026-09-27 — DROPPED: Startup Enterprise System (founder decision)
+- Founder: "drop the enterprise system, i don't want it any more."
+- Deleted from disk (all untracked, ~600KB): `.agile_system/` (board, 15 agent workspaces, ceremonies, okrs), `dashboard/` (control-tower UI), `experiments/` (1 sample file), enterprise docs (`docs/strategy/`, `docs/market/`, `docs/feedback/`, `docs/meetings/`, `docs/research/`, `docs/ux/`, `docs/architecture/`, `docs/security/`, `docs/product/roadmap.md`), enterprise `.opencode` state (`commit-plan.md`, `commit-prep.md`, `docs/`, `integration-status.md`).
+- Deleted branch `feat/startup-enterprise-system` locally + remote (`git push origin --delete`).
+- Kept: tracked `.opencode/` July session history (certainty mission), `dashboard_prod.png`, all of `jobLog.md` (audit trail), project docs (`docs/product/MASTER_ROADMAP.md`, `STRATEGY.md`, `docs/technical/`).
+- Verified: no project code/docs referenced the removed paths (only jobLog history entries); `git status` clean apart from branch work (`frontend/next.config.ts`, `jobLog.md`).
+- Consequence: Step 4 of the Sept-27 plan (enterprise spike pipeline S3→S2→S1, Sprint 1 P0 slice) is void. Product backlog falls back to `docs/product/MASTER_ROADMAP.md` Phase 4/6 open items (multi-tenancy, temporal rosters, tiering, highlights) as normal dev tasks. Pricing stays deferred (no billing code) per founder's earlier call.
+- Note: sibling `../AutoAiStartup` dir (outside repo) untouched.

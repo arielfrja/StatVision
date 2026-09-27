@@ -3,9 +3,9 @@ import { AiUsageService } from '@statvision/common';
 import logger from '../config/logger';
 
 const MODEL_PRICING = {
-    inputPricePer1M: 0.50,
-    outputPricePer1M: 3.00,
-    model: 'gemini-3-flash-preview',
+    inputPricePer1M: 0.30,
+    outputPricePer1M: 2.50,
+    model: 'gemini-3.5-flash-lite',
 };
 
 export const usageRoutes = (aiUsageService: AiUsageService) => {

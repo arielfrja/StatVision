@@ -13,12 +13,14 @@ export interface IdentifiedPlayer {
     teamAssignmentConfidence?: number; // 0-1 score based on interaction frequency
 }
 
+import { EventType } from "@statvision/common";
+
 // Note: This is a refined version of the existing GameEvent entity for use within the job.
 // It may not match the final database schema exactly but provides type safety for the worker.
 export interface ProcessedGameEvent {
     id: string; // UUID v4
     gameId: string;
-    eventType: string; // Should be an enum, matching ALLOWED_EVENT_TYPES
+    eventType: EventType;
     eventSubType: string | null;
     isSuccessful: boolean;
     period: number | null;
