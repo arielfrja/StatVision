@@ -614,7 +614,7 @@ function AnalysisPage() {
               <div slot="content">This will permanently remove all stats and video data for this game. This action cannot be undone.</div>
               <div slot="actions">
                 <md-text-button onClick={() => setShowDeleteConfirm(false)}>Cancel</md-text-button>
-                <md-text-button style="color:var(--md-sys-color-error)" onClick={handleDeleteGame} disabled={isDeleting}>Confirm Deletion</md-text-button>
+                <md-text-button style={{color: 'var(--md-sys-color-error)'}} onClick={handleDeleteGame} disabled={isDeleting}>Confirm Deletion</md-text-button>
               </div>
             </md-dialog>
 
@@ -623,7 +623,7 @@ function AnalysisPage() {
               <div slot="content">Are you sure you want to remove this log entry from the play-by-play feed?</div>
               <div slot="actions">
                 <md-text-button onClick={() => setEventToDelete(null)}>Keep It</md-text-button>
-                <md-text-button style="color:var(--md-sys-color-error)" onClick={confirmDeleteEvent}>Delete Entry</md-text-button>
+                <md-text-button style={{color: 'var(--md-sys-color-error)'}} onClick={confirmDeleteEvent}>Delete Entry</md-text-button>
               </div>
             </md-dialog>
 

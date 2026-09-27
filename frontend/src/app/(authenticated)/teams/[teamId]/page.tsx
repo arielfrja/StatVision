@@ -269,7 +269,7 @@ function TeamPlayersPage() {
         <div slot="content">Are you sure you want to remove this player from the active roster? Career stats will be preserved in the global registry.</div>
         <div slot="actions">
           <md-text-button onClick={() => setPlayerToDelete(null)}>Cancel</md-text-button>
-          <md-text-button style="color:var(--md-sys-color-error)" onClick={confirmDeletePlayer} disabled={isDeleting}>Confirm Release</md-text-button>
+          <md-text-button style={{color: 'var(--md-sys-color-error)'}} onClick={confirmDeletePlayer} disabled={isDeleting}>Confirm Release</md-text-button>
         </div>
       </md-dialog>
     </main>
