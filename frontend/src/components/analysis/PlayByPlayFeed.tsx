@@ -122,8 +122,10 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                                     fontSize: '11px',
                                     fontWeight: 500,
                                 }}>
-                                    {assignedPlayer ? 
-                                        `${assignedPlayer.player.name} (#${assignedPlayer.jerseyNumber})` : 
+                                    {assignedPlayer ?
+                                        assignedPlayer.jerseyNumber != null
+                                            ? `${assignedPlayer.player.name} (#${assignedPlayer.jerseyNumber})`
+                                            : assignedPlayer.player.name :
                                         'Unassigned'}
                                 </span>
                                 <div slot="end" style={{

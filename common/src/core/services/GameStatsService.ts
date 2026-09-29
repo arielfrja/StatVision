@@ -68,6 +68,9 @@ export class GameStatsService {
         const pointValueRule = game.ruleset?.pointValue || '2_AND_3';
         const teamStatsMap = new Map<string, AggregatedStats>();
         const playerStatsMap = new Map<string, AggregatedStats>();
+        // Most-frequent team per player, so player stat rows can be
+        // grouped under their team in the box score UI.
+        const playerTeamVotes = new Map<string, Map<string, number>>();
         const events = game.events || [];
 
         const uniqueTeamIds = new Set<string>();
@@ -135,6 +138,15 @@ export class GameStatsService {
 
             updateStats(teamStats);
             if (playerStats) updateStats(playerStats);
+
+            if (playerId && teamId) {
+                let votes = playerTeamVotes.get(playerId);
+                if (!votes) {
+                    votes = new Map<string, number>();
+                    playerTeamVotes.set(playerId, votes);
+                }
+                votes.set(teamId, (votes.get(teamId) || 0) + 1);
+            }
         }
 
         const teamStatsEntities = Array.from(teamStatsMap.entries()).map(([teamId, stats]) => {
@@ -147,8 +159,17 @@ export class GameStatsService {
 
         const playerStatsEntities = Array.from(playerStatsMap.entries()).map(([playerId, stats]) => {
             const { effectiveFieldGoalPercentage, trueShootingPercentage } = this.calculateEfficiency(stats);
+            const votes = playerTeamVotes.get(playerId);
+            let playerTeamId: string | null = null;
+            if (votes) {
+                for (const [teamId, count] of votes) {
+                    if (!playerTeamId || count > (votes.get(playerTeamId) || 0)) {
+                        playerTeamId = teamId;
+                    }
+                }
+            }
             return this.playerStatsRepository.create({
-                gameId, playerId, ...stats, minutesPlayed: 0, plusMinus: 0, effectiveFieldGoalPercentage, trueShootingPercentage,
+                gameId, playerId, teamId: playerTeamId, ...stats, minutesPlayed: 0, plusMinus: 0, effectiveFieldGoalPercentage, trueShootingPercentage,
             });
         });
         await this.playerStatsRepository.save(playerStatsEntities);
