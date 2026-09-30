@@ -878,3 +878,33 @@ PO story breakdown (PO-101 temporal rosters, E2 tiering as config-data) → Tech
 - Minor: PBP shows `(#null)` jersey (Player rows lack jerseyNumber); "UNFINISHED UPLOAD" banner fires for actively-uploading games; consent re-prompt on every full nav (test-profile only); post-analysis video unplayable (GCS cleanup by design).
 - Local-only fixes applied (NOT committed, gitignored env): `FIREBASE_DATABASE_URL` set in `.env.local`; removed dead `.git/hooks/pre-commit`.
 - Hygiene: fresh Auth0 token file shredded after test. Prod test rows to clean later: `423c8d31` (this run), stale `e293d2e4` (PENDING demo), `1add564f` (FAILED draft) + their GCS `videos/<id>/` objects.
+
+## 2026-09-27 — Fix: auto-link AI-discovered teams (branch fix/auto-link-game-teams, 5856a0f)
+**Objective:** Draft games never got `homeTeamId/awayTeamId` (worker only read them) → scoreboard generic HOME/AWAY 0-0.
+- Added `linkDiscoveredTeams` in `VideoAnalysisResultService`, called on ANALYZED path. Maps by AI HOME/AWAY type labels; never overrides existing links (human `/assignment` wins); snapshots pre-existing links so partial official mappings resolve correctly.
+- **Caught by test:** first version mapped TEMP_TEAM_2 onto the just-set away ID (both teams = Triton). Fixed with orig-link snapshot.
+- **Verified:** executed the real method against prod DB on game `423c8d31` → home=Glenn, away=Triton ✅, re-run no-op ✅, worker `tsc` ✅. QA game row repaired in the process (scoreboard now shows names).
+- Disposable test script removed. Local worker restarted on fixed code.
+- **NOT merged/pushed** — awaiting founder approval.
+
+### 🧪 QA Task List (after merge)
+1. CI green on the merge commit.
+2. Next analyzed game gets home/away auto-linked (check `GET /games/:id`).
+3. Official-team games unaffected (TEMP→official mapping + no-op when both set).
+4. Scoreboard shows team names + split scores on a fresh draft game.
+
+## 2026-09-29 — QA: Firefox (firefox-devtools MCP, FF152 headless) on fix branch
+- Fresh profile login via `sandbox/.env.test-user` creds (user-authorized) — filled via JS, **no consent loop** (unlike Chromium test profile).
+- ✅ Landing, dashboard, Film Room render. QA game card shows **GLENN VS TRITON** (P1 link visible in list).
+- ✅ Game page: scoreboard **GLENN 6 FINAL / TRITON 12**, 94-event feed, Box Score/Personnel/Coach Report tabs — **no crash** (P0 fix holds in second browser), no error overlay, zero failed (4xx/5xx) resources.
+- 📝 New minor gap: `playerStats.teamId` is null (persist creates Player rows without team) → per-team player grouping shows "NO PLAYER DATA AVAILABLE" under GLENN/TRITON sections. Aggregates themselves correct. Pre-existing (same on Sept 7/27 runs), not a regression.
+
+## 2026-09-29 — Temp-first workflow fixes (branch fix/player-stats-team, 315de36)
+**Founder rule:** no teams passed in → backend creates temp teams/players → user assignment makes it const (or maps to existing). No PlayerTeamHistory support at all.
+- **Raw-vs-saved audit (job dc3d1099):** 94/94 events, 12/12 player attributions preserved; 9-player roster in every chunk; jersey numbers live only in roster objects (events never carry them).
+- **Route/modal mismatch FIXED:** modal sends batch `{teamMappings, playerMappings}`, route expected single `{tempId,realId,type}` → assignment never executed. Route now accepts both.
+- **assignEntity (api+worker kept in sync):** team mapping moves `game.home/awayTeamId` temp→official; game flips to COMPLETED once zero events reference temp entities (the const state). Badge already handles COMPLETED→READY.
+- **History write REMOVED** from api's persist (`PlayerTeamHistory` auto-create). Event-vote teamId on stat rows instead (common).
+- **PBP:** plain name when jersey unknown (no more `(#null)`).
+- **Verified:** 8/8 checks PASS on isolated local PG (scratch DB, dropped after): re-point, link-move, stays ANALYZED while temp remains, COMPLETED when clean. api/worker/frontend tsc ✅.
+- **NOT merged/pushed** — awaiting founder approval (merges with fix/auto-link-game-teams; no file conflicts).
