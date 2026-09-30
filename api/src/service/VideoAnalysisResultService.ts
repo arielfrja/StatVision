@@ -4,7 +4,7 @@ import {
     GameRepository, GameEventRepository, GameStatsService, 
     TeamRepository, PlayerRepository, 
     GameStatus, GameEvent, Team, Player, GameTeamStats, GamePlayerStats, 
-    VideoAnalysisJobStatus, GameEventStatus, IEventBus, PlayerTeamHistory
+    VideoAnalysisJobStatus, GameEventStatus, IEventBus
 } from "@statvision/common";
 import * as winston from 'winston';
 import { NotificationService } from "./NotificationService";
@@ -291,25 +291,9 @@ export class VideoAnalysisResultService {
                     await this.playerRepository.save(player);
                 }
 
-                if (playerData.teamId && this.isUuid(playerData.teamId)) {
-                    try {
-                        const history = await this.playerRepository.findPlayerByJerseyAndTeam(
-                            playerData.teamId, 
-                            playerData.jerseyNumber, 
-                            new Date()
-                        );
-                        if (!history) {
-                            const newHistory = new PlayerTeamHistory();
-                            newHistory.playerId = player.id;
-                            newHistory.teamId = playerData.teamId;
-                            newHistory.jerseyNumber = playerData.jerseyNumber;
-                            newHistory.startDate = new Date();
-                            await this.dataSource.getRepository(PlayerTeamHistory).save(newHistory);
-                        }
-                    } catch (err) {
-                        this.logger.warn(`Failed to save player history during persistence`, { error: err });
-                    }
-                }
+                // NOTE: No PlayerTeamHistory writes here by design (founder decision
+                // 2026-09-29: temporal rosters not supported yet). Team/jersey
+                // linkage for temp players is derived at read/aggregation time.
 
                 const { id: _, ...statsToMerge } = playerData;
                 const gamePlayerStats = (await this.gameStatsService.getGamePlayerStats(result.gameId, playerData.id)) || new GamePlayerStats();
