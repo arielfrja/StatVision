@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { useAuth0 } from '@/app/user-provider';
@@ -13,7 +13,7 @@ import '@material/web/button/outlined-button.js';
 import '@material/web/button/text-button.js';
 import '@material/web/icon/icon.js';
 import '@material/web/labs/card/elevated-card.js';
-import '@material/web/labs/card/outlined-card.js';
+import '@material/web/dialog/dialog.js';
 
 import { Game, GameStatus } from '@/types/game';
 import UploadForm from '@/components/UploadForm';
@@ -24,12 +24,29 @@ const GamesPage = () => {
   const searchParams = useSearchParams();
   const resumeId = searchParams.get('resume');
 
-  const { data: games, isLoading, mutate } = useSWR<Game[]>('/games', {
-    refreshInterval: 5000,
+  const { data: games, error: gamesError, isLoading, mutate } = useSWR<Game[]>('/games', {
+    refreshInterval: 15000,
   });
 
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [resumeGameId, setResumeGameId] = useState<string | null>(null);
+  const [gameToDelete, setGameToDelete] = useState<Game | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null);
+
+  const deleteDialogRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = deleteDialogRef.current;
+    if (!el) return;
+    const handler = () => setGameToDelete(null);
+    el.addEventListener('close', handler);
+    return () => el.removeEventListener('close', handler);
+  }, [gameToDelete]);
+
+  const showToast = (msg: string, kind: 'success' | 'error') => {
+    setToast({ msg, kind });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     if (resumeId) {
@@ -58,6 +75,24 @@ const GamesPage = () => {
     }
   };
 
+  if (gamesError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: '16px', textAlign: 'center' }}>
+        <md-icon>cloud_off</md-icon>
+        <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', margin: 0 }}>
+          Cannot reach server
+        </h2>
+        <p style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', margin: 0 }}>
+          The game vault could not be loaded. Check your connection and try again.
+        </p>
+        <md-filled-button onClick={() => mutate()}>
+          <md-icon slot="icon">refresh</md-icon>
+          Retry
+        </md-filled-button>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
@@ -73,30 +108,37 @@ const GamesPage = () => {
     router.replace(`/games?resume=${gameId}`);
   };
 
-  const handleDelete = async (e: React.MouseEvent, gameId: string) => {
+  const handleDelete = (e: React.MouseEvent, game: Game) => {
     e.stopPropagation();
+    setGameToDelete(game);
+  };
 
-    if (!confirm('Are you sure you want to delete this game and all its data? This action cannot be undone.')) {
-      return;
-    }
+  const confirmDelete = async () => {
+    if (!gameToDelete || isDeleting) return;
+    const target = gameToDelete;
+    setIsDeleting(true);
 
     try {
       const token = await getAccessTokenSilently();
-      await apiClient.delete(`/games/${gameId}`, {
+      await apiClient.delete(`/games/${target.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       const activeUploadId = localStorage.getItem('statvision_active_upload_id');
-      if (activeUploadId === gameId) {
+      if (activeUploadId === target.id) {
         localStorage.removeItem('statvision_active_upload_id');
         localStorage.removeItem('statvision_active_upload_filename');
         localStorage.removeItem('statvision_active_upload_filesize');
       }
 
+      setGameToDelete(null);
       mutate();
-    } catch (error) {
+      showToast(`"${target.name}" deleted.`, 'success');
+    } catch (error: any) {
       console.error('Error deleting game:', error);
-      alert('Failed to delete game. Please try again.');
+      showToast(error?.response?.data?.message || 'Failed to delete game. Please try again.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -118,8 +160,8 @@ const GamesPage = () => {
             {resumeGameId ? 'Recover Upload' : 'Initialize New Analysis'}
           </h1>
         </header>
-        <md-outlined-card>
-          <UploadForm
+        {/* Single-card upload surface: UploadForm renders its own card. */}
+        <UploadForm
             initialGameId={resumeGameId || undefined}
             onUploadComplete={() => {
               setIsUploadMode(false);
@@ -133,7 +175,6 @@ const GamesPage = () => {
               router.replace('/games');
             }}
           />
-        </md-outlined-card>
       </div>
     );
   }
@@ -191,14 +232,14 @@ const GamesPage = () => {
           </md-outlined-button>
         </section>
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {games.map((game: Game) => {
             const status = getStatusDisplay(game.status);
             const date = new Date(game.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const canRetry = game.status === GameStatus.FAILED || game.status === GameStatus.PENDING;
 
             return (
-              <div key={game.id} style={{ flex: '1 1 300px', maxWidth: '100%', minWidth: '280px' }}>
+              <div key={game.id}>
                 <md-elevated-card
                   onClick={() => !canRetry && router.push(`/games/${game.id}`)}
                   tabIndex={canRetry ? -1 : 0}
@@ -252,7 +293,7 @@ const GamesPage = () => {
                       </span>
 
                       <button
-                        onClick={(e) => handleDelete(e, game.id)}
+                        onClick={(e) => handleDelete(e, game)}
                         title="Delete Game" aria-label={`Delete game ${game.name}`}
                         style={{
                           color: 'var(--md-sys-color-on-surface-variant)',
@@ -346,15 +387,16 @@ const GamesPage = () => {
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {/* A2 list counts — never .length (arrays are omitted from list payloads). */}
                             <md-icon>analytics</md-icon>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
-                              {game.events?.length || 0}
+                              {game.eventCount ?? 0}
                             </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <md-icon>person</md-icon>
                             <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
-                              {game.playerStats?.length || 0}
+                              {game.playerCount ?? 0}
                             </span>
                           </div>
                         </div>
@@ -375,6 +417,42 @@ const GamesPage = () => {
           to { transform: rotate(360deg); }
         }
       `}</style>
+
+      {/* Named-target delete confirmation (replaces window.confirm). */}
+      <md-dialog ref={deleteDialogRef} open={!!gameToDelete}>
+        <div slot="headline">Delete “{gameToDelete?.name}”?</div>
+        <div slot="content">This permanently removes the game, its video, and all analysis data. This action cannot be undone.</div>
+        <div slot="actions">
+          <md-text-button onClick={() => setGameToDelete(null)} disabled={isDeleting}>Cancel</md-text-button>
+          <md-text-button style={{ color: 'var(--md-sys-color-error)' }} onClick={confirmDelete} disabled={isDeleting}>
+            {isDeleting ? 'Deleting…' : 'Delete Game'}
+          </md-text-button>
+        </div>
+      </md-dialog>
+
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: '96px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            backgroundColor: toast.kind === 'success' ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)',
+            color: '#fff',
+            fontSize: '13px',
+            fontWeight: 600,
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            maxWidth: '90vw',
+            textAlign: 'center',
+          }}
+        >
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 };

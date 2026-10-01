@@ -56,9 +56,16 @@ export interface Game {
 
     // File Path
     videoUrl: string | null; // Renamed from filePath
-    uploadUrl: string | null;
-    /** True while the game still awaits its video (backend strips storage internals). */
+
+    // A2 public payload: storage internals (uploadUrl/filePath) are NEVER
+    // exposed by list/detail. Resume via `hasPendingUpload` + re-issue
+    // GET /games/:gameId/upload-url — never read game.uploadUrl.
     hasPendingUpload?: boolean;
+
+    // A2 list-view counts (loadRelationCountAndMap, non-persisted).
+    // Prefer these over .length — list payloads omit the full arrays.
+    eventCount?: number;
+    playerCount?: number;
 
     events: GameEvent[];
 
