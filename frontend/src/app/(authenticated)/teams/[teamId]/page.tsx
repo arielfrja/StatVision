@@ -88,14 +88,15 @@ function TeamPlayersPage() {
   }, [fetchTeamDetails]);
 
   const handleCreatePlayer = async () => {
-    if (!teamId || !newPlayerName) return;
+    const trimmedName = newPlayerName.trim();
+    if (!teamId || !trimmedName || isRecruiting) return;
     setIsRecruiting(true);
     try {
       const token = await getAccessTokenSilently();
-      await apiClient.post(`/teams/${teamId}/players`, { 
-        name: newPlayerName, 
+      await apiClient.post(`/teams/${teamId}/players`, {
+        name: trimmedName,
         jerseyNumber: newPlayerJersey || null,
-        description: newPlayerDescription || null,
+        description: newPlayerDescription.trim() || null,
       }, {
         headers: { Authorization: `Bearer ${token}` },
       });
