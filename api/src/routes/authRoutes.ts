@@ -65,15 +65,15 @@ export const authRoutes = (AppDataSource: DataSource) => {
     router.get("/me", async (req, res) => {
         try {
             const providerUid = req.user?.uid;
-            if (!providerUid) return res.status(401).send("Unauthorized");
+            if (!providerUid) return res.status(401).json({ message: "Unauthorized" });
 
             const user = await userRepository.findOneBy({ providerUid });
-            if (!user) return res.status(404).send("User not found");
+            if (!user) return res.status(404).json({ message: "User not found" });
 
             res.status(200).json(user);
         } catch (error) {
             logger.error("Error fetching user info:", error);
-            res.status(500).send("Internal server error");
+            res.status(500).json({ message: "Internal server error" });
         }
     });
 
@@ -102,10 +102,10 @@ export const authRoutes = (AppDataSource: DataSource) => {
     router.put("/me/preferences", async (req, res) => {
         try {
             const providerUid = req.user?.uid;
-            if (!providerUid) return res.status(401).send("Unauthorized");
+            if (!providerUid) return res.status(401).json({ message: "Unauthorized" });
 
             const user = await userRepository.findOneBy({ providerUid });
-            if (!user) return res.status(404).send("User not found");
+            if (!user) return res.status(404).json({ message: "User not found" });
 
             user.preferences = { ...user.preferences, ...req.body };
             await userRepository.save(user);
@@ -113,7 +113,7 @@ export const authRoutes = (AppDataSource: DataSource) => {
             res.status(200).json(user.preferences);
         } catch (error) {
             logger.error("Error updating preferences:", error);
-            res.status(500).send("Internal server error");
+            res.status(500).json({ message: "Internal server error" });
         }
     });
 
