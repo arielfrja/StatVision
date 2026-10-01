@@ -29,7 +29,8 @@ const BottomNav = () => {
     return () => el.removeEventListener('navigation-bar-activated', handler);
   }, [router]);
 
-  const activeIndex = navItems.findIndex(item => item.path === pathname);
+  const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
+  const activeIndex = navItems.findIndex(item => isActive(item.path));
 
   return (
     <md-navigation-bar
@@ -47,7 +48,8 @@ const BottomNav = () => {
         <md-navigation-tab
           key={item.path}
           label={item.label}
-          active={pathname === item.path}
+          active={isActive(item.path)}
+          aria-label={item.label}
         >
           <md-icon slot="inactive-icon">{item.icon}</md-icon>
           <md-icon slot="active-icon">{item.icon}</md-icon>

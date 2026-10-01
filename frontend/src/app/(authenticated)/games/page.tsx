@@ -42,7 +42,7 @@ const GamesPage = () => {
     switch (status) {
       case GameStatus.COMPLETED:
       case GameStatus.ANALYZED:
-        return { icon: 'check_circle', color: 'var(--md-sys-color-tertiary)', label: 'READY' };
+        return { icon: 'check_circle', color: 'var(--md-sys-color-success)', label: 'READY' };
       case GameStatus.PROCESSING:
         return { icon: 'sync', color: 'var(--md-sys-color-primary)', label: 'ANALYZING', spin: true };
       case GameStatus.FAILED:
