@@ -1,8 +1,23 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
-import { TeamService, User, PlayerService } from '@statvision/common';
+import { TeamService, User, PlayerService, Game } from '@statvision/common';
 import logger from '../config/logger';
 import { playerRoutes } from './playerRoutes';
+
+const mapTeamError = (error: unknown): { status: number; message: string } => {
+    const message = (error as Error)?.message || "Internal server error.";
+    const code = (error as Error & { code?: string })?.code;
+    if (code === "DUPLICATE_TEAM_NAME" || message === "Team name already exists.") {
+        return { status: 409, message };
+    }
+    if (message === "Team name cannot be empty.") {
+        return { status: 400, message };
+    }
+    if (message.includes("not found") || message.includes("do not have permission")) {
+        return { status: 404, message };
+    }
+    return { status: 500, message };
+};
 
 export const teamRoutes = (AppDataSource: DataSource, teamService: TeamService, playerService: PlayerService) => {
     const router = Router();
@@ -34,7 +49,8 @@ export const teamRoutes = (AppDataSource: DataSource, teamService: TeamService, 
             res.status(201).json(newTeam);
         } catch (error) {
             logger.error("Error creating team:", error);
-            res.status(500).json({ message: (error as Error).message });
+            const { status, message } = mapTeamError(error);
+            res.status(status).json({ message });
         }
     });
 
@@ -60,7 +76,31 @@ export const teamRoutes = (AppDataSource: DataSource, teamService: TeamService, 
             res.status(200).json(updatedTeam);
         } catch (error) {
             logger.error(`Error updating team ${teamId}:`, error);
-            res.status(500).json({ message: (error as Error).message });
+            const { status, message } = mapTeamError(error);
+            res.status(status).json({ message });
+        }
+    });
+
+    router.delete("/:teamId", async (req, res) => {
+        if (!req.user || !req.user.id) return res.status(401).send("Unauthorized");
+        const { teamId } = req.params;
+        try {
+            const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);
+            if (!team) return res.status(404).json({ message: "Team not found." });
+
+            // Guard: games referencing this team keep working after delete.
+            // The home/away FKs are SET NULL, but we nullify explicitly first so the
+            // response can confirm the outcome and no orphaned link survives.
+            const gameRepository = AppDataSource.getRepository(Game);
+            await gameRepository.update({ homeTeamId: teamId }, { homeTeamId: null as unknown as string });
+            await gameRepository.update({ awayTeamId: teamId }, { awayTeamId: null as unknown as string });
+
+            await teamService.deleteTeam(teamId, req.user.id);
+            res.status(200).json({ message: "Team deleted.", id: teamId });
+        } catch (error) {
+            logger.error(`Error deleting team ${teamId}:`, error);
+            const { status, message } = mapTeamError(error);
+            res.status(status).json({ message });
         }
     });
 
