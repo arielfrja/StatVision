@@ -49,6 +49,26 @@ export const gameRoutes = (
     const gameRepository = AppDataSource.getRepository(Game);
     const userRepository = AppDataSource.getRepository(User);
 
+    /**
+     * Public game payload.
+     * Strips storage internals (`uploadUrl`, `filePath`) and ownership
+     * (`userId`, `user`) — clients must not see resumable session URLs,
+     * bucket paths, or other users' ids. Instead they get:
+     * - `videoUrl`: derived playback path (explicitly mapped because
+     *   TypeORM prototype getters are not serialized by res.json).
+     * - `hasPendingUpload`: true while the game still awaits its video
+     *   (status PENDING). The client then calls GET /:gameId/upload-url.
+     */
+    const toPublicGame = (game: any) => {
+        if (!game) return game;
+        const { uploadUrl: _uploadUrl, filePath: _filePath, userId: _userId, user: _user, ...pub } = game;
+        return {
+            ...pub,
+            videoUrl: (game as Game).videoUrl ?? null,
+            hasPendingUpload: game.status === GameStatus.PENDING,
+        };
+    };
+
     const queueOrchestrationTask = async (gameId: string, filePath: string, userId: string) => {
         const payload = { gameId, filePath, userId };
 
@@ -144,7 +164,7 @@ export const gameRoutes = (
 
         try {
             const games = await gameService.getGamesByUser(req.user.id);
-            res.status(200).json(games);
+            res.status(200).json(games.map(toPublicGame));
         } catch (error) {
             logger.error("Error retrieving games for user:", error);
             res.status(500).json({ message: "Internal server error." });
@@ -158,12 +178,19 @@ export const gameRoutes = (
 
         const { name, gameDate, location, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
 
+        // Game names are user-facing labels: require a real name.
+        // (No "Draft Game [hash]" server fallback — see GameService.)
+        const trimmedName = typeof name === 'string' ? name.trim() : '';
+        if (trimmedName.length < 3) {
+            return res.status(400).json({ code: "INVALID_NAME", message: "Game name must be at least 3 characters." });
+        }
+
         try {
             const user = await userRepository.findOneBy({ id: req.user.id });
             if (!user) return res.status(404).json({ message: "User not found" });
 
             const newGame = await gameService.createGame({
-                name,
+                name: trimmedName,
                 homeTeamId,
                 awayTeamId,
                 gameDate,
@@ -172,7 +199,7 @@ export const gameRoutes = (
                 visualContext,
                 ruleset
             }, user);
-            res.status(201).json(newGame);
+            res.status(201).json(toPublicGame(newGame));
         } catch (error) {
             logger.error("Error creating new game:", error);
             res.status(500).json({ message: "Internal server error." });
@@ -262,12 +289,27 @@ export const gameRoutes = (
         }
 
         const { gameId } = req.params;
-        const { gcsUri } = req.body;
+        const { fileName, gcsUri } = req.body;
 
-        logger.info(`[UPLOAD_COMPLETE] Received confirmation for game ${gameId}, URI: ${gcsUri}`);
+        logger.info(`[UPLOAD_COMPLETE] Received confirmation for game ${gameId}, file: ${fileName} (${gcsUri})`);
 
-        if (!gcsUri) {
-            return res.status(400).json({ message: "Missing gcsUri in body." });
+        // The ONLY trusted storage location for this game. The client must
+        // send the fileName it uploaded to; we HEAD that exact key instead
+        // of trusting an arbitrary gcsUri (path-confusion protection).
+        if (!fileName || typeof fileName !== 'string') {
+            return res.status(400).json({ code: "MISSING_FILENAME", message: "fileName is required in body." });
+        }
+        if (fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
+            return res.status(400).json({ code: "INVALID_FILENAME", message: "fileName must be a plain file name." });
+        }
+        const remotePath = `videos/${gameId}/${fileName}`;
+
+        if (gcsUri && typeof gcsUri === 'string') {
+            const gcsPath = gcsUri.replace(/^gs:\/\/[^\/]+\//, '');
+            if (gcsPath !== remotePath) {
+                logger.warn(`[UPLOAD_COMPLETE] Path mismatch for game ${gameId}: body gcsUri maps to ${gcsPath}, expected ${remotePath}`);
+                return res.status(400).json({ code: "PATH_MISMATCH", message: "gcsUri does not match videos/{gameId}/{fileName}." });
+            }
         }
 
         try {
@@ -277,34 +319,36 @@ export const gameRoutes = (
                 return res.status(404).json({ message: "Game not found or access denied." });
             }
 
-            // --- Robust Verification ---
-            // Extract the path from the URI (gs://bucket/path)
-            const remotePath = gcsUri.replace(/^gs:\/\/[^\/]+\//, '');
+            // --- Exact-key HEAD verification ---
             logger.debug(`[UPLOAD_COMPLETE] Verifying existence of ${remotePath} in storage...`);
             const fileExists = await storageProvider.exists(remotePath);
 
             if (!fileExists) {
-                logger.warn(`[UPLOAD_COMPLETE] Upload confirmation received for ${gameId}, but file is not yet visible in GCS: ${remotePath}`);
-                return res.status(202).json({ 
-                    status: 'PENDING_STORAGE', 
-                    message: "Cloud Storage is still finalizing the video. Please wait a moment..." 
+                logger.warn(`[UPLOAD_COMPLETE] File missing in storage for ${gameId}: ${remotePath}`);
+                return res.status(404).json({
+                    code: '404_STORAGE_MISSING',
+                    status: 'STORAGE_MISSING',
+                    message: "Video file not found in storage. Re-upload is required."
                 });
             }
 
-            // Update game status and file path
+            // Update game status and canonical file path; consume the
+            // resumable-upload session so it can never leak afterwards.
+            const bucket = process.env.UPLOAD_BUCKET || 'statvision-uploads-prod';
             game.status = GameStatus.UPLOADED;
-            game.filePath = gcsUri;
+            game.filePath = `gs://${bucket}/${remotePath}`;
+            game.uploadUrl = null as unknown as string;
             await gameRepository.save(game);
             logger.info(`[UPLOAD_COMPLETE] Game ${gameId} status updated to UPLOADED`);
 
             // Emit event to start analysis via Cloud Tasks
-            await queueOrchestrationTask(game.id, gcsUri, req.user.id);
+            await queueOrchestrationTask(game.id, game.filePath, req.user.id);
 
-            logger.info(`[UPLOAD_COMPLETE] Video upload confirmed and Cloud Task created for game ${gameId}: ${gcsUri}`);
-            res.status(200).json({ 
+            logger.info(`[UPLOAD_COMPLETE] Video upload confirmed and Cloud Task created for game ${gameId}: ${game.filePath}`);
+            res.status(200).json({
                 status: 'SUCCESS',
-                message: "Upload confirmed. Analysis started.", 
-                game 
+                message: "Upload confirmed. Analysis started.",
+                game: toPublicGame(game)
             });
         } catch (error) {
             logger.error(`[UPLOAD_COMPLETE] Error confirming upload for game ${gameId}:`, error);
@@ -472,7 +516,7 @@ export const gameRoutes = (
                 return res.status(404).json({ message: "Game not found or does not belong to user." });
             }
 
-            res.status(200).json(game);
+            res.status(200).json(toPublicGame(game));
         } catch (error) {
             logger.error(`Error retrieving game ${gameId} details:`, error);
             res.status(500).json({ message: "Internal server error." });
@@ -602,7 +646,11 @@ export const gameRoutes = (
         try {
             await gameService.deleteGame(gameId, req.user.id);
             res.status(204).send(); 
-        } catch (error) {
+        } catch (error: any) {
+            // GameService throws "... not found ..." for unknown ids.
+            if (error?.message && error.message.includes("not found")) {
+                return res.status(404).json({ message: "Game not found or access denied." });
+            }
             logger.error(`Error deleting game ${gameId}:`, error);
             res.status(500).json({ message: "Internal server error." });
         }

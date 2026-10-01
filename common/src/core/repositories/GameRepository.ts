@@ -63,11 +63,18 @@ export class GameRepository implements IGameRepository {
 
 
     async findAllByUserId(userId: string): Promise<Game[]> {
-        return this.repository.find({
-            where: { userId: userId },
-            relations: ["homeTeam", "awayTeam"], 
-            order: { uploadedAt: "DESC" }
-        });
+        // List view: join teams for names + COUNT relations for badges.
+        // loadRelationCountAndMap populates the transient
+        // `eventCount` / `playerCount` fields declared on Game
+        // (non-column, never persisted).
+        return this.repository.createQueryBuilder("game")
+            .leftJoinAndSelect("game.homeTeam", "homeTeam")
+            .leftJoinAndSelect("game.awayTeam", "awayTeam")
+            .loadRelationCountAndMap("game.eventCount", "game.events")
+            .loadRelationCountAndMap("game.playerCount", "game.playerStats")
+            .where("game.userId = :userId", { userId })
+            .orderBy("game.uploadedAt", "DESC")
+            .getMany();
     }
 
     async findOneWithDetails(gameId: string, userId: string): Promise<Game | null> {

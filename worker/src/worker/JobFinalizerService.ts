@@ -95,6 +95,17 @@ export class JobFinalizerService {
                 processingHeartbeatAt: new Date()
             });
 
+            // failedChunkInfo is MANDATORY on FAILED: structured evidence
+            // (chunkPath/startTime/sequence per failed chunk) persisted to
+            // Game.failedChunkInfo via the result service. Null otherwise.
+            const failedChunkInfo = failedChunks.length > 0
+                ? failedChunks.map(c => ({
+                    chunkPath: c.chunkPath,
+                    startTime: c.startTime,
+                    sequence: c.sequence,
+                }))
+                : null;
+
             // Aggregate all results for the final message
             const playerMap = new Map<string, any>();
             const teamMap = new Map<string, any>();
@@ -117,6 +128,7 @@ export class JobFinalizerService {
                 userId: job.userId,
                 status: finalStatus,
                 failureReason: failureReason,
+                failedChunkInfo,
                 processedEvents: allEvents,
                 identifiedPlayers: Array.from(playerMap.values()),
                 identifiedTeams: Array.from(teamMap.values()),
@@ -143,15 +155,15 @@ export class JobFinalizerService {
             // Notify via Pub/Sub (for frontend/other services)
             await this.eventBus.publish(VIDEO_ANALYSIS_RESULTS_TOPIC_NAME, message);
             
-            // Execute Cleanup Lifecycle
-            await this.onJobFinal(jobId, finalStatus);
+            // Execute Cleanup Lifecycle (keeps source evidence on FAILED)
+            await this.onJobFinal(jobId, finalStatus, failedChunkInfo);
 
         } else {
             this.logger.info(`[JobFinalizerService] Job ${jobId} still in progress (${completedChunks}/${job.totalChunks}).`, { phase: 'finalizing' });
         }
     }
 
-    private async onJobFinal(jobId: string, status: VideoAnalysisJobStatus): Promise<void> {
+    private async onJobFinal(jobId: string, status: VideoAnalysisJobStatus, failedChunkInfo: { chunkPath: string; startTime: number; sequence: number; }[] | null = null): Promise<void> {
         this.logger.info(`[JOB_FINAL] 🏁 Starting total finalization for job ${jobId}`, { phase: 'finalizing' });
 
         try {
@@ -159,21 +171,31 @@ export class JobFinalizerService {
             if (!job) return;
 
             // 1. Update Game Status (StatVision logic: COMPLETED -> ANALYZED happened in ResultService)
-            // Here we just ensure terminal state in case ResultService missed it
+            // Here we just ensure terminal state in case ResultService missed it.
+            // failedChunkInfo is persisted so retry/debug tooling can locate evidence.
             const gameRepository = this.dataSource.getRepository(Game);
-            await gameRepository.update(job.gameId, { 
-                status: status === VideoAnalysisJobStatus.COMPLETED ? GameStatus.ANALYZED : GameStatus.FAILED 
-            });
+            if (status === VideoAnalysisJobStatus.COMPLETED) {
+                await gameRepository.update(job.gameId, { status: GameStatus.ANALYZED });
+            } else {
+                await gameRepository.update(job.gameId, {
+                    status: GameStatus.FAILED,
+                    ...(failedChunkInfo ? { failedChunkInfo } : {}),
+                });
+            }
 
             // 2. Resource Cleanup
             if (job.geminiFileName && this.analysisProvider) {
                 await this.analysisProvider.deleteFile(job.geminiFileName).catch(() => {});
             }
 
-            if (this.storageProvider && job.filePath.startsWith('gs://')) {
+            // On FAILURE the source upload is EVIDENCE (retry/debug) — never
+            // delete it. Only purge on success.
+            if (status === VideoAnalysisJobStatus.COMPLETED && this.storageProvider && job.filePath.startsWith('gs://')) {
                 const parts = job.filePath.split('/');
                 const remotePath = parts.slice(3).join('/');
                 await this.storageProvider.deleteFile(remotePath).catch(() => {});
+            } else if (status !== VideoAnalysisJobStatus.COMPLETED) {
+                this.logger.info(`[JOB_FINAL] Preserving source file for failed job ${jobId}: ${job.filePath}`, { phase: 'finalizing' });
             }
 
             const workerJobDir = path.join(process.env.WORKER_TEMP_DIR || '/tmp/statvision', jobId);

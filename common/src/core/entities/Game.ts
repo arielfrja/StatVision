@@ -71,8 +71,25 @@ export class Game {
     filePath: string; // Local path to the uploaded video file.
 
     @Column({ name: "upload_url", type: "varchar", nullable: true })
-    uploadUrl: string; // Resumable upload session URL (temporary)
+    uploadUrl: string; // Resumable upload session URL (temporary, sensitive — never expose via public game payloads)
 
+    /**
+     * Derived playback path for the frontend video player.
+     *
+     * DERIVATION (no extra column by design):
+     * - `filePath` is the source of truth and stores either a GCS URI
+     *   (`gs://<bucket>/videos/<gameId>/<file>`) or a local path.
+     * - This getter exposes only the basename under the API-served
+     *   `/uploads/` prefix, so raw bucket paths / signed URLs never leak.
+     * - No `video_url` column exists yet: if we ever need to persist a
+     *   signed https playback URL, ADD a new nullable `video_url` column
+     *   and keep this getter as the fallback until the frontend migrates.
+     *   Do NOT repurpose `filePath` for signed URLs.
+     *
+     * NOTE: TypeORM prototype getters are NOT serialized by
+     * `res.json(game)` — public routes must map `videoUrl` explicitly
+     * (see gameRoutes `toPublicGame`).
+     */
     get videoUrl(): string | null {
         if (!this.filePath) return null;
         return `/uploads/${path.basename(this.filePath)}`;
@@ -122,6 +139,14 @@ export class Game {
 
     @CreateDateColumn({ name: "uploaded_at" })
     uploadedAt: Date;
+
+    /**
+     * Transient list-view counters populated by
+     * `GameRepository.findAllByUserId` via `loadRelationCountAndMap`.
+     * NOT database columns — never persist, never include in inserts.
+     */
+    eventCount?: number;
+    playerCount?: number;
 
     @OneToMany(() => GameEvent, gameEvent => gameEvent.game, { cascade: true, onDelete: 'CASCADE' })
     events: GameEvent[];
