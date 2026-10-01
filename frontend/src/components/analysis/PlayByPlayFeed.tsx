@@ -91,7 +91,7 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
             }}>
                 <md-list>
                     {sortedEvents.map((event) => {
-                        const isHome = event.teamId === homeTeamId;
+                        const isHome = event.assignedTeamId != null && event.assignedTeamId === homeTeamId;
                         const timeStr = `${Math.floor(event.absoluteTimestamp / 60)}:${(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}`;
                         const assignedPlayer = allPlayers.find(p => p.playerId === event.assignedPlayerId);
                         

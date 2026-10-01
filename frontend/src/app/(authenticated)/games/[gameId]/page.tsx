@@ -203,6 +203,15 @@ function AnalysisPage() {
     const homeStats = game.teamStats.find((ts: GameTeamStats) => ts.teamId === game.homeTeamId);
     const awayStats = game.teamStats.find((ts: GameTeamStats) => ts.teamId === game.awayTeamId);
 
+    // A scoreboard without linked teams (or without both team stat rows) is
+    // not a 0-0 game — assignments are still outstanding.
+    const needsAssignment =
+        game.homeTeamId == null ||
+        game.awayTeamId == null ||
+        (game.teamStats?.length ?? 0) < 2 ||
+        !homeStats ||
+        !awayStats;
+
     return (
         <div style={{
             display: 'flex',
@@ -223,7 +232,44 @@ function AnalysisPage() {
                     flexDirection: 'column',
                     alignItems: 'stretch',
                 }}>
-                    {/* Teams & Score */}
+                    {/* Teams & Score — or an explicit assignment banner when links are outstanding */}
+                    {needsAssignment ? (
+                        <div role="status" style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            paddingTop: '32px',
+                            paddingBottom: '32px',
+                            paddingLeft: '40px',
+                            paddingRight: '40px',
+                            borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+                            backgroundColor: 'color-mix(in srgb, var(--md-sys-color-surface-container) 50%, transparent)',
+                            textAlign: 'center',
+                        }}>
+                            <md-icon>assignment_late</md-icon>
+                            <span style={{
+                                fontSize: '14px',
+                                fontWeight: 900,
+                                color: 'var(--md-sys-color-on-surface)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em',
+                            }}>Assignment Required</span>
+                            <span style={{
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                color: 'var(--md-sys-color-on-surface-variant)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                            }}>Link detected teams and players to the official roster to unlock the scoreboard</span>
+                            <md-outlined-button onClick={() => setShowAssignmentModal(true)}>
+                                <md-icon slot="icon">assignment_ind</md-icon>
+                                Open Roster Assignment
+                            </md-outlined-button>
+                        </div>
+                    ) : (
                     <div style={{
                         flex: 1,
                         display: 'flex',
@@ -344,6 +390,7 @@ function AnalysisPage() {
                             }}>{game.awayTeam?.name || 'AWAY'}</span>
                         </div>
                     </div>
+                    )}
 
                     {/* Metadata & Actions */}
                     <div style={{
@@ -381,6 +428,7 @@ function AnalysisPage() {
                                 <md-icon>location_on</md-icon>
                                 {game.location || 'Stadium Vision Arena'}
                             </p>
+                            {game.gameDate ? (
                             <p style={{
                                 fontSize: '11px',
                                 color: 'var(--md-sys-color-on-surface-variant)',
@@ -393,8 +441,25 @@ function AnalysisPage() {
                                 marginTop: '4px',
                             }}>
                                 <md-icon>calendar_today</md-icon>
-                                {game.gameDate ? new Date(game.gameDate).toLocaleDateString(undefined, { dateStyle: 'long' }) : 'Unknown Date'}
+                                {new Date(game.gameDate).toLocaleDateString(undefined, { dateStyle: 'long' })}
                             </p>
+                            ) : null}
+                            {game.hasPendingUpload ? (
+                            <p role="status" style={{
+                                fontSize: '11px',
+                                color: 'var(--md-sys-color-primary)',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginTop: '4px',
+                            }}>
+                                <md-icon>cloud_upload</md-icon>
+                                Awaiting video upload
+                            </p>
+                            ) : null}
                         </div>
                         <div style={{
                             display: 'flex',
@@ -439,10 +504,12 @@ function AnalysisPage() {
                     }}>
                         <VideoPlayer 
                             videoUrl={game.videoUrl} 
+                            status={game.status}
                             playerRef={playerRef} 
                             onProgress={handleProgress}
                             onDuration={handleDuration}
                         />
+                        {game.videoUrl ? (
                         <div style={{
                             position: 'absolute',
                             top: '16px',
@@ -478,6 +545,7 @@ function AnalysisPage() {
                                 }}>Live Analysis Feed</span>
                              </div>
                         </div>
+                        ) : null}
                     </div>
 
                     {duration > 0 && (
@@ -531,7 +599,7 @@ function AnalysisPage() {
                             </md-tabs>
 
                             <div style={{marginTop: '8px'}}>
-                                {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} onEditPlayer={(id) => console.log('Edit player', id)} />}
+                                {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} />}
                                 {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
                                 {activeTab === 2 && <CoachReport game={game} />}
                             </div>
@@ -591,10 +659,13 @@ function AnalysisPage() {
                                 <md-primary-tab>Box Score</md-primary-tab>
                                 {/* @ts-ignore */}
                                 <md-primary-tab>Personnel</md-primary-tab>
+                                {/* @ts-ignore */}
+                                <md-primary-tab>Coach Report</md-primary-tab>
                             </md-tabs>
                             <div>
                                 {activeTab === 0 && <BoxScoreTable game={game} visibleStats={visibleStats} />}
                                 {activeTab === 1 && <IdentifiedEntitiesTable gameId={game.id} />}
+                                {activeTab === 2 && <CoachReport game={game} />}
                             </div>
                         </div>
                     </div>

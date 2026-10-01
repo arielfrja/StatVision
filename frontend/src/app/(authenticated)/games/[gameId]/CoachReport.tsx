@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Game } from '@/types/game';
+import { useAuth0 } from '@/app/user-provider';
+import apiClient from '@/utils/apiClient';
 import { appLogger as logger } from '@/utils/Logger';
 import '@material/web/button/filled-button.js';
 import '@material/web/icon/icon.js';
@@ -10,33 +12,61 @@ interface CoachReportProps {
     game: Game;
 }
 
+type ReportStatus = 'idle' | 'working' | 'done' | 'failed';
+
 export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
+    const { getAccessTokenSilently } = useAuth0();
     const [report, setReport] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [selectedTeamId, setSelectedTeamId] = useState<string>(game.homeTeamId || '');
+    const [status, setStatus] = useState<ReportStatus>('idle');
+    const [error, setError] = useState<string | null>(null);
+
+    // Team options: prefer linked home/away, but fall back to teamStats-derived
+    // rows when links are unassigned — options must never both be value="".
+    const teamOptions = useMemo(() => {
+        const opts: { id: string; name: string }[] = [];
+        if (game.homeTeamId) opts.push({ id: game.homeTeamId, name: game.homeTeam?.name || 'Home Team' });
+        if (game.awayTeamId && game.awayTeamId !== game.homeTeamId) {
+            opts.push({ id: game.awayTeamId, name: game.awayTeam?.name || 'Away Team' });
+        }
+        if (opts.length === 0) {
+            for (const ts of game.teamStats || []) {
+                if (!ts?.teamId || opts.some(o => o.id === ts.teamId)) continue;
+                opts.push({ id: ts.teamId, name: `Team ${ts.teamId.slice(0, 8)}` });
+            }
+        }
+        return opts;
+    }, [game.homeTeamId, game.awayTeamId, game.homeTeam, game.awayTeam, game.teamStats]);
+
+    const [selectedTeamId, setSelectedTeamId] = useState<string>(game.homeTeamId || game.awayTeamId || '');
+
+    useEffect(() => {
+        if (!selectedTeamId && teamOptions.length > 0) {
+            setSelectedTeamId(teamOptions[0].id);
+        }
+    }, [selectedTeamId, teamOptions]);
 
     const generateReport = async () => {
-        if (!selectedTeamId) return;
-        setLoading(true);
+        if (!selectedTeamId) {
+            setError('Select a team before generating a report.');
+            return;
+        }
+        setStatus('working');
+        setError(null);
         try {
-            const response = await fetch(`/api/games/${game.id}/coach-report`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ teamId: selectedTeamId })
+            const token = await getAccessTokenSilently();
+            const response = await apiClient.post(`/games/${game.id}/coach-report`, { teamId: selectedTeamId }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
+            const raw = response.data?.report;
+            setReport(typeof raw === 'string' ? raw : JSON.stringify(raw ?? null, null, 2));
+            setStatus('done');
 
-            if (!response.ok) throw new Error('Failed to generate report');
-            
-            const data = await response.json();
-            setReport(data.report);
-            
             // Log for audit
             logger.info('Coach report generated', { gameId: game.id, teamId: selectedTeamId });
-        } catch (error) {
-            console.error('Error generating report:', error);
-            alert('Failed to generate AI Coach Report. Please try again.');
-        } finally {
-            setLoading(false);
+        } catch (err: any) {
+            logger.error('Error generating coach report', { gameId: game.id, teamId: selectedTeamId, message: err?.message });
+            setError(err?.response?.data?.message || 'Failed to generate AI Coach Report. Please try again.');
+            setStatus('failed');
         }
     };
 
@@ -85,7 +115,8 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
                 }}>
                     <select 
                         value={selectedTeamId} 
-                        onChange={(e) => setSelectedTeamId(e.target.value)}
+                        onChange={(e) => { setSelectedTeamId(e.target.value); setError(null); }}
+                        aria-label="Team for coach report"
                         style={{
                             backgroundColor: 'var(--md-sys-color-surface-container)',
                             border: '1px solid var(--md-sys-color-outline-variant)',
@@ -98,13 +129,15 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
                             outline: 'none',
                         }}
                     >
-                        <option value={game.homeTeamId || ''}>{game.homeTeam?.name || 'Home Team'}</option>
-                        <option value={game.awayTeamId || ''}>{game.awayTeam?.name || 'Away Team'}</option>
+                        {teamOptions.length === 0 && <option value="">No teams available</option>}
+                        {teamOptions.map(opt => (
+                            <option key={opt.id} value={opt.id}>{opt.name}</option>
+                        ))}
                     </select>
                     
                     <md-filled-button 
                         onClick={generateReport} 
-                        disabled={loading}
+                        disabled={status === 'working'}
                     >
                         <md-icon slot="icon">smart_toy</md-icon>
                         {report ? 'Regenerate Report' : 'Generate Report'}
@@ -112,56 +145,80 @@ export const CoachReport: React.FC<CoachReportProps> = ({ game }) => {
                 </div>
             </div>
 
-            {report ? (
-                <div data-coach-report-content style={{
-                    whiteSpace: 'pre-wrap',
-                    color: 'var(--md-sys-color-on-surface-variant)',
-                    fontSize: '14px',
-                    lineHeight: '1.625',
-                }}>
-                    {report}
-                </div>
-            ) : (
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingTop: '80px',
-                    paddingBottom: '80px',
-                    textAlign: 'center',
-                }}>
+            <div aria-live="polite">
+                {status === 'working' && (
+                    <p role="status" style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        color: 'var(--md-sys-color-primary)',
+                        margin: 0,
+                    }}>Generating report…</p>
+                )}
+                {error && (
+                    <p role="alert" style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--md-sys-color-error)',
+                        backgroundColor: 'color-mix(in srgb, var(--md-sys-color-error) 10%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--md-sys-color-error) 30%, transparent)',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        margin: 0,
+                    }}>{error}</p>
+                )}
+                {status === 'done' && report ? (
+                    <div data-coach-report-content style={{
+                        whiteSpace: 'pre-wrap',
+                        color: 'var(--md-sys-color-on-surface-variant)',
+                        fontSize: '14px',
+                        lineHeight: '1.625',
+                    }}>
+                        {report}
+                    </div>
+                ) : status !== 'working' && !error ? (
                     <div style={{
-                        width: '64px',
-                        height: '64px',
-                        backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
-                        borderRadius: '50%',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: '16px',
+                        paddingTop: '80px',
+                        paddingBottom: '80px',
+                        textAlign: 'center',
                     }}>
-                        <md-icon>psychology</md-icon>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            backgroundColor: 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '16px',
+                        }}>
+                            <md-icon>psychology</md-icon>
+                        </div>
+                        <h3 style={{
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            color: 'var(--md-sys-color-on-surface)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '-0.025em',
+                            margin: 0,
+                        }}>No Report Generated</h3>
+                        <p style={{
+                            fontSize: '12px',
+                            color: 'var(--md-sys-color-on-surface-variant)',
+                            marginTop: '8px',
+                            maxWidth: '320px',
+                            margin: '8px 0 0 0',
+                        }}>
+                            Select a team and click "Generate Report" to have our AI analyze game events and player efficiency.
+                        </p>
                     </div>
-                    <h3 style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: 'var(--md-sys-color-on-surface)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '-0.025em',
-                        margin: 0,
-                    }}>No Report Generated</h3>
-                    <p style={{
-                        fontSize: '12px',
-                        color: 'var(--md-sys-color-on-surface-variant)',
-                        marginTop: '8px',
-                        maxWidth: '320px',
-                        margin: '8px 0 0 0',
-                    }}>
-                        Select a team and click "Generate Report" to have our AI analyze game events and player efficiency.
-                    </p>
-                </div>
-            )}
+                ) : null}
+            </div>
 
             <style>{`
                 @media (min-width: 768px) {

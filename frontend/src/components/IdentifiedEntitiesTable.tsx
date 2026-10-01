@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Player } from '@/types/player';
 import { Team } from '@/types/team';
 import '@material/web/progress/circular-progress.js';
 import '@material/web/button/text-button.js';
+import '@material/web/button/filled-button.js';
 import '@material/web/icon/icon.js';
 import '@material/web/list/list.js';
 import '@material/web/list/list-item.js';
@@ -10,6 +11,8 @@ import '@material/web/divider/divider.js';
 import '@material/web/labs/card/outlined-card.js';
 import useSWR from 'swr';
 import apiClient from '@/utils/apiClient';
+import { appLogger as logger } from '@/utils/Logger';
+import Toast from '@/components/Toast';
 
 // Add a 'players' property to the Team type and enrich the Player type for this component
 type EnrichedPlayer = Player & { 
@@ -25,13 +28,33 @@ interface IdentifiedEntitiesTableProps {
 
 const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameId }) => {
     const { data: teamsWithPlayers, error, isLoading, mutate } = useSWR<TeamWithPlayers[]>(gameId ? `/games/${gameId}/identified-entities` : null);
+    const [confirmingPlayerId, setConfirmingPlayerId] = useState<string | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; kind: 'success' | 'error' | 'info' } | null>(null);
+    const [switching, setSwitching] = useState(false);
 
-    const handleSwitchTeam = async (playerId: string) => {
+    const handleSwitchTeam = async (playerId: string, playerName: string) => {
+        if (confirmingPlayerId !== playerId) {
+            // First click arms an inline before → after confirm; second click executes.
+            setConfirmingPlayerId(playerId);
+            setActionError(null);
+            return;
+        }
+        setSwitching(true);
+        setActionError(null);
         try {
             await apiClient.put(`/players/${playerId}/switch-team`, { gameId });
+            setConfirmingPlayerId(null);
+            setToast({ message: `${playerName || 'Player'} moved to the other team.`, kind: 'success' });
+            logger.info('Player switched team', { gameId, playerId });
             mutate();
-        } catch (err) {
-            console.error("Failed to switch team:", err);
+        } catch (err: any) {
+            const message = err?.response?.data?.message || 'Failed to switch team. Please try again.';
+            logger.error('Failed to switch team', { gameId, playerId, message: err?.message });
+            setActionError(message);
+            setToast({ message, kind: 'error' });
+        } finally {
+            setSwitching(false);
         }
     };
 
@@ -110,6 +133,23 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {actionError && (
+                <div role="alert" style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'color-mix(in srgb, var(--md-sys-color-error) 10%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--md-sys-color-error) 30%, transparent)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    color: 'var(--md-sys-color-error)',
+                }}>
+                    <md-icon>error</md-icon>
+                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {actionError}
+                    </p>
+                </div>
+            )}
             {/* Section title */}
             <div style={{
                 display: 'flex',
@@ -218,18 +258,40 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                                     }}>
                                         #{player.jerseyNumber ?? '-'} &middot; {player.description ?? 'No visual data available'}
                                     </span>
-                                    <div slot="end">
+                                    <div slot="end" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         {player.id && (
-                                            <md-text-button
-                                                onClick={() => handleSwitchTeam(player.id)}
-                                                style={{
-                                                    '--md-text-button-container-shape': '6px',
-                                                    fontSize: '12px',
-                                                } as React.CSSProperties}
-                                            >
-                                                <md-icon slot="icon">swap_horiz</md-icon>
-                                                Switch Team
-                                            </md-text-button>
+                                            confirmingPlayerId === player.id ? (
+                                                <>
+                                                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase' }}>
+                                                        Move to other side?
+                                                    </span>
+                                                    <md-filled-button
+                                                        onClick={() => handleSwitchTeam(player.id, player.name)}
+                                                        disabled={switching}
+                                                        style={{ fontSize: '12px' } as React.CSSProperties}
+                                                    >
+                                                        Confirm
+                                                    </md-filled-button>
+                                                    <md-text-button
+                                                        onClick={() => { setConfirmingPlayerId(null); setActionError(null); }}
+                                                        disabled={switching}
+                                                        style={{ fontSize: '12px' } as React.CSSProperties}
+                                                    >
+                                                        Cancel
+                                                    </md-text-button>
+                                                </>
+                                            ) : (
+                                                <md-text-button
+                                                    onClick={() => handleSwitchTeam(player.id, player.name)}
+                                                    style={{
+                                                        '--md-text-button-container-shape': '6px',
+                                                        fontSize: '12px',
+                                                    } as React.CSSProperties}
+                                                >
+                                                    <md-icon slot="icon">swap_horiz</md-icon>
+                                                    Switch Team
+                                                </md-text-button>
+                                            )
                                         )}
                                     </div>
                                 </md-list-item>
@@ -250,6 +312,7 @@ const IdentifiedEntitiesTable: React.FC<IdentifiedEntitiesTableProps> = ({ gameI
                     )}
                 </md-outlined-card>
             ))}
+            {toast && <Toast message={toast.message} kind={toast.kind} onClose={() => setToast(null)} />}
         </div>
     );
 };

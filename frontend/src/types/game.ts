@@ -57,6 +57,8 @@ export interface Game {
     // File Path
     videoUrl: string | null; // Renamed from filePath
     uploadUrl: string | null;
+    /** True while the game still awaits its video (backend strips storage internals). */
+    hasPendingUpload?: boolean;
 
     events: GameEvent[];
 

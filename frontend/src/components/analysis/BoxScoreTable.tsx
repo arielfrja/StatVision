@@ -9,12 +9,13 @@ import '@material/web/divider/divider.js';
 interface BoxScoreTableProps {
     game: Game;
     visibleStats: string[];
-    onEditPlayer?: (playerId: string) => void;
 }
 
-const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEditPlayer }) => {
+const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats }) => {
     const homeTeamId = game.homeTeamId;
     const awayTeamId = game.awayTeamId;
+    const statsRows = game.teamStats ?? [];
+    const playerRows = game.playerStats ?? [];
 
     const ALL_STAT_HEADERS: { [key: string]: string } = {
         'points': 'PTS',
@@ -28,21 +29,103 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
         'blocks': 'BLK',
         'turnovers': 'TO',
         'fouls': 'PF',
-        'plusMinus': '+/-'
+        'plusMinus': '+/-',
+        'effectiveFieldGoalPercentage': 'eFG%',
+        'trueShootingPercentage': 'TS%'
     };
 
     const activeStatIds = visibleStats.filter(s => ALL_STAT_HEADERS[s]);
 
-    const formatStatValue = (ps: any, id: string): string => {
-        if (id === 'fieldGoalsMade') return `${ps.fieldGoalsMade}-${ps.fieldGoalsAttempted}`;
-        if (id === 'threePointersMade') return `${ps.threePointersMade}-${ps.threePointersAttempted}`;
-        if (id === 'freeThrowsMade') return `${ps.freeThrowsMade}-${ps.freeThrowsAttempted}`;
-        return String((ps as any)[id] ?? '');
+    const formatPct = (v: any): string => {
+        const n = typeof v === 'number' && Number.isFinite(v) ? v : 0;
+        return `${(n * 100).toFixed(1)}%`;
     };
 
+    const formatStatValue = (ps: any, id: string): string => {
+        if (id === 'fieldGoalsMade') return `${ps.fieldGoalsMade ?? 0}-${ps.fieldGoalsAttempted ?? 0}`;
+        if (id === 'threePointersMade') return `${ps.threePointersMade ?? 0}-${ps.threePointersAttempted ?? 0}`;
+        if (id === 'freeThrowsMade') return `${ps.freeThrowsMade ?? 0}-${ps.freeThrowsAttempted ?? 0}`;
+        if (id === 'effectiveFieldGoalPercentage') return formatPct(ps.effectiveFieldGoalPercentage);
+        if (id === 'trueShootingPercentage') return formatPct(ps.trueShootingPercentage);
+        return String((ps as any)[id] ?? 0);
+    };
+
+    const formatTotalValue = (totals: any, id: string): string => {
+        if (id === 'fieldGoalsMade') return `${totals.fieldGoalsMade ?? 0}-${totals.fieldGoalsAttempted ?? 0}`;
+        if (id === 'threePointersMade') return `${totals.threePointersMade ?? 0}-${totals.threePointersAttempted ?? 0}`;
+        if (id === 'freeThrowsMade') return `${totals.freeThrowsMade ?? 0}-${totals.freeThrowsAttempted ?? 0}`;
+        if (id === 'effectiveFieldGoalPercentage') return formatPct(totals.effectiveFieldGoalPercentage);
+        if (id === 'trueShootingPercentage') return formatPct(totals.trueShootingPercentage);
+        return String((totals as any)[id] ?? 0);
+    };
+
+    const renderNoDataSection = (teamName: string, isHome: boolean) => (
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            border: '1px solid var(--md-sys-color-outline-variant)',
+            borderRadius: '8px',
+            overflow: 'hidden',
+        }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '10px 16px',
+                backgroundColor: 'var(--md-sys-color-surface-container-high)',
+                borderBottom: '1px solid var(--md-sys-color-outline-variant)',
+            }}>
+                <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: isHome ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary)',
+                }} />
+                <h3 style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: 'var(--md-sys-color-on-surface)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                }}>
+                    {teamName}
+                </h3>
+            </div>
+            <div style={{
+                padding: '40px 0',
+                textAlign: 'center',
+                color: 'var(--md-sys-color-on-surface-variant)',
+                fontSize: '10px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+            }}>
+                No data — link this side in Roster Assignment
+            </div>
+        </div>
+    );
+
     const renderTeamSection = (teamId: string | null, teamName: string, isHome: boolean) => {
-        const teamPlayers = game.playerStats.filter(ps => ps.teamId === teamId);
-        const teamTotals = game.teamStats.find(ts => ts.teamId === teamId);
+        // Own row by exact team link. A lone stat row belongs to exactly one
+        // side: the matching link, or — when it matches neither (unassigned
+        // game) — the home side. The other side renders NO DATA. This never
+        // duplicates one row under both teams.
+        let teamTotals = statsRows.find(ts => teamId != null && ts.teamId === teamId);
+        let teamPlayers = playerRows.filter(ps => ps.teamId === teamId);
+        if (!teamTotals && statsRows.length === 1) {
+            const orphan = statsRows[0];
+            const matchesNeitherSide = orphan.teamId !== game.homeTeamId && orphan.teamId !== game.awayTeamId;
+            if ((orphan.teamId === teamId) || (matchesNeitherSide && isHome)) {
+                teamTotals = orphan;
+                teamPlayers = playerRows.filter(ps => ps.teamId === orphan.teamId);
+            } else {
+                return renderNoDataSection(teamName, isHome);
+            }
+        }
+        if (!teamTotals && teamPlayers.length === 0) {
+            return renderNoDataSection(teamName, isHome);
+        }
 
         return (
             <div style={{
@@ -139,23 +222,6 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
                                                 {plusMinusVal > 0 ? '+' : ''}{plusMinusVal}
                                             </span>
                                         )}
-                                        <button
-                                            onClick={() => onEditPlayer && onEditPlayer(ps.playerId)}
-                                            style={{
-                                                padding: '4px',
-                                                borderRadius: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                cursor: 'pointer',
-                                                color: 'var(--md-sys-color-on-surface-variant)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                            }}
-                                            title="Edit Player Stats"
-                                        >
-                                            <md-icon>edit_square</md-icon>
-                                        </button>
                                     </div>
                                 </md-list-item>
                             );
@@ -188,13 +254,11 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats, onEdi
                                         color: 'var(--md-sys-color-on-surface)',
                                         fontFamily: 'monospace',
                                     }}>
-                                        {activeStatIds.map(id => {
-                                            let val = (teamTotals as any)[id];
-                                            if (id === 'fieldGoalsMade') val = `${teamTotals.fieldGoalsMade}-${teamTotals.fieldGoalsAttempted}`;
-                                            if (id === 'threePointersMade') val = `${teamTotals.threePointersMade}-${teamTotals.threePointersAttempted}`;
-                                            if (id === 'freeThrowsMade') val = `${teamTotals.freeThrowsMade}-${teamTotals.freeThrowsAttempted}`;
-                                            return `${ALL_STAT_HEADERS[id]} ${val}`;
-                                        }).join('  ·  ')}
+                                        {activeStatIds.map(id => `${ALL_STAT_HEADERS[id]} ${formatTotalValue(teamTotals, id)}`).join('  ·  ')}
+                                        {'  ·  '}
+                                        eFG% {formatPct((teamTotals as any).effectiveFieldGoalPercentage)}
+                                        {'  ·  '}
+                                        TS% {formatPct((teamTotals as any).trueShootingPercentage)}
                                     </span>
                                 </md-list-item>
                             </>

@@ -581,24 +581,25 @@ export const gameRoutes = (
         const { tempId, realId, type, teamMappings, playerMappings } = req.body;
 
         try {
+            const diffs: unknown[] = [];
             if (Array.isArray(teamMappings) || Array.isArray(playerMappings)) {
                 for (const m of teamMappings || []) {
                     if (m?.tempTeamId && m?.officialTeamId) {
-                        await gameAssignmentService.assignEntity(gameId, m.tempTeamId, m.officialTeamId, 'team', req.user.id);
+                        diffs.push(await gameAssignmentService.assignEntity(gameId, m.tempTeamId, m.officialTeamId, 'team', req.user.id));
                     }
                 }
                 for (const m of playerMappings || []) {
                     if (m?.tempPlayerId && m?.officialPlayerId) {
-                        await gameAssignmentService.assignEntity(gameId, m.tempPlayerId, m.officialPlayerId, 'player', req.user.id);
+                        diffs.push(await gameAssignmentService.assignEntity(gameId, m.tempPlayerId, m.officialPlayerId, 'player', req.user.id));
                     }
                 }
             } else {
                 if (!tempId || !realId || (type !== 'team' && type !== 'player')) {
                     return res.status(400).json({ message: "tempId, realId and type ('team'|'player') are required." });
                 }
-                await gameAssignmentService.assignEntity(gameId, tempId, realId, type, req.user.id);
+                diffs.push(await gameAssignmentService.assignEntity(gameId, tempId, realId, type, req.user.id));
             }
-            res.status(200).json({ message: "Assignment successful and stats recalculated." });
+            res.status(200).json({ message: "Assignment successful and stats recalculated.", diffs });
         } catch (error) {
             logger.error(`Error during entity assignment for game ${gameId}:`, error);
             res.status(500).json({ message: (error as Error).message });
