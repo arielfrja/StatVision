@@ -265,6 +265,7 @@ export class VideoAnalysisResultService {
         await this.gameRepository.updateStatus(result.gameId, gameStatusToUpdate, result.failedChunkInfo);
 
         if (gameStatusToUpdate === GameStatus.ANALYZED) {
+            await this.linkDiscoveredTeams(result.gameId, result.identifiedTeams);
             await this.gameStatsService.calculateAndStoreStats(result.gameId);
             this.logger.info(`[JOB_SUCCESS] 🎉 Game ${result.gameId} analysis complete and stats calculated.`, { phase: 'results_processing' });
         } else {
@@ -272,8 +273,44 @@ export class VideoAnalysisResultService {
         }
     }
 
-    private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {
-        const game = await this.dataSource.getRepository(Game).findOne({ where: { id: result.gameId } });
+    /**
+     * Auto-links AI-discovered teams to the game record.
+     * Uses the AI's HOME/AWAY type labels to set homeTeamId/awayTeamId.
+     * Never overrides existing links (human mapping via /assignment wins).
+     */
+    private async linkDiscoveredTeams(gameId: string, identifiedTeams: any[] | null): Promise<void> {
+        if (!identifiedTeams || identifiedTeams.length === 0) return;
+        const game = await this.dataSource.getRepository(Game).findOne({ where: { id: gameId } });
+        if (!game) return;
+        const origHomeTeamId = game.homeTeamId;
+        const origAwayTeamId = game.awayTeamId;
+        if (origHomeTeamId && origAwayTeamId) return;
+
+        let changed = false;
+        for (const teamData of identifiedTeams) {
+            let teamId = teamData.id;
+            if (teamId === 'TEMP_TEAM_1' && origHomeTeamId) teamId = origHomeTeamId;
+            else if (teamId === 'TEMP_TEAM_2' && origAwayTeamId) teamId = origAwayTeamId;
+            if (teamId && !this.isUuid(teamId)) {
+                teamId = uuidv5(`${gameId}:${teamId}`, STATVISION_NAMESPACE);
+            }
+            if (!teamId) continue;
+            if (teamData.type === 'HOME' && !game.homeTeamId) {
+                game.homeTeamId = teamId;
+                changed = true;
+            } else if (teamData.type === 'AWAY' && !game.awayTeamId) {
+                game.awayTeamId = teamId;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            await this.gameRepository.save(game);
+            this.logger.info(`[Discovery] Linked teams to game ${gameId}: home=${game.homeTeamId} away=${game.awayTeamId}`, { phase: 'results_processing' });
+        }
+    }
+
+    private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {        const game = await this.dataSource.getRepository(Game).findOne({ where: { id: result.gameId } });
         if (!game) return;
 
         // Process Teams
