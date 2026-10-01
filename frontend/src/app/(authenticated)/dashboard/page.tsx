@@ -452,7 +452,7 @@ const PerformanceDashboardPage = () => {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {[
-                  { label: 'Inference', val: 'Operational', color: 'var(--md-sys-color-tertiary)' },
+                  { label: 'Inference', val: 'Operational', color: 'var(--md-sys-color-success)' },
                   { label: 'Cloud Storage', val: 'Synchronized', color: 'var(--md-sys-color-on-surface-variant)' },
                   { label: 'Metadata API', val: 'Active', color: 'var(--md-sys-color-on-surface-variant)' }
                 ].map((log, i) => (

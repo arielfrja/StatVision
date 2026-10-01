@@ -24,6 +24,9 @@
   --md-sys-color-error-container: #ffdad6;
   --md-sys-color-on-error-container: #93000a;
 
+  --md-sys-color-success: #1a7a2e;
+  --md-sys-color-on-success: #ffffff;
+
   --md-sys-color-surface: #f7f9fc;
   --md-sys-color-on-surface: #191c1e;
   --md-sys-color-surface-variant: #e0e3e6;
@@ -81,6 +84,9 @@
   --md-sys-color-error-container: #93000a;
   --md-sys-color-on-error-container: #ffdad6;
 
+  --md-sys-color-success: #7dd88f;
+  --md-sys-color-on-success: #0a2e14;
+
   --md-sys-color-surface: #111415;
   --md-sys-color-on-surface: #e2e3e5;
   --md-sys-color-surface-variant: #424752;
@@ -130,7 +136,7 @@ html, body {
 
 @media (min-width: 768px) {
   .main-content-wrapper {
-    padding-left: 360px;
+    padding-left: 280px;
     padding-bottom: 0;
   }
 }
