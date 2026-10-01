@@ -201,6 +201,10 @@ const GamesPage = () => {
               <div key={game.id} style={{ flex: '1 1 300px', maxWidth: '100%', minWidth: '280px' }}>
                 <md-elevated-card
                   onClick={() => !canRetry && router.push(`/games/${game.id}`)}
+                  tabIndex={canRetry ? -1 : 0}
+                  role="link"
+                  aria-label={`Open game ${game.name}`}
+                  onKeyDown={(e: any) => { if ((e.key === 'Enter' || e.key === ' ') && !canRetry) { e.preventDefault(); router.push(`/games/${game.id}`); } }}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -249,7 +253,7 @@ const GamesPage = () => {
 
                       <button
                         onClick={(e) => handleDelete(e, game.id)}
-                        title="Delete Game"
+                        title="Delete Game" aria-label={`Delete game ${game.name}`}
                         style={{
                           color: 'var(--md-sys-color-on-surface-variant)',
                           padding: '4px',

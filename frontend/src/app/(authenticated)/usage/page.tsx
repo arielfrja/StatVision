@@ -60,6 +60,11 @@ const UsageDashboard = () => {
   const inputPricePerToken = pricing.inputPricePer1M / 1000000;
   const outputPricePerToken = pricing.outputPricePer1M / 1000000;
   const estimatedCost = (totalInputTokens * inputPricePerToken) + (totalOutputTokens * outputPricePerToken);
+  const hasUsageData = chartData.length > 0;
+  const isSparseData = chartData.length > 0 && chartData.length < 3;
+  const chartSummary = hasUsageData
+    ? `${chartData.length} day(s), ${totalTokens.toLocaleString()} tokens, $${estimatedCost.toFixed(2)} estimated`
+    : 'No usage data for this period';
 
   if (summaryLoading || dailyLoading) return (
     <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh'}}>
@@ -88,6 +93,8 @@ const UsageDashboard = () => {
              <button 
                key={p}
                onClick={() => setPeriod(p)}
+                aria-pressed={period === p}
+                aria-label={`Last ${p}`}
                style={period === p 
                  ? {padding: '6px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', borderRadius: '4px', backgroundColor: 'var(--md-sys-color-primary)', color: '#fff', border: 'none', cursor: 'pointer'} 
                  : {padding: '6px 12px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', borderRadius: '4px', backgroundColor: 'transparent', color: 'var(--md-sys-color-on-surface-variant)', border: 'none', cursor: 'pointer'}
@@ -103,7 +110,7 @@ const UsageDashboard = () => {
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '24px'}}>
          <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6}}>
-               <Zap size={14} style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
+               <Zap size={14} aria-hidden="true" style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
                <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Total Tokens</span>
             </div>
             <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>{totalTokens.toLocaleString()}</div>
@@ -112,7 +119,7 @@ const UsageDashboard = () => {
 
          <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px'}}>
             <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.6}}>
-               <Video size={14} style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
+               <Video size={14} aria-hidden="true" style={{color: 'var(--md-sys-color-on-surface-variant)'}} />
                <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Video Processed</span>
             </div>
             <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>{totalVideoMinutes}m</div>
@@ -122,15 +129,15 @@ const UsageDashboard = () => {
          <div style={{backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '2px solid var(--md-sys-color-primary)'}}>
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px'}}>
                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--md-sys-color-primary)'}}>
-                  <Clock size={14} />
+                  <Clock size={14} aria-hidden="true" />
                   <span style={{fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em'}}>Estimated Value</span>
                </div>
-               <div title="Based on standard token pricing">
-                  <Info size={12} style={{color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.4, cursor: 'help'}} />
+               <div title="Based on standard token pricing" role="img" aria-label="Pricing based on standard token rates">
+                  <Info size={12} aria-hidden="true" style={{color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.4, cursor: 'help'}} />
                </div>
             </div>
-<div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>${estimatedCost.toFixed(4)}</div>
-            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Est. cost ({pricing.model}: ${pricing.inputPricePer1M}/${pricing.outputPricePer1M} $/1M I/O)</p>
+<div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>${estimatedCost.toFixed(2)}</div>
+            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Est. cost ({pricing.model}: $${pricing.inputPricePer1M.toFixed(2)}/$${pricing.outputPricePer1M.toFixed(2)} per 1M)</p>
          </div>
       </div>
 
@@ -142,12 +149,12 @@ const UsageDashboard = () => {
                <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
                   <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                      <div style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--md-sys-color-primary)'}} />
-                     <span style={{fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--md-sys-color-on-surface-variant)'}}>Gemini 3 Flash</span>
+                     <span style={{fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--md-sys-color-on-surface-variant)'}}>{pricing.model}</span>
                   </div>
                </div>
             </div>
-            <div style={{height: '300px', width: '100%'}}>
-               {isClient && (
+            <div style={{height: '300px', width: '100%'}} aria-hidden="true">
+               {isClient && hasUsageData ? (
                   <ResponsiveContainer width="100%" height="100%">
                      <AreaChart data={chartData}>
                         <defs>
@@ -178,16 +185,22 @@ const UsageDashboard = () => {
                         <Area type="monotone" dataKey="tokens" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorTokens)" />
                      </AreaChart>
                   </ResponsiveContainer>
-               )}
+               ) : isClient ? (
+                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)'}}>No token usage recorded for this period.</div>
+               ) : null}
             </div>
+            <span style={{position: 'absolute', left: '-9999px'}} role="status">{`Token consumption chart: ${chartSummary}`}</span>
+            {isSparseData && (
+              <p style={{fontSize: '10px', color: 'var(--md-sys-color-on-surface-variant)', margin: '8px 0 0 0'}}>Limited data — showing {chartData.length} day(s). Figures reflect recorded days only.</p>
+            )}
          </md-outlined-card>
 
          <md-outlined-card>
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px'}}>
                <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-on-surface-variant)', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0}}>Video Throughput (Seconds)</h3>
             </div>
-            <div style={{height: '200px', width: '100%'}}>
-               {isClient && (
+            <div style={{height: '200px', width: '100%'}} aria-hidden="true">
+               {isClient && hasUsageData ? (
                   <ResponsiveContainer width="100%" height="100%">
                      <BarChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.5} />
@@ -211,8 +224,11 @@ const UsageDashboard = () => {
                         <Bar dataKey="videoSeconds" fill="#f59e0b" radius={[2, 2, 0, 0]} barSize={20} />
                      </BarChart>
                   </ResponsiveContainer>
-               )}
+               ) : isClient ? (
+                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)'}}>No video throughput recorded for this period.</div>
+               ) : null}
             </div>
+            <span style={{position: 'absolute', left: '-9999px'}} role="status">{`Video throughput chart: ${chartSummary}`}</span>
          </md-outlined-card>
       </div>
 
@@ -236,7 +252,7 @@ const UsageDashboard = () => {
          <section style={{flex: '1', backgroundColor: 'var(--md-sys-color-surface)', border: '1px solid var(--md-sys-color-outline-variant)', borderRadius: '6px', padding: '24px', borderLeft: '2px solid var(--md-sys-color-secondary)'}}>
             <h3 style={{fontSize: '10px', fontWeight: 700, color: 'var(--md-sys-color-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: '16px'}}>Optimization Advisory</h3>
             <p style={{fontSize: '11px', color: 'var(--md-sys-color-on-surface-variant)', fontWeight: 500, lineHeight: 1.625, margin: 0, marginBottom: '16px'}}>
-              Your token consumption is currently within optimal parameters. Using <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>JERSEY_COLORS</span> identity mode instead of <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>INTERACTION_BASED</span> can reduce token usage by up to 15% for multi-turn sessions.
+              Your token consumption is currently within optimal parameters. Using <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>jersey-color identification</span> instead of <span style={{color: 'var(--md-sys-color-on-surface)', fontWeight: 700}}>interaction-based tracking</span> can reduce token usage by up to 15% for multi-turn sessions.
             </p>
             <md-outlined-button>View Optimization Guide</md-outlined-button>
          </section>

@@ -22,6 +22,16 @@ const errorMiddleware = (err: any, req: Request, res: Response, _next: NextFunct
     });
   }
 
+  // Malformed JSON body (express.json) -> 400 JSON, not 500/HTML. Keeps existing pattern.
+  if ((err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) || (err as any)?.type === 'entity.parse.failed') {
+    logger.warn(`[BadJson][${errorId}] Malformed JSON payload`, { ...meta, message: err.message });
+    return res.status(400).json({
+      status: 'error',
+      message: 'Invalid JSON payload.',
+      errorId
+    });
+  }
+
   // Handle TypeORM errors
   if (err.name === 'QueryFailedError') {
     logger.error(`[DatabaseError][${errorId}] ${err.message}`, { ...meta, query: err.query, parameters: err.parameters, stack: err.stack });

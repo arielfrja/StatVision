@@ -71,6 +71,13 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization", "x-goog-resumable"]
 }));
 app.use(express.json());
+// Malformed JSON -> 400 JSON (not HTML/500). Must be 4-arg error handler right after express.json().
+app.use((err: any, _req: any, res: any, next: any) => {
+    if ((err instanceof SyntaxError && (err as any).status === 400 && 'body' in err) || err?.type === 'entity.parse.failed') {
+        return res.status(400).json({ status: 'error', message: 'Invalid JSON payload.' });
+    }
+    next(err);
+});
 app.use(loggingMiddleware);
 
 // Rate limiting — 100 requests per 15 min per IP
@@ -90,6 +97,9 @@ app.use("/api/log", logRoutes);
 app.use("/api/webhooks", webhookRoutes);
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
+// NOTE (A4): /api-docs is intentionally public (before authMiddleware) for local/dev discovery.
+// Do NOT move behind auth without updating frontend docs + CI smoke tests that fetch /api-docs without a token.
+// Production hardening option: gate via env flag, not by default (keeps existing behavior).
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 let authProvider: IAuthProvider;
@@ -132,6 +142,14 @@ AppDataSource.initialize()
         app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
         app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService)));
         
+        // A4: GET /games/count would otherwise match GET /:gameId with gameId="count"
+        // inside gameRoutes (which we must NOT touch) and bubble a 500 on invalid-UUID lookup.
+        // Register BEFORE app.use("/games") so Express matches this first and returns honest 404 JSON.
+        app.get("/games/count", (req, res) => {
+            if (!(req as any).user?.id) return res.status(401).json({ message: "Unauthorized" });
+            return res.status(404).json({ status: 'error', message: 'Game not found.' });
+        });
+
         app.use("/games", gameRoutes(
             AppDataSource, 
             container.get(GameService), 
@@ -143,6 +161,12 @@ AppDataSource.initialize()
             container.get<IStorageProvider>("IStorageProvider")
         ));
         app.use("/usage", usageRoutes(container.get(AiUsageService)));
+
+        // A4: Unknown API sub-routes -> JSON 404 (not Express default HTML).
+        // Covers /teams/*, /players/*, /games/*, /usage/* typos and stale frontend links.
+        app.use((req, res) => {
+            return res.status(404).json({ status: 'error', message: `Not found: ${req.method} ${req.originalUrl}` });
+        });
 
         // Error handling middleware should be LAST
         app.use(errorMiddleware);

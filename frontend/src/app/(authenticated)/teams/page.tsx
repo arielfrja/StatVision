@@ -87,6 +87,10 @@ const TeamsPage = () => {
             <md-elevated-card 
               key={team.id}
               onClick={() => router.push(`/teams/${team.id}`)}
+              tabIndex={0}
+              role="link"
+              aria-label={`Open team ${team.name}`}
+              onKeyDown={(e: any) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/teams/${team.id}`); } }}
             >
               <div style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
                 {/* Background decoration */}

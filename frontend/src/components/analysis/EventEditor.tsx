@@ -25,6 +25,56 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
     const [assignedPlayerId, setAssignedPlayerId] = useState(event.assignedPlayerId || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    // A4 (read-only UI improvement, no backend change): search + grouping for ~36 classes.
+    const [search, setSearch] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const ADVANCED_TYPES = ['Pass', 'Dribble'];
+    const isShotType = (v: string) => /shot|free throw/i.test(v);
+    const isReboundType = (v: string) => /rebound/i.test(v);
+    const isFoulType = (v: string) => /foul/i.test(v);
+    const filteredTypes = ALLOWED_EVENT_TYPES.filter((v) => {
+      if (!showAdvanced && (ADVANCED_TYPES as string[]).includes(v)) return false;
+      if (!search.trim()) return true;
+      return v.toLowerCase().includes(search.trim().toLowerCase());
+    });
+    const shotTypes = filteredTypes.filter(isShotType);
+    const reboundTypes = filteredTypes.filter((v) => !isShotType(v) && isReboundType(v));
+    const foulTypes = filteredTypes.filter((v) => !isShotType(v) && !isReboundType(v) && isFoulType(v));
+    const otherTypes = filteredTypes.filter((v) => !isShotType(v) && !isReboundType(v) && !isFoulType(v));
+    const renderTypeButton = (type: string) => (
+      <button
+        key={type}
+        onClick={() => setEventType(type as any)}
+        aria-pressed={eventType === type}
+        style={{
+          padding: '8px 12px',
+          borderRadius: '4px',
+          border: '1px solid',
+          fontSize: '10px',
+          fontWeight: 'bold',
+          textTransform: 'uppercase',
+          letterSpacing: '-0.025em',
+          textAlign: 'left',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          backgroundColor: eventType === type
+            ? 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)'
+            : 'var(--md-sys-color-surface-container-high)',
+          borderColor: eventType === type
+            ? 'var(--md-sys-color-primary)'
+            : 'var(--md-sys-color-outline-variant)',
+          color: eventType === type
+            ? 'var(--md-sys-color-primary)'
+            : 'var(--md-sys-color-on-surface-variant)',
+          transition: 'border-color 200ms, background-color 200ms',
+        }}
+      >
+        {type.replace('_', ' ')}
+        {eventType === type && (<md-icon>check_circle</md-icon>)}
+      </button>
+    );
 
     useEffect(() => {
         setEventType(event.eventType);
@@ -81,6 +131,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     <md-text-button 
                         onClick={handleDelete}
                         disabled={isDeleting}
+                        aria-label="Delete event"
                     >
                         <md-icon slot="icon">delete</md-icon>
                     </md-text-button>
@@ -88,58 +139,72 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* Event Type Selection */}
+                {/* Event Type Selection (A4: searchable, grouped, advanced-gated — UI only) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
-                        Classification
+                    <label htmlFor="event-type-search" style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                        Classification ({ALLOWED_EVENT_TYPES.length} types)
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                        {ALLOWED_EVENT_TYPES.map(type => (
-                            <button
-                                key={type}
-                                onClick={() => setEventType(type as any)}
-                                style={{
-                                    padding: '8px 12px',
-                                    borderRadius: '4px',
-                                    border: '1px solid',
-                                    fontSize: '10px',
-                                    fontWeight: 'bold',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '-0.025em',
-                                    textAlign: 'left',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    cursor: 'pointer',
-                                    backgroundColor: eventType === type
-                                        ? 'color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent)'
-                                        : 'var(--md-sys-color-surface-container-high)',
-                                    borderColor: eventType === type
-                                        ? 'var(--md-sys-color-primary)'
-                                        : 'var(--md-sys-color-outline-variant)',
-                                    color: eventType === type
-                                        ? 'var(--md-sys-color-primary)'
-                                        : 'var(--md-sys-color-on-surface-variant)',
-                                    transition: 'border-color 200ms, background-color 200ms',
-                                }}
-                            >
-                                {type.replace('_', ' ')}
-                                {eventType === type && (
-                                    <md-icon>check_circle</md-icon>
-                                )}
-                            </button>
-                        ))}
+                    <input
+                      id="event-type-search"
+                      role="combobox"
+                      aria-expanded="true"
+                      aria-controls="event-type-groups"
+                      aria-autocomplete="list"
+                      aria-label="Search event types"
+                      type="search"
+                      placeholder="Search 36 event types… (e.g. shot, rebound, foul)"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid var(--md-sys-color-outline-variant)', fontSize: '12px' }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input id="show-advanced" type="checkbox" checked={showAdvanced} onChange={(e) => setShowAdvanced(e.target.checked)} />
+                      <label htmlFor="show-advanced" style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Show advanced (Pass, Dribble)</label>
+                    </div>
+                    <div id="event-type-groups" role="listbox" aria-label="Event type results" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {filteredTypes.length === 0 ? (
+                        <p style={{ fontSize: '12px', color: 'var(--md-sys-color-on-surface-variant)' }}>No event types match &ldquo;{search}&rdquo;.</p>
+                      ) : (
+                      <>
+                      {shotTypes.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px 0' }}>Shot ({shotTypes.length})</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>{shotTypes.map(renderTypeButton)}</div>
+                        </div>
+                      )}
+                      {reboundTypes.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px 0' }}>Rebound ({reboundTypes.length})</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>{reboundTypes.map(renderTypeButton)}</div>
+                        </div>
+                      )}
+                      {foulTypes.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px 0' }}>Foul ({foulTypes.length})</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>{foulTypes.map(renderTypeButton)}</div>
+                        </div>
+                      )}
+                      {otherTypes.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px 0' }}>Other ({otherTypes.length})</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>{otherTypes.map(renderTypeButton)}</div>
+                        </div>
+                      )}
+                      </>
+                      )}
                     </div>
                 </div>
 
                 {/* Team & Player Assignment */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                        <label htmlFor="target-team" style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
                             Target Team
                         </label>
                         {/* @ts-ignore */}
                         <md-filled-select
+                            id="target-team"
+                            aria-label="Target Team"
                             value={assignedTeamId}
                             onchange={(e: any) => {
                                 setAssignedTeamId(e.target.value);
@@ -155,11 +220,13 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <label style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
+                        <label htmlFor="assigned-personnel" style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.6 }}>
                             Assigned Personnel
                         </label>
                         {/* @ts-ignore */}
                         <md-filled-select
+                            id="assigned-personnel"
+                            aria-label="Assigned Personnel"
                             value={assignedPlayerId}
                             onchange={(e: any) => setAssignedPlayerId(e.target.value)}
                             disabled={!assignedTeamId}
