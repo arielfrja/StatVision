@@ -85,3 +85,7 @@ jobs:
         run: npm run build -w frontend
         env:
           NODE_ENV: production
+          # Build-time only. CI never serves; any absolute URL satisfies the
+          # fail-fast guard in next.config.ts (real value comes from Vercel
+          # project env at deploy time).
+          NEXT_PUBLIC_BASE_URL: http://localhost:3001
