@@ -339,7 +339,26 @@ export class VideoAnalysisResultService {
                     team.name = teamData.name || `${teamData.type === 'HOME' ? 'Home' : 'Away'} Team${teamData.color ? ' ('+teamData.color+')' : ''}`;
                     team.isTemp = true;
                     team.userId = result.userId;
-                    await this.teamRepository.save(team);
+                    try {
+                        await this.teamRepository.save(team);
+                    } catch (err: any) {
+                        // UNIQUE(user_id, lower(name)) backstop (mirror of the
+                        // worker path): reuse the surviving same-named row and
+                        // remap this batch onto it instead of dying mid-job.
+                        if (err?.code !== '23505') throw err;
+                        const survivor = await this.dataSource
+                            .getRepository(Team)
+                            .createQueryBuilder('t')
+                            .where('"t"."user_id" = :uid', { uid: result.userId })
+                            .andWhere('lower("t"."name") = lower(:nm)', { nm: team.name })
+                            .getOne();
+                        if (!survivor) throw err;
+                        for (const ev of (result as any).processedEvents || []) {
+                            if (ev.assignedTeamId === teamData.id) ev.assignedTeamId = survivor.id;
+                        }
+                        teamData.id = survivor.id;
+                        team = survivor;
+                    }
                 }
 
                 const { id: _, ...statsToMerge } = teamData;

@@ -137,7 +137,7 @@ const UsageDashboard = () => {
                </div>
             </div>
 <div style={{fontSize: '30px', fontWeight: 900, color: 'var(--md-sys-color-on-surface)', fontFamily: 'monospace'}}>${estimatedCost.toFixed(2)}</div>
-            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Est. cost ({pricing.model}: $${pricing.inputPricePer1M.toFixed(2)}/$${pricing.outputPricePer1M.toFixed(2)} per 1M)</p>
+            <p style={{fontSize: '9px', color: 'var(--md-sys-color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '-0.01em', margin: 0}}>Est. cost ({pricing.model}: ${pricing.inputPricePer1M.toFixed(2)}/${pricing.outputPricePer1M.toFixed(2)} per 1M)</p>
          </div>
       </div>
 
