@@ -132,7 +132,11 @@ AppDataSource.initialize()
         }
 
         // Public Routes (No Auth) — /api/log already registered above
-        app.use("/", authRoutes(AppDataSource));
+        // All three routes below (/protected, /me, /me/preferences) require a
+        // verified identity: authRoutes reads req.user, which only exists
+        // AFTER authMiddleware runs. Mounting it before the middleware left
+        // req.user unset and every call 401'd (M-2). Gate the mount itself.
+        app.use("/", authMiddleware(AppDataSource, authProvider), authRoutes(AppDataSource));
         app.use("/api/webhooks", webhookRoutes);
 
         // Apply authMiddleware to everything below
@@ -140,7 +144,7 @@ AppDataSource.initialize()
 
         // Protected Routes
         app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
-        app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService)));
+        app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService), container.get(GameStatsService)));
         
         // A4: GET /games/count would otherwise match GET /:gameId with gameId="count"
         // inside gameRoutes (which we must NOT touch) and bubble a 500 on invalid-UUID lookup.

@@ -176,7 +176,7 @@ export const gameRoutes = (
             return res.status(401).send("Unauthorized");
         }
 
-        const { name, gameDate, location, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
+        const { name, gameDate, location, season, opponentName, quarterDuration, homeTeamId, awayTeamId, visualContext, gameType, identityMode, ruleset } = req.body;
 
         // Game names are user-facing labels: require a real name.
         // (No "Draft Game [hash]" server fallback — see GameService.)
@@ -194,6 +194,10 @@ export const gameRoutes = (
                 homeTeamId,
                 awayTeamId,
                 gameDate,
+                location,
+                season,
+                opponentName,
+                quarterDuration,
                 gameType,
                 identityMode,
                 visualContext,

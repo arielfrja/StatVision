@@ -39,5 +39,25 @@ export const playerRoutes = (AppDataSource: DataSource, teamService: TeamService
         }
     });
 
+    // Release a player from a squad (removes roster links; the player record
+    // and historical game attributions are kept).
+    router.delete("/:playerId", async (req: Request, res: Response) => {
+        if (!req.user || !req.user.id) return res.status(401).send("Unauthorized");
+        const teamId = req.params.teamId as string;
+        const { playerId } = req.params;
+        const pid = Array.isArray(playerId) ? playerId[0] : playerId;
+
+        try {
+            const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);
+            if (!team) return res.status(404).json({ message: "Team not found." });
+
+            await playerService.removePlayerFromTeam(pid, teamId);
+            res.status(200).json({ message: "Player released from squad." });
+        } catch (error) {
+            logger.error(`Error releasing player ${pid} from team ${teamId}:`, error);
+            res.status(500).json({ message: (error as Error).message });
+        }
+    });
+
     return router;
 };
