@@ -23,6 +23,14 @@ export interface GameEvent {
     absoluteTimestamp: number;
     videoClipStartTime: number | null;
     videoClipEndTime: number | null;
+
+    // Timestamp precision (SRD; all optional for backward compat)
+    sourceFps?: number | null;
+    frameIndex?: number | null;
+    timePrecision?: 'estimated' | 'verified' | null;
+    needsReview?: boolean | null;
+    playerCertainty?: number | null;
+    eventTypeCertainty?: number | null;
     
     // UI Compatibility Aliases (to match component expectations)
     player?: Player | null;

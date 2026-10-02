@@ -4,7 +4,8 @@ import {
     GameRepository, GameEventRepository, GameStatsService, 
     TeamRepository, PlayerRepository, 
     GameStatus, GameEvent, Team, Player, GameTeamStats, GamePlayerStats, 
-    VideoAnalysisJobStatus, GameEventStatus, IEventBus, Game
+    VideoAnalysisJobStatus, GameEventStatus, IEventBus, Game,
+    VideoAnalysisJob, applyTimestampPrecision, flagImpossibleSequences
 } from "@statvision/common";
 import * as winston from 'winston';
 import { v5 as uuidv5, validate as validateUuid } from 'uuid';
@@ -182,6 +183,13 @@ export class VideoAnalysisResultService {
                 if (event.assignedTeamId && !teamOk.has(event.assignedTeamId)) { event.assignedTeamId = null; nulled++; }
             }
             if (nulled > 0) this.logger.warn(`[ReferentialGuard] Nulled ${nulled} dangling team/player refs in chunk ${result.chunkId}`, { phase: 'results_processing' });
+
+            // Timestamp honesty (SRD R2/R5): frame derivation + impossible-sequence
+            // flags, applied identically in the API push path.
+            const job = await this.dataSource.getRepository(VideoAnalysisJob).findOne({ where: { id: result.jobId } });
+            applyTimestampPrecision(gameEventsToUpsert, job?.sourceFps ?? null);
+            const flagged = flagImpossibleSequences(gameEventsToUpsert);
+            if (flagged > 0) this.logger.warn(`[Precision] Flagged ${flagged} events for review in chunk ${result.chunkId}`, { phase: 'results_processing' });
 
             // Use save() which performs an UPSERT if the primary key (id) matches
             await this.dataSource.getRepository(GameEvent).save(gameEventsToUpsert, { chunk: 100 });

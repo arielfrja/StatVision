@@ -168,6 +168,20 @@ export class VideoOrchestratorService {
             await this.progressManager.addJob(savedJob.id, 100, gameId);
             await this.progressManager.updateDetails(savedJob.id, 'Initializing chunking...', 'CHUNKING');
 
+            // Timestamp honesty (SRD R1): record source fps for frame derivation.
+            // Best-effort — never fail orchestration on a probe miss.
+            try {
+                const meta = await this.videoChunkerService.getVideoMetadata(localVideoPath);
+                if (meta && meta.frameRate > 0) {
+                    await this.jobRepository.update(savedJob.id, { sourceFps: meta.frameRate });
+                    this.jobLogger.info(`[ORCHESTRATOR] Source fps: ${meta.frameRate}`, { phase: 'orchestration' });
+                }
+            } catch (fpsErr: any) {
+                this.jobLogger.warn(`[ORCHESTRATOR] fps probe failed, continuing without frame precision.`, {
+                    error: fpsErr?.message, phase: 'orchestration',
+                });
+            }
+
             const existingChunks = await this.chunkRepository.findByJobId(savedJob.id);
             const startSequence = existingChunks.length;
             if (startSequence > 0) {

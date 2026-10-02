@@ -5,6 +5,7 @@ import { PlayerTeamHistory } from '@/types/player';
 import { Team } from '@/types/team';
 import { ALLOWED_EVENT_TYPES } from '@/constants/eventTypes';
 import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
 import '@material/web/button/text-button.js';
 import '@material/web/icon/icon.js';
 import '@material/web/select/filled-select.js';
@@ -82,7 +83,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
         setAssignedPlayerId(event.assignedPlayerId || '');
     }, [event]);
 
-    const handleSave = async () => {
+    const handleSave = async (verified = false) => {
         setIsSaving(true);
         try {
             await onSave({
@@ -90,6 +91,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                 eventType,
                 assignedTeamId: assignedTeamId || null,
                 assignedPlayerId: assignedPlayerId || null,
+                ...(verified ? { timePrecision: 'verified' as const } : {}),
             });
         } finally {
             setIsSaving(false);
@@ -125,6 +127,10 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     </h3>
                     <p style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--md-sys-color-primary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         TIMESTAMP: {event.absoluteTimestamp.toFixed(2)}s
+                        {(event as any).frameIndex != null ? ` · FRAME ${(event as any).frameIndex}` : ''}
+                        {(event as any).sourceFps != null ? ` @ ${(event as any).sourceFps.toFixed(1)}FPS` : ''}
+                        {' · ' + ((event as any).timePrecision === 'verified' ? 'VERIFIED' : 'ESTIMATED ±2s')}
+                        {(event as any).needsReview ? ' · NEEDS REVIEW' : ''}
                     </p>
                 </div>
                 {onDelete && (
@@ -253,11 +259,20 @@ const EventEditor: React.FC<EventEditorProps> = ({ event, allTeams, allPlayers, 
                     Discard
                 </md-text-button>
                 <md-filled-button 
-                    onClick={handleSave} 
+                    onClick={() => handleSave(false)} 
                     disabled={isSaving}
                 >
                     Update Analytics
                 </md-filled-button>
+                {(event as any).timePrecision !== 'verified' && (
+                    <md-outlined-button
+                        onClick={() => handleSave(true)}
+                        disabled={isSaving}
+                    >
+                        <md-icon slot="icon">verified</md-icon>
+                        Mark verified
+                    </md-outlined-button>
+                )}
             </div>
         </div>
     );

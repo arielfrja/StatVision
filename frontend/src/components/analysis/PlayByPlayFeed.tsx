@@ -82,7 +82,7 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                     fontWeight: 500,
                     color: 'var(--md-sys-color-on-surface-variant)',
                     fontStyle: 'italic',
-                }}>{events.length} Events Detected</span>
+                }}>{events.length} Events Detected{events.some((e: any) => e.needsReview) ? ` · ${events.filter((e: any) => e.needsReview).length} under review` : ''}</span>
             </div>
             
             <div style={{
@@ -92,7 +92,8 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                 <md-list>
                     {sortedEvents.map((event) => {
                         const isHome = event.assignedTeamId != null && event.assignedTeamId === homeTeamId;
-                        const timeStr = `${Math.floor(event.absoluteTimestamp / 60)}:${(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}`;
+                        const estimated = (event as any).timePrecision !== 'verified';
+                        const timeStr = `${estimated ? '~' : ''}${Math.floor(event.absoluteTimestamp / 60)}:${(Math.floor(event.absoluteTimestamp % 60)).toString().padStart(2, '0')}`;
                         const assignedPlayer = allPlayers.find(p => p.playerId === event.assignedPlayerId);
                         
                         return (
@@ -138,9 +139,20 @@ const PlayByPlayFeed: React.FC<PlayByPlayFeedProps> = ({
                                         fontSize: '12px',
                                         fontWeight: 700,
                                         color: 'var(--md-sys-color-primary)',
-                                    }}>
+                                    }} title={estimated ? 'AI-estimated time (±2s)' : 'Verified time'}>
                                         {timeStr}
                                     </span>
+                                    {(event as any).needsReview && (
+                                        <span style={{
+                                            fontSize: '9px',
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em',
+                                            color: 'var(--md-sys-color-error)',
+                                        }} title="Chronologically impossible — needs review">
+                                            review
+                                        </span>
+                                    )}
                                     <md-icon-button
                                         onClick={(e: React.MouseEvent) => { e.stopPropagation(); if (onEditEvent) onEditEvent(event); }}
                                         title="Edit Event"

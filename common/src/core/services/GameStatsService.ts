@@ -99,6 +99,9 @@ export class GameStatsService {
         uniquePlayerIds.forEach(id => playerStatsMap.set(id, { ...initialStats }));
 
         for (const event of events) {
+            // Under-review events never fabricate aggregates
+            // (EVENT_TIMESTAMP_PRECISION_SRD R6).
+            if ((event as any).needsReview) continue;
             const teamId = event.assignedTeamId;
             const playerId = event.assignedPlayerId;
             const teamStats = teamId ? teamStatsMap.get(teamId) : null;

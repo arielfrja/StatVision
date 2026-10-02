@@ -610,36 +610,9 @@ export const gameRoutes = (
         }
     });
 
-    router.put("/game-events/:gameEventId/assign-player", async (req, res) => {
-        if (!req.user || !req.user.id) {
-            return res.status(401).send("Unauthorized");
-        }
-
-        const { gameEventId } = req.params;
-        const { playerId } = req.body;
-
-        try {
-            const gameEvent = await gameEventRepository.findOneById(gameEventId);
-
-            if (!gameEvent) {
-                return res.status(404).json({ message: "Game event not found." });
-            }
-
-            // Check ownership of the game
-            const game = await gameRepository.findOneBy({ id: gameEvent.gameId, userId: req.user.id });
-            if (!game) return res.status(403).json({ message: "Access denied." });
-
-            gameEvent.assignedPlayerId = playerId;
-            await gameEventRepository.save(gameEvent);
-
-            await gameStatsService.calculateAndStoreStats(gameEvent.gameId);
-
-            res.status(200).json(gameEvent);
-        } catch (error) {
-            logger.error(`Error assigning player to game event ${gameEventId}:`, error);
-            res.status(500).json({ message: "Internal server error." });
-        }
-    });
+    // NOTE: event mutation lives in gameEventRoutes (mounted at /game-events):
+    // PUT /:gameEventId, DELETE /:gameEventId, PUT /:gameEventId/assign-player.
+    // The old nested PUT lived here at an unreachable path and was removed.
 
     router.delete("/:gameId", async (req, res) => {
         if (!req.user || !req.user.id) {

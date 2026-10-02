@@ -285,6 +285,18 @@ const BoxScoreTable: React.FC<BoxScoreTableProps> = ({ game, visibleStats }) => 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {renderTeamSection(homeTeamId, game.homeTeam?.name || 'Home Team', true)}
             {renderTeamSection(awayTeamId, game.awayTeam?.name || 'Away Team', false)}
+            {(game.events ?? []).some((e: any) => e.needsReview) && (
+                <p style={{
+                    margin: 0,
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--md-sys-color-error)',
+                }}>
+                    {(game.events ?? []).filter((e: any) => e.needsReview).length} event(s) under review — excluded from totals until verified.
+                </p>
+            )}
         </div>
     );
 };

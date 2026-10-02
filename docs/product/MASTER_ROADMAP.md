@@ -35,7 +35,7 @@ This document tracks the high-level progress of the StatVision platform. It comb
 
 ## 📊 Phase 5: Professional Analysis (COMPLETED)
 - [x] **Advanced Analytics Dashboard:** eFG%, TS%, and advanced efficiency metrics integrated into Box Score.
-- [x] **Interactive Timeline Editor:** Frame-perfect video syncing for event verification.
+- [x] **Interactive Timeline Editor:** Event verification UI with AI-estimated timestamps (±2s honesty markers, seek padding, review flags). True frame precision is specified in `docs/specifications/EVENT_TIMESTAMP_PRECISION_SRD.md` (Phase 2 pending).
 - [x] **Olympic-Level Intelligence:** Overhauled AI prompts to filter replays and use professional taxonomy.
 - [ ] **Automated Highlight Generator:** AI-powered "mixtape" creation from event timestamps.
 

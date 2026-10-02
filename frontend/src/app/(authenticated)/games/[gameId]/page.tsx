@@ -88,9 +88,11 @@ function AnalysisPage() {
 
     // Handlers
     const handleSeek = (time: number) => {
+        // Timestamps are AI-estimated (±2s): land just before the moment.
+        const padded = Math.max(0, time - 2);
         if (playerRef.current && typeof (playerRef.current as any).seekTo === 'function') {
-            (playerRef.current as any).seekTo(time, 'seconds');
-            setCurrentTime(time);
+            (playerRef.current as any).seekTo(padded, 'seconds');
+            setCurrentTime(padded);
         }
     };
 

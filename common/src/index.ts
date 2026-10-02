@@ -26,6 +26,7 @@ export * from './core/repositories/TeamRepository';
 export * from './core/repositories/UserRepository';
 
 export * from './core/services/GameStatsService';
+export * from './core/services/EventTimestampService';
 export * from './core/services/PlayerService';
 export * from './core/services/TeamService';
 export * from './core/services/AiUsageService';

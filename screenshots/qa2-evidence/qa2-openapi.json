@@ -1,0 +1,323 @@
+{
+ "openapi": "3.0.0",
+ "info": {
+  "title": "StatVision API",
+  "version": "1.0.0",
+  "description": "API documentation for the StatVision backend application"
+ },
+ "servers": [
+  {
+   "url": "http://localhost:3000",
+   "description": "API server"
+  }
+ ],
+ "components": {
+  "securitySchemes": {
+   "bearerAuth": {
+    "type": "http",
+    "scheme": "bearer",
+    "bearerFormat": "JWT"
+   }
+  },
+  "schemas": {
+   "Game": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "name": {
+      "type": "string",
+      "example": "Finals 2026"
+     },
+     "userId": {
+      "type": "string",
+      "example": "firebaseUid123"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "UPLOADED",
+       "PROCESSING",
+       "ANALYZED",
+       "ASSIGNMENT_PENDING",
+       "COMPLETED",
+       "FAILED",
+       "ANALYSIS_FAILED_RETRYABLE"
+      ]
+     },
+     "gameType": {
+      "type": "string",
+      "enum": [
+       "FULL_COURT",
+       "THREE_X_THREE",
+       "STREET_BALL",
+       "ONE_X_ONE"
+      ]
+     },
+     "identityMode": {
+      "type": "string",
+      "enum": [
+       "JERSEY_COLORS",
+       "INTERACTION_BASED"
+      ]
+     },
+     "videoUrl": {
+      "type": "string",
+      "nullable": true
+     },
+     "homeTeamId": {
+      "type": "string",
+      "format": "uuid",
+      "nullable": true
+     },
+     "awayTeamId": {
+      "type": "string",
+      "format": "uuid",
+      "nullable": true
+     },
+     "uploadedAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "GameEvent": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "gameId": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "assignedTeamId": {
+      "type": "string",
+      "format": "uuid",
+      "nullable": true
+     },
+     "assignedPlayerId": {
+      "type": "string",
+      "format": "uuid",
+      "nullable": true
+     },
+     "eventType": {
+      "type": "string"
+     },
+     "absoluteTimestamp": {
+      "type": "number",
+      "format": "float"
+     }
+    }
+   },
+   "Team": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "name": {
+      "type": "string"
+     },
+     "userId": {
+      "type": "string"
+     }
+    }
+   },
+   "Player": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "format": "uuid"
+     },
+     "name": {
+      "type": "string"
+     },
+     "position": {
+      "type": "string",
+      "nullable": true
+     }
+    }
+   }
+  }
+ },
+ "security": [
+  {
+   "bearerAuth": []
+  }
+ ],
+ "paths": {
+  "/protected": {
+   "get": {
+    "summary": "Access a protected route.",
+    "description": "This endpoint demonstrates access to a protected resource, requiring a valid Firebase ID token.",
+    "tags": [
+     "Protected"
+    ],
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successfully accessed protected route.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "properties": {
+          "message": {
+           "type": "string",
+           "example": "You accessed a protected route!"
+          },
+          "user": {
+           "type": "object",
+           "description": "Decoded user information from the Firebase ID token."
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Unauthorized - No token provided or invalid token.",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string",
+         "example": "Unauthorized"
+        }
+       }
+      }
+     },
+     "500": {
+      "description": "Internal server error."
+     }
+    }
+   }
+  },
+  "/me": {
+   "get": {
+    "summary": "Get current user info including preferences.",
+    "tags": [
+     "User"
+    ],
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Current user information."
+     }
+    }
+   }
+  },
+  "/me/preferences": {
+   "put": {
+    "summary": "Update current user preferences.",
+    "tags": [
+     "User"
+    ],
+    "security": [
+     {
+      "bearerAuth": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "visibleStats": {
+          "type": "array",
+          "items": {
+           "type": "string"
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Preferences updated successfully."
+     }
+    }
+   }
+  },
+  "/usage/summary": {
+   "get": {
+    "summary": "Get AI usage summary",
+    "tags": [
+     "Usage"
+    ],
+    "parameters": [
+     {
+      "in": "query",
+      "name": "start",
+      "schema": {
+       "type": "string",
+       "format": "date-time"
+      }
+     },
+     {
+      "in": "query",
+      "name": "end",
+      "schema": {
+       "type": "string",
+       "format": "date-time"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Usage summary retrieved successfully"
+     }
+    }
+   }
+  },
+  "/usage/daily": {
+   "get": {
+    "summary": "Get daily AI usage",
+    "tags": [
+     "Usage"
+    ],
+    "parameters": [
+     {
+      "in": "query",
+      "name": "start",
+      "schema": {
+       "type": "string",
+       "format": "date-time"
+      }
+     },
+     {
+      "in": "query",
+      "name": "end",
+      "schema": {
+       "type": "string",
+       "format": "date-time"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Daily usage retrieved successfully"
+     }
+    }
+   }
+  }
+ },
+ "tags": []
+}

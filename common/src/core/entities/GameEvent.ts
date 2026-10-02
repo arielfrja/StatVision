@@ -96,4 +96,20 @@ export class GameEvent {
 
     @Column({ name: "event_type_certainty", type: "float", nullable: true })
     eventTypeCertainty: number | null;
+
+    // Timestamp precision (EVENT_TIMESTAMP_PRECISION_SRD): absoluteTimestamp
+    // is AI-estimated at ANALYSIS_FPS granularity. sourceFps + frameIndex
+    // record what we know; timePrecision labels honesty; needsReview flags
+    // chronologically impossible sequences for human review.
+    @Column({ name: "source_fps", type: "float", nullable: true })
+    sourceFps: number | null;
+
+    @Column({ name: "frame_index", type: "int", nullable: true })
+    frameIndex: number | null;
+
+    @Column({ name: "time_precision", type: "varchar", length: 16, default: 'estimated' })
+    timePrecision: string;
+
+    @Column({ name: "needs_review", type: "boolean", default: false })
+    needsReview: boolean;
 }

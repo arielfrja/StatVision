@@ -4,7 +4,8 @@ import {
     GameRepository, GameEventRepository, GameStatsService, 
     TeamRepository, PlayerRepository, 
     GameStatus, GameEvent, Team, Player, GameTeamStats, GamePlayerStats, 
-    VideoAnalysisJobStatus, GameEventStatus, IEventBus
+    VideoAnalysisJobStatus, GameEventStatus, IEventBus,
+    VideoAnalysisJob, applyTimestampPrecision, flagImpossibleSequences
 } from "@statvision/common";
 import * as winston from 'winston';
 import { NotificationService } from "./NotificationService";
@@ -150,6 +151,12 @@ export class VideoAnalysisResultService {
 
                 return gameEvent;
             });
+
+            // Timestamp honesty (SRD R2/R5), mirrored from the worker path.
+            const job = await this.dataSource.getRepository(VideoAnalysisJob).findOne({ where: { id: result.jobId } });
+            applyTimestampPrecision(gameEventsToInsert, job?.sourceFps ?? null);
+            const flagged = flagImpossibleSequences(gameEventsToInsert);
+            if (flagged > 0) this.logger.warn(`[Precision] Flagged ${flagged} events for review in chunk ${result.chunkId}`, { phase: 'results_processing' });
 
             try {
                 await this.gameEventRepository.batchInsert(gameEventsToInsert);

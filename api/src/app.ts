@@ -18,12 +18,13 @@ import { authRoutes } from "./routes/authRoutes";
 import { teamRoutes } from "./routes/teamRoutes";
 import { playerGlobalRoutes } from "./routes/playerGlobalRoutes";
 import { gameRoutes } from "./routes/gameRoutes";
+import { gameEventRoutes } from "./routes/gameEventRoutes";
 import { usageRoutes } from "./routes/usageRoutes";
 import { webhookRoutes } from "./routes/webhookRoutes";
 import loggingMiddleware from './middleware/loggingMiddleware';
 import errorMiddleware from './middleware/errorMiddleware';
 import { AppContainer } from "./shared/AppContainer";
-import { TeamService, PlayerService, GameStatsService, GameEventRepository, IEventBus, IStorageProvider, AiUsageService } from "@statvision/common";
+import { TeamService, PlayerService, GameStatsService, GameRepository, GameEventRepository, IEventBus, IStorageProvider, AiUsageService } from "@statvision/common";
 import { GameService } from "./modules/games/GameService";
 import { GameAssignmentService } from "./modules/games/GameAssignmentService";
 import { GameAnalysisService } from "./modules/games/GameAnalysisService";
@@ -145,6 +146,12 @@ AppDataSource.initialize()
         // Protected Routes
         app.use("/teams", teamRoutes(AppDataSource, container.get(TeamService), container.get(PlayerService)));
         app.use("/players", playerGlobalRoutes(AppDataSource, container.get(PlayerService), container.get(GameStatsService)));
+        app.use("/game-events", gameEventRoutes(
+            AppDataSource,
+            container.get(GameEventRepository),
+            container.get(GameStatsService),
+            container.get(GameRepository),
+        ));
         
         // A4: GET /games/count would otherwise match GET /:gameId with gameId="count"
         // inside gameRoutes (which we must NOT touch) and bubble a 500 on invalid-UUID lookup.

@@ -69,6 +69,11 @@ export class VideoAnalysisJob {
     @Column({ name: "completed_chunks", type: "integer", default: 0 })
     completedChunks: number;
 
+    // Source video frame rate (ffprobe at orchestration; null when unprobable).
+    // Lets consumers derive frameIndex = round(absoluteTimestamp * sourceFps).
+    @Column({ name: "source_fps", type: "float", nullable: true })
+    sourceFps: number | null;
+
     @Column({ name: "gemini_file_uri", type: "varchar", nullable: true })
     geminiFileUri: string | null;
 
