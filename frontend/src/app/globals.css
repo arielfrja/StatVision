@@ -169,6 +169,19 @@ html, body {
   flex: 1;
 }
 
+/* Recharts renders an off-screen measurement span containing the text "300".
+   It must keep layout (display:none breaks measurement), so it stays in
+   innerText dumps — harmless, invisible, documented here. */
+#recharts_measurement_span {
+  position: absolute !important;
+  left: -9999px !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
 /* ============ UTILITY CLASSES ============ */
 .flex-1 { flex: 1; }
 .fill-width { width: 100%; }

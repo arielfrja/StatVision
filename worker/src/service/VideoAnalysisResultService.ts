@@ -162,6 +162,27 @@ export class VideoAnalysisResultService {
                 return event;
             });
 
+            // Referential guard: the AI sometimes references actor UUIDs absent
+            // from identifiedPlayers (no Player row exists). One dangling id
+            // fails the whole batch (FK 23503) and kills the chunk chain, so
+            // verify existence once and null out the dangling refs — the raw
+            // jersey/color fields are preserved above for manual remapping,
+            // and unverifiable attributions must never fabricate stats.
+            const refPlayerIds = [...new Set(gameEventsToUpsert.map(e => e.assignedPlayerId).filter((id): id is string => !!id))];
+            const refTeamIds = [...new Set(gameEventsToUpsert.map(e => e.assignedTeamId).filter((id): id is string => !!id))];
+            const [foundPlayers, foundTeams] = await Promise.all([
+                refPlayerIds.length ? this.dataSource.getRepository(Player).findByIds(refPlayerIds) : [],
+                refTeamIds.length ? this.dataSource.getRepository(Team).findByIds(refTeamIds) : [],
+            ]);
+            const playerOk = new Set(foundPlayers.map(p => p.id));
+            const teamOk = new Set(foundTeams.map(t => t.id));
+            let nulled = 0;
+            for (const event of gameEventsToUpsert) {
+                if (event.assignedPlayerId && !playerOk.has(event.assignedPlayerId)) { event.assignedPlayerId = null; nulled++; }
+                if (event.assignedTeamId && !teamOk.has(event.assignedTeamId)) { event.assignedTeamId = null; nulled++; }
+            }
+            if (nulled > 0) this.logger.warn(`[ReferentialGuard] Nulled ${nulled} dangling team/player refs in chunk ${result.chunkId}`, { phase: 'results_processing' });
+
             // Use save() which performs an UPSERT if the primary key (id) matches
             await this.dataSource.getRepository(GameEvent).save(gameEventsToUpsert, { chunk: 100 });
             this.logger.info(`Successfully upserted \${gameEventsToUpsert.length} draft events for game \${result.gameId}.`, { phase: 'results_processing' });
@@ -376,8 +397,28 @@ export class VideoAnalysisResultService {
                     team.name = teamData.name || `${teamData.type === 'HOME' ? 'Home' : 'Away'} Team (${teamData.color})`;
                     team.isTemp = true;
                     team.userId = result.userId;
-                    await this.dataSource.getRepository(Team).save(team);
-                    this.logger.info(`[Discovery] Created Temp Team: ${team.name}`, { teamId });
+                    try {
+                        await this.dataSource.getRepository(Team).save(team);
+                    } catch (err: any) {
+                        // UNIQUE(user_id, lower(name)) backstop: another row
+                        // (e.g. a previous game's "Unknown Team") already owns
+                        // this name for the user. Reuse the survivor and remap
+                        // this batch onto it instead of dying mid-chunk.
+                        if (err?.code !== '23505') throw err;
+                        const survivor = await this.dataSource.getRepository(Team)
+                            .createQueryBuilder('t')
+                            .where('t.userId = :uid', { uid: result.userId })
+                            .andWhere('lower(t.name) = lower(:nm)', { nm: team.name })
+                            .getOne();
+                        if (!survivor) throw err;
+                        this.logger.info(`[Discovery] Reusing existing team "${survivor.name}" for "${team.name}"`, { teamId: survivor.id });
+                        for (const ev of result.processedEvents || []) {
+                            if (ev.assignedTeamId === teamData.id) ev.assignedTeamId = survivor.id;
+                        }
+                        teamData.id = survivor.id;
+                        team = survivor;
+                    }
+                    this.logger.info(`[Discovery] Created Temp Team: ${team.name}`, { teamId: team.id });
                 }
             }
         }

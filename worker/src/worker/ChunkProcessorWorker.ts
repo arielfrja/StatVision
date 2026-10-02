@@ -385,6 +385,15 @@ export class ChunkProcessorWorker {
             if (process.env.NODE_ENV !== 'production') return;
         }
 
+        // Cloud Tasks requires https for OIDC-signed delivery. An http
+        // analyzer URL means local/dev setup — attempting the call only
+        // produces INVALID_ARGUMENT that masks the real (already logged)
+        // local-trigger failure. Never proceed in that case.
+        if (!workerConfig.analyzerUrl.startsWith('https://')) {
+            this.logger.error(`[CHAIN] Refusing Cloud Tasks for non-https analyzer URL ${workerConfig.analyzerUrl}; fix ANALYZER_URL or run the analyzer locally.`, { phase: 'analyzing' });
+            return;
+        }
+
         // 2. PRODUCTION CLOUD TASKS
         const tasksClient = new CloudTasksClient();
         const parent = tasksClient.queuePath(
