@@ -1,0 +1,13 @@
+{
+  "comment": "Clip retention lifecycle for statvision-uploads-{prod,test}. DO NOT APPLY YET — clips are disabled (CLIPS_ENABLED=false) and source footage is still deleted on finalize. Apply together with the retention flip: gcloud storage buckets update gs://BUCKET --lifecycle-file=scripts/gcs-lifecycle.clips.json",
+  "rule": [
+    {
+      "action": { "type": "Delete" },
+      "condition": { "age": 90, "matchesPrefix": ["clips/"] }
+    },
+    {
+      "action": { "type": "Delete" },
+      "condition": { "age": 1, "matchesPrefix": ["tmp/"] }
+    }
+  ]
+}

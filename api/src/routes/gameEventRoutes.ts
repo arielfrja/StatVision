@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import {
     GameEventRepository, GameStatsService, GameRepository,
     ALLOWED_EVENT_TYPES, flagImpossibleSequences,
+    ClipService, IStorageProvider,
 } from '@statvision/common';
 import logger from '../config/logger';
 
@@ -17,6 +18,7 @@ export const gameEventRoutes = (
     gameEventRepository: GameEventRepository,
     gameStatsService: GameStatsService,
     gameRepository: GameRepository,
+    storageProvider: IStorageProvider,
 ) => {
     const router = Router();
 
@@ -129,6 +131,70 @@ export const gameEventRoutes = (
         } catch (err: any) {
             logger.error(`Error assigning player to game event ${gameEventId}:`, err);
             res.status(500).json({ message: "Internal server error." });
+        }
+    });
+
+    // Per-event video clip export (infra-ready, disabled by default).
+    // Enablement requires source-video retention (currently deleted on
+    // finalize) + CLIPS_ENABLED=true. Until then: honest 501, no storage.
+    router.get("/:gameEventId/clip", async (req, res) => {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!ClipService.isEnabled()) {
+            return res.status(501).json({
+                code: "CLIPS_DISABLED",
+                message: "Clip export is not enabled. Source footage is not retained.",
+            });
+        }
+
+        const { gameEventId } = req.params;
+        const padStart = req.query.padStart !== undefined ? Number(req.query.padStart) : undefined;
+        const padEnd = req.query.padEnd !== undefined ? Number(req.query.padEnd) : undefined;
+
+        try {
+            const { error, gameEvent, game } = await loadOwnedEvent(gameEventId, req.user.id);
+            if (error || !gameEvent || !game) {
+                return res.status(404).json({ message: "Game event not found." });
+            }
+            if (typeof gameEvent.absoluteTimestamp !== 'number') {
+                return res.status(400).json({ message: "Event has no timestamp to clip around." });
+            }
+            if (!game.filePath) {
+                return res.status(404).json({ message: "Source video is no longer retained for this game." });
+            }
+
+            const clips = new ClipService(storageProvider);
+            (gameEvent as any).clipStatus = 'pending';
+            await gameEventRepository.save(gameEvent);
+            const out = await clips.exportClip({
+                sourceVideo: game.filePath,
+                timestamp: gameEvent.absoluteTimestamp,
+                padStart,
+                padEnd,
+                destPrefix: `clips/${gameEvent.gameId}`,
+                clipName: gameEventId,
+            });
+            (gameEvent as any).clipStatus = 'ready';
+            (gameEvent as any).clipUrl = out.gcsUri;
+            (gameEvent as any).clipError = null;
+            await gameEventRepository.save(gameEvent);
+
+            res.status(200).json(out);
+        } catch (err: any) {
+            logger.error(`Error exporting clip for event ${gameEventId}:`, err);
+            try {
+                const existing = await gameEventRepository.findOneById(gameEventId);
+                if (existing) {
+                    (existing as any).clipStatus = 'failed';
+                    (existing as any).clipError = String(err?.message || err).slice(0, 200);
+                    await gameEventRepository.save(existing);
+                }
+            } catch {
+                /* best-effort */
+            }
+            res.status(500).json({ message: "Clip export failed." });
         }
     });
 

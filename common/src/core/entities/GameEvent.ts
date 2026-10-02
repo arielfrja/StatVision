@@ -112,4 +112,15 @@ export class GameEvent {
 
     @Column({ name: "needs_review", type: "boolean", default: false })
     needsReview: boolean;
+
+    // Clip export (infra-ready, disabled by default — see CLIP docs).
+    // CLIPS_ENABLED=false: columns stay null, endpoint returns 501.
+    @Column({ name: "clip_status", type: "varchar", length: 16, default: 'none' })
+    clipStatus: string;
+
+    @Column({ name: "clip_url", type: "varchar", nullable: true })
+    clipUrl: string | null;
+
+    @Column({ name: "clip_error", type: "varchar", nullable: true })
+    clipError: string | null;
 }

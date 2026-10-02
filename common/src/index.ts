@@ -37,6 +37,7 @@ export * from './infrastructure/PubSubEventBus';
 export * from './infrastructure/GCSStorageProvider';
 export * from './infrastructure/LocalStorageProvider';
 export * from './infrastructure/MockEventBus';
+export * from './infrastructure/ClipService';
 
 export * from './constants/gemini';
 export * from './constants/eventTypes';

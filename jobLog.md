@@ -908,3 +908,42 @@ PO story breakdown (PO-101 temporal rosters, E2 tiering as config-data) → Tech
 - **PBP:** plain name when jersey unknown (no more `(#null)`).
 - **Verified:** 8/8 checks PASS on isolated local PG (scratch DB, dropped after): re-point, link-move, stays ANALYZED while temp remains, COMPLETED when clean. api/worker/frontend tsc ✅.
 - **NOT merged/pushed** — awaiting founder approval (merges with fix/auto-link-game-teams; no file conflicts).
+
+## 2026-10-01/02 — QA Triage → Parallel Fix Program → Full Pipeline Proof → SRD Phase 1 (master: 5149e50 → 44e22d7)
+
+### QA intake
+- Read `qa-report-2026-09-30.md` + `qa-report-2026-09-30-round2.md` (both agree: not shippable; worst screens `0-0 FINAL` w/ identical 29pt lines, `+/- undefined`, no video on READY, Unknown-majority identity, dead Coach button, 360px gutter, consent loop, `0/0` cards).
+- Round 2 added infra P0s: prod login dead-ends at Vercel SSO (P-1), shared prod DB/bucket (P-2, founder-deferred to pre-publish), prod pipeline FAILED 0/9 no-reason (P-7), desktop no-nav (P-6), Coach dead UI (P-4), upload-entry broken (N-1), no team delete (N-3), double-submit race (N-4), GCS URL leak (S-1), open Swagger (S-2).
+- Archived both reports to `docs/qa/` + fix plan (`docs/qa/fix-plan-2026-10-01.md`).
+
+### Execution model (founder-approved)
+- 4 parallel agents in isolated clones (`StatVision-a1..a4`, own branches `fix/a{1..4}-*`, own ports 3000-3300, gitignored env only): A1 infra/auth/shell, A2 pipeline/data (sole owner GameRepository+gameRoutes), A3 teams/upload backend, A4 polish. Then Wave 2 on `integration`: W1 game/coach/editor (:3400), W2 upload/lists (:3501).
+- Disk 100% → all lanes symlink third-party modules to A2's tree (kept lane-local `@statvision/*`; proved whole-tree links would hijack lane code). Lane isolation proven by response shapes (a1 old-shape vs a2 new-shape).
+- Pre-merge feature tests with REAL Auth0 user tokens (ROPG via CLI grant toggle, reverted each time; later via Firefox localStorage extraction after A1's localstorage cache shipped). All tokens shredded after use.
+
+### Pre-merge verification (all green, cleaned)
+- Per-lane localhost sweep :3000–:3600 (401s, counts, leaks, CRUD, validation, assignment, coach-400, upload honesty).
+- Full app flow: teams 201/409/200, game w/ metadata, upload-url, honest 404 pre-bytes, identified entities, usage, coach 200 + 3.8KB report, delete 204→404.
+- W2's "counts absent" flag diagnosed as stale `common/build` in their lane (proven by re-running on `integration`: 94/4 + no leaks).
+
+### Pipeline saga (game A→B→C, ~$0.13 total Gemini)
+- 359MB segmented upload (40MB + offset checks) → final 200. One mid-transfer abort at 293MB (known end-stall) → resume driver with retries.
+- Bugs caught by the run itself: (1) worker held orchestration HTTP conn 30 min → 202-ACK fix; (2) prod+ADC skips local fallback → Cloud Tasks INVALID_ARGUMENT on http URL → ANALYZER_URL port fix; (3) team blind-insert 23505 vs new uniqueness index → find-or-reuse + remap (api+worker); (4) dangling actor UUIDs FK-killed whole batches → referential guard; (5) local-fetch failures masked by Cloud Tasks INVALID_ARGUMENT → http guard (2 sites); (6) FINALIZING stuck via DNS/statement-timeout flakiness → reconcile-nudge (transient, cleared).
+- Result: 9/9 chunks, 106 events, ANALYZED, Triton 2pts vs Glenn 19pts (distinct), 6 player rows, auto-linked home/away, ~$0.068/run (121,897 tokens, gemini-3.5-flash-lite). Test games + GCS prefixes deleted.
+- Honest finding: videos are NOT saved — `JobFinalizerService.onJobFinal` deletes source on finish (V-1 root cause). Decision open: keep deleting vs 30-day retention.
+
+### Prod fixes + deployments
+- P-1: Vercel `NEXT_PUBLIC_BASE_URL` corrected (production+preview) via API after finding Auth0 callbacks were already right. A1 removed the preview-host bake + fail-fast. Login verified on prod (lands /dashboard, no vercel wall).
+- CORS: prod frontend was never allowlisted (masked by P-1) → set via gcloud + locked in `deploy.yml`.
+- Deploy failures fixed: CI needed BASE_URL dummy (A1 fail-fast); uniqueness migration failed on prod TRITON×5 → rewritten self-deduping (`(archived <id8>)` renames, visible on prod Teams page); gcloud comma parsing → `^|^` delimiter.
+- Follow-up routes (live-tested, net-zero on shared data): `/me` behind auth (mount-order root cause), switch-team flip (6/12→10/8→6/12), release-player, game metadata passthrough, event CRUD routes (editor Save/Delete/Assign were 404ing).
+- Prod Firefox tour: counts, boxscore (`PTS 12 · +/- 0 · eFG% 18.2%`, zero `undefined`), coach tab, squad delete via UI (first QA2 junk team removed), usage `$0.20`.
+
+### SRD + Phase 1 timestamps (docs/specifications/EVENT_TIMESTAMP_PRECISION_SRD.md)
+- Honest finding: timestamps are AI-estimated at 1fps (±1s at best), no frame sync; "frame-perfect" was fiction.
+- Shipped: fps probe at orchestration, frame/precision/review columns (migration), shared `EventTimestampService` (unit-proven), worker+API wiring, stats skip flagged, `~MM:SS` UI + seek −2s pad + review badges, editor verify button, roadmap honesty fix. Live on prod (`~29:30` verified in browser).
+
+### Open / follow-ups
+- Junk purge remainder (E2E/Prod/Draft/demo rows, `<TEAM>`s); team-delete-with-roster 500 (needs cascade/409); release-UUID 400 hardening; `/me` covered.
+- Pre-publish env split P-2 (founder-deferred); pricing decision (deferred); Phase 2 refinement sampling (needs token-budget call, SRD §8).
+- Device limits hit: no `next` binary anywhere (no local UI), Auth0 CLI keyring broken (ROPG toggle + browser extraction workarounds documented), firefox-devtools MCP died once (recovered), pkill patterns match own shell (use exe+cwd matching).

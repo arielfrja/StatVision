@@ -151,6 +151,7 @@ AppDataSource.initialize()
             container.get(GameEventRepository),
             container.get(GameStatsService),
             container.get(GameRepository),
+            container.get<IStorageProvider>("IStorageProvider"),
         ));
         
         // A4: GET /games/count would otherwise match GET /:gameId with gameId="count"
