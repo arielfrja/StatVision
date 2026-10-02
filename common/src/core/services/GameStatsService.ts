@@ -53,6 +53,21 @@ export class GameStatsService {
         await this.playerStatsRepository.deleteByGameId(gameId);
     }
 
+    /**
+     * Coerces an optional list of +/- contributions to a finite number.
+     * Returns the arithmetic sum when usable values exist, otherwise 0 —
+     * callers (and the UI) can rely on `plusMinus` never being undefined.
+     */
+    private sumOrZero(values: unknown): number {
+        if (!Array.isArray(values)) return 0;
+        let sum = 0;
+        for (const v of values) {
+            const n = typeof v === 'number' ? v : Number(v);
+            if (Number.isFinite(n)) sum += n;
+        }
+        return sum;
+    }
+
     async calculateAndStoreStats(gameId: string): Promise<void> {
         this.logger?.info(`GameStatsService: Starting detailed stats calculation for game ${gameId}.`);
         
@@ -96,6 +111,25 @@ export class GameStatsService {
             const isSuccessful = !!event.isSuccessful;
 
             const updateStats = (stats: AggregatedStats) => {
+                // --- TAXONOMY AUDIT (common/src/constants/eventTypes.ts) ---
+                // SHOTS: "2pt/3pt Shot Attempt|Made|Missed". Attempt rows count
+                //   as FGA (made iff isSuccessful); Made/Missed rows rely on
+                //   isSuccessful (Made=true, Missed=false). 3pt detected via
+                //   '3pt'/'3-point' in type or subType.
+                // FREE THROWS: "Free Throw Attempt|Made|Missed" — FTA always,
+                //   FTM + 1pt iff isSuccessful.
+                // REBOUNDS: "Offensive|Defensive Rebound" via type/subType/
+                //   eventDetails.isOffensive. Bare "Rebound"/"Team Rebound"
+                //   default to DEFENSIVE (conservative, documented).
+                // COUNTABLES: "Assist"→ast, "Steal"→stl, "Block"→blk,
+                //   "Turnover"→tov, any *Foul* ("Foul","Personal Foul",
+                //   "Shooting Foul","Offensive Foul","Flagrant Foul",
+                //   "Technical Foul")→foul.
+                // INTENTIONALLY IGNORED (no box-score stat): "Dribble",
+                //   "Pass", "Jump Ball", "Jump Ball Possession",
+                //   "Out of Bounds", "Possession Change", "Violation",
+                //   "Substitution", "Timeout Taken", "Game/Period Start",
+                //   "End of Game/Period".
                 // 1. SHOTS
                 if (type.includes('shot') || type.includes('fg')) {
                     const isThree = type.includes('3pt') || type.includes('3-point') || subType.includes('3pt');
@@ -168,8 +202,13 @@ export class GameStatsService {
                     }
                 }
             }
+            // plusMinus is ALWAYS a finite number (sum-or-0, never undefined):
+            // true +/- needs lineup intervals (onCourtPlayerIds timeline),
+            // which the pipeline does not track yet — baseline is 0 so the
+            // UI can safely render without `?? 0` fallbacks per row.
+            const plusMinus = this.sumOrZero((stats as any).plusMinusContributions);
             return this.playerStatsRepository.create({
-                gameId, playerId, teamId: playerTeamId, ...stats, minutesPlayed: 0, plusMinus: 0, effectiveFieldGoalPercentage, trueShootingPercentage,
+                gameId, playerId, teamId: playerTeamId, ...stats, minutesPlayed: 0, plusMinus, effectiveFieldGoalPercentage, trueShootingPercentage,
             });
         });
         await this.playerStatsRepository.save(playerStatsEntities);

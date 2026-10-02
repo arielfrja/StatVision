@@ -2,6 +2,15 @@ import { DataSource, In } from "typeorm";
 import { GameEventRepository, GameStatsService, GameRepository, Team, Player, GameEvent, Game, GameStatus } from "@statvision/common";
 import logger from "../../config/logger";
 
+export interface AssignmentDiff {
+    /** Number of GameEvent rows re-pointed from the temp entity to the official one. */
+    movedEvents: number;
+    /** Game's home/away links after the temp -> official move. */
+    newHomeAway: { homeTeamId: string | null; awayTeamId: string | null };
+    /** Game status after the fully-resolved check. */
+    newStatus: GameStatus;
+}
+
 export class GameAssignmentService {
     private gameEventRepository: GameEventRepository;
     private gameRepository: GameRepository;
@@ -14,21 +23,24 @@ export class GameAssignmentService {
         this.gameRepository = new GameRepository(dataSource);
     }
 
-    async assignEntity(gameId: string, tempId: string, realId: string, type: 'team' | 'player', userId: string): Promise<void> {
+    async assignEntity(gameId: string, tempId: string, realId: string, type: 'team' | 'player', userId: string): Promise<AssignmentDiff> {
         logger.info(`GameAssignmentService: Assigning temp ${type} ${tempId} to real ID ${realId} for game ${gameId}`);
 
         const game = await this.gameRepository.findOneByIdAndUserId(gameId, userId);
         if (!game) throw new Error("Game not found or unauthorized.");
 
+        let movedEvents = 0;
         await this.dataSource.transaction(async (transactionalEntityManager) => {
             if (type === 'team') {
-                await transactionalEntityManager.update(GameEvent, { gameId, assignedTeamId: tempId }, { assignedTeamId: realId });
+                const result = await transactionalEntityManager.update(GameEvent, { gameId, assignedTeamId: tempId }, { assignedTeamId: realId });
+                movedEvents = result.affected ?? 0;
                 // Move the game's team links along: temp -> official.
                 if (game.homeTeamId === tempId) game.homeTeamId = realId;
                 if (game.awayTeamId === tempId) game.awayTeamId = realId;
                 await transactionalEntityManager.save(Game, game);
             } else {
-                await transactionalEntityManager.update(GameEvent, { gameId, assignedPlayerId: tempId }, { assignedPlayerId: realId });
+                const result = await transactionalEntityManager.update(GameEvent, { gameId, assignedPlayerId: tempId }, { assignedPlayerId: realId });
+                movedEvents = result.affected ?? 0;
             }
         });
 
@@ -55,5 +67,13 @@ export class GameAssignmentService {
 
         await this.gameStatsService.calculateAndStoreStats(gameId);
         logger.info(`GameAssignmentService: Assignment and stat recalculation complete.`);
+
+        // NOTE (zero-token): calculateAndStoreStats is a local deterministic
+        // re-aggregation over stored GameEvents — it makes no LLM/token calls.
+        return {
+            movedEvents,
+            newHomeAway: { homeTeamId: game.homeTeamId ?? null, awayTeamId: game.awayTeamId ?? null },
+            newStatus: game.status,
+        };
     }
 }

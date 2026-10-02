@@ -46,14 +46,37 @@ export default function UserProviderWrapper({ children }: { children: React.Reac
     );
   }
 
-  // Real Auth0 — no mock paths
+  // Real Auth0 — no mock paths.
+  // - useRefreshTokens + localstorage persists session across F5 (no re-login).
+  // - offline_access scope (above) enables refresh tokens.
+  // - onRedirectCallback restores appState.returnTo saved by AuthGuard/login,
+  //   so F5 on /games/:id or deep links survive the Auth0 round-trip.
   return (
     <Auth0Provider
       domain={domain!}
       clientId={clientId!}
       authorizationParams={{ redirect_uri: baseUrl, audience, scope: "openid profile email offline_access" }}
-      useRefreshTokens={false}
-      cacheLocation="memory"
+      useRefreshTokens={true}
+      cacheLocation="localstorage"
+      onRedirectCallback={(appState: any) => {
+        const to = appState?.returnTo;
+        if (typeof window !== 'undefined') {
+          try {
+            const saved = window.localStorage.getItem('statvision_return_to');
+            const target = to || saved;
+            window.localStorage.removeItem('statvision_return_to');
+            if (target && typeof target === 'string' && target.startsWith('/') && target !== window.location.pathname) {
+              window.location.replace(target);
+              return;
+            }
+          } catch {
+            /* ignore storage errors */
+          }
+          if (to && typeof to === 'string' && to.startsWith('/')) {
+            window.location.replace(to);
+          }
+        }
+      }}
     >
       <Auth0RealBridge>{children}</Auth0RealBridge>
     </Auth0Provider>

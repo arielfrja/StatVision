@@ -13,12 +13,12 @@ export class GameService {
         logger.info(`GameService: Creating game for user ${user.id}`);
         const game = new Game();
         Object.assign(game, data);
-        
-        if (!game.name) {
-            const dateStr = new Date().toISOString().replace('T', ' ').slice(0, 16);
-            const shortId = Math.random().toString(36).substring(2, 8);
-            game.name = `Draft Game ${dateStr} [${shortId}]`;
-        }
+
+        // NOTE: no "Draft Game [hash]" fallback here by design. The POST /
+        // route validates `name.trim().length >= 3` (400 otherwise). An
+        // absent name falls through to the DB column default
+        // ('Untitled Game') only for non-HTTP callers.
+        if (game.name) game.name = game.name.trim();
 
         game.userId = user.id;
         game.status = data.status || GameStatus.PENDING;
@@ -60,7 +60,7 @@ export class GameService {
         logger.info(`GameService: Deleting game ${gameId} for user ${userId}`);
         
         const game = await this.gameRepository.findOneWithDetails(gameId, userId);
-        if (!game) return;
+        if (!game) throw new Error(`Game ${gameId} not found for user ${userId} for deletion.`);
 
         const jobRepository = this.dataSource.getRepository(VideoAnalysisJob);
         const chunkRepository = this.dataSource.getRepository(Chunk);

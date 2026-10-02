@@ -216,8 +216,20 @@ export class VideoAnalysisResultService {
         let firebaseStatus = 'COMPLETED';
 
         if (result.status === VideoAnalysisJobStatus.COMPLETED) {
-            gameStatusToUpdate = GameStatus.ANALYZED;
-            firebaseStatus = 'ANALYZED';
+            // Temp-first workflow: link AI-discovered HOME/AWAY teams first
+            // (never overrides existing human links, never same id twice),
+            // then gate ANALYZED on ≥2 distinct resolved teams.
+            await this.linkDiscoveredTeams(result.gameId, result.identifiedTeams);
+            const distinctTeams = await this.countDistinctResolvedTeams(
+                result.gameId, result.processedEvents,
+            );
+            if (distinctTeams >= 2) {
+                gameStatusToUpdate = GameStatus.ANALYZED;
+                firebaseStatus = 'ANALYZED';
+            } else {
+                gameStatusToUpdate = GameStatus.ASSIGNMENT_PENDING;
+                firebaseStatus = 'ASSIGNMENT_PENDING';
+            }
         } else if (result.status === VideoAnalysisJobStatus.RETRYABLE_FAILED) {
             gameStatusToUpdate = GameStatus.ANALYSIS_FAILED_RETRYABLE;
             firebaseStatus = 'FAILED_RETRYABLE';
@@ -254,6 +266,65 @@ export class VideoAnalysisResultService {
             jobId: result.jobId,
             status: firebaseStatus
         });
+    }
+
+    /**
+     * Auto-links AI-discovered teams to the game record.
+     * Uses the AI's HOME/AWAY type labels to set homeTeamId/awayTeamId.
+     * INVARIANTS: never overrides existing links (human /assignment wins);
+     * never links both slots to the same team id.
+     */
+    private async linkDiscoveredTeams(gameId: string, identifiedTeams: any[] | null): Promise<void> {
+        if (!identifiedTeams || identifiedTeams.length === 0) return;
+        const game = await this.gameRepository.findOneById(gameId);
+        if (!game) return;
+        if (game.homeTeamId && game.awayTeamId) return;
+
+        let changed = false;
+        for (const teamData of identifiedTeams) {
+            if (!this.isUuid(teamData.id)) continue;
+            const teamId = teamData.id as string;
+            if (teamData.type === 'HOME' && !game.homeTeamId) {
+                // No-same-id invariant: skip if already linked as away.
+                if (game.awayTeamId === teamId) continue;
+                game.homeTeamId = teamId;
+                changed = true;
+            } else if (teamData.type === 'AWAY' && !game.awayTeamId) {
+                // No-same-id invariant: skip if already linked as home.
+                if (game.homeTeamId === teamId) continue;
+                game.awayTeamId = teamId;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            // Re-check invariant before write (both slots must differ).
+            if (game.homeTeamId && game.homeTeamId === game.awayTeamId) {
+                this.logger.warn(`[Discovery] Refusing to link both slots to ${game.homeTeamId} for game ${gameId}`, { phase: 'results_processing' });
+                return;
+            }
+            await this.gameRepository.save(game);
+            this.logger.info(`[Discovery] Linked teams to game ${gameId}: home=${game.homeTeamId} away=${game.awayTeamId}`, { phase: 'results_processing' });
+        }
+    }
+
+    /**
+     * Counts distinct assigned teams across final events, resolving
+     * TEMP_TEAM_1/2 placeholders through the game's home/away links.
+     * Unresolvable placeholders each count as their own bucket.
+     */
+    private async countDistinctResolvedTeams(gameId: string, events: any[]): Promise<number> {
+        if (!events || events.length === 0) return 0;
+        const game = await this.gameRepository.findOneById(gameId);
+        const buckets = new Set<string>();
+        for (const event of events) {
+            let teamId = event?.assignedTeamId;
+            if (!teamId) continue;
+            if (teamId === 'TEMP_TEAM_1' && game?.homeTeamId) teamId = game.homeTeamId;
+            else if (teamId === 'TEMP_TEAM_2' && game?.awayTeamId) teamId = game.awayTeamId;
+            buckets.add(teamId);
+        }
+        return buckets.size;
     }
 
     private async persistIdentifiedEntities(result: VideoAnalysisJobResultMessage): Promise<void> {

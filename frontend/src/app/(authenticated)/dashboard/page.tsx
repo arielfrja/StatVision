@@ -16,12 +16,45 @@ import Link from 'next/link';
 import { JobProgressBar } from '@/components/JobProgressBar';
 
 const PerformanceDashboardPage = () => {
-  const { data: games, isLoading } = useSWR<Game[]>('/games');
+  const { data: games, error: gamesError, isLoading, mutate } = useSWR<Game[]>('/games');
+  const [dismissedPendingId, setDismissedPendingId] = useState<string | null>(() => {
+    try {
+      // Guarded: client components prerender on the server where localStorage
+      // does not exist — default to null there, hydrate from storage on mount.
+      if (typeof window === 'undefined') return null;
+      return localStorage.getItem('statvision_dismissed_pending');
+    } catch {
+      return null;
+    }
+  });
 
+  // A2 contract: resume signal is hasPendingUpload — game.uploadUrl is NEVER
+  // returned by list/detail, so it must not be read here.
   const pendingUpload = useMemo(() => {
     if (!games) return null;
-    return games.find((g: Game) => g.status === GameStatus.PENDING && g.uploadUrl);
-  }, [games]);
+    const found = games.find((g: Game) => g.hasPendingUpload ?? g.status === GameStatus.PENDING);
+    if (!found || found.id === dismissedPendingId) return null;
+    return found;
+  }, [games, dismissedPendingId]);
+
+  const dismissPending = () => {
+    if (!pendingUpload) return;
+    try {
+      localStorage.setItem('statvision_dismissed_pending', pendingUpload.id);
+    } catch { /* private-mode storage: dismiss for this view only */ }
+    setDismissedPendingId(pendingUpload.id);
+  };
+
+  const pendingTimestamp = useMemo(() => {
+    if (!pendingUpload?.uploadedAt) return null;
+    try {
+      return new Date(pendingUpload.uploadedAt).toLocaleString('en-US', {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
+    } catch {
+      return null;
+    }
+  }, [pendingUpload]);
 
   const activeGame = useMemo(() => {
     if (!games || games.length === 0) return null;
@@ -34,6 +67,33 @@ const PerformanceDashboardPage = () => {
       .sort((a, b) => (b as any).timestamp - (a as any).timestamp)
       .slice(0, 8);
   }, [activeGame]);
+
+  const sessionSummary = useMemo(() => {
+    if (!games || games.length === 0) return 'Session Ready';
+    const home = activeGame?.homeTeam?.name || 'Home';
+    const away = activeGame?.awayTeam?.name || 'Away';
+    const totalEvents = games.reduce((sum, g) => sum + (g.eventCount ?? g.events?.length ?? 0), 0);
+    const gameWord = games.length === 1 ? 'game' : 'games';
+    return `${home} vs ${away} · ${games.length} ${gameWord} · ${totalEvents} events`;
+  }, [games, activeGame]);
+
+  if (gamesError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px', textAlign: 'center' }}>
+        <md-icon>cloud_off</md-icon>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--md-sys-color-on-surface)', margin: 0 }}>
+          Cannot reach server
+        </h1>
+        <p style={{ fontSize: '14px', color: 'var(--md-sys-color-on-surface-variant)', margin: 0 }}>
+          The dashboard could not load game data. Check your connection and try again.
+        </p>
+        <md-filled-button onClick={() => mutate()}>
+          <md-icon slot="icon">refresh</md-icon>
+          Retry
+        </md-filled-button>
+      </div>
+    );
+  }
 
   if (isLoading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -131,13 +191,19 @@ const PerformanceDashboardPage = () => {
                   margin: 0,
                 }}>
                   Process for "<span style={{ color: 'var(--md-sys-color-primary)', fontWeight: 700 }}>{pendingUpload.name}</span>" was interrupted. System is ready to resume.
+                  {pendingTimestamp && (
+                    <span style={{ display: 'block', marginTop: '4px', fontSize: '11px', opacity: 0.7 }}>
+                      Draft created {pendingTimestamp}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '12px' }}>
               <Link href={`/games?resume=${pendingUpload.id}`} passHref>
                 <md-filled-button>Resume Stream</md-filled-button>
               </Link>
+              <md-outlined-button onClick={dismissPending}>Dismiss</md-outlined-button>
             </div>
           </div>
         </md-outlined-card>
@@ -191,7 +257,7 @@ const PerformanceDashboardPage = () => {
             letterSpacing: '0.1em',
             margin: 0,
           }}>
-            {activeGame?.name || 'Session Ready'}
+            {sessionSummary}
           </p>
         </div>
 
@@ -452,7 +518,7 @@ const PerformanceDashboardPage = () => {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {[
-                  { label: 'Inference', val: 'Operational', color: 'var(--md-sys-color-tertiary)' },
+                  { label: 'Inference', val: 'Operational', color: 'var(--md-sys-color-success)' },
                   { label: 'Cloud Storage', val: 'Synchronized', color: 'var(--md-sys-color-on-surface-variant)' },
                   { label: 'Metadata API', val: 'Active', color: 'var(--md-sys-color-on-surface-variant)' }
                 ].map((log, i) => (
@@ -481,29 +547,7 @@ const PerformanceDashboardPage = () => {
             </div>
           </md-outlined-card>
 
-          <Link href="/games" passHref style={{ textDecoration: 'none', display: 'block' }}>
-            <md-outlined-card className="fill-width pointer">
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '18px 20px',
-              }}>
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  color: 'var(--md-sys-color-on-surface-variant)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                }}>
-                  Access Game Archive
-                </span>
-                <md-icon>
-                  chevron_right
-                </md-icon>
-              </div>
-            </md-outlined-card>
-          </Link>
+          {/* Single Games CTA lives in the header above (Gallery View). */}
         </div>
       </div>
     </div>
