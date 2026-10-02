@@ -67,8 +67,16 @@ async function main() {
                 
                 console.log(`[HTTP] Received orchestration request for game ${gameId}`);
                 const videoOrchestratorService = container.get<VideoOrchestratorService>(VideoOrchestratorService);
-                await videoOrchestratorService.processVideo(gameId, filePath, userId);
-                res.status(200).send('Orchestration started successfully');
+                // ACK immediately; the full pipeline (GCS download + chunks +
+                // Gemini turns) runs minutes past any caller's patience and
+                // holding the HTTP connection open gets it killed mid-job
+                // (seen: API-side ECONNABORTED at ~3 min, job never created).
+                // Crash recovery is via startup reconciliation of PROCESSING
+                // jobs below, not via request retry.
+                res.status(202).send('Orchestration accepted');
+                videoOrchestratorService.processVideo(gameId, filePath, userId).catch((err: any) => {
+                    console.error(`[HTTP] Async orchestration failed for game ${gameId}:`, err?.message || err);
+                });
             } catch (error: any) {
                 console.error(`[HTTP] Error orchestrating game:`, error);
                 res.status(500).send(`Error: ${error.message}`);
