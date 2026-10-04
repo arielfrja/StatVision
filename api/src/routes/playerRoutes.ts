@@ -46,6 +46,9 @@ export const playerRoutes = (AppDataSource: DataSource, teamService: TeamService
         const teamId = req.params.teamId as string;
         const { playerId } = req.params;
         const pid = Array.isArray(playerId) ? playerId[0] : playerId;
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pid || '')) {
+            return res.status(400).json({ message: "Invalid player id." });
+        }
 
         try {
             const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);

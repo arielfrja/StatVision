@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { DataSource } from 'typeorm';
-import { TeamService, User, PlayerService, Game } from '@statvision/common';
+import { TeamService, User, PlayerService, Game, PlayerTeamHistory } from '@statvision/common';
 import logger from '../config/logger';
 import { playerRoutes } from './playerRoutes';
 
@@ -87,6 +87,19 @@ export const teamRoutes = (AppDataSource: DataSource, teamService: TeamService, 
         try {
             const team = await teamService.getTeamByIdAndUser(teamId, req.user.id);
             if (!team) return res.status(404).json({ message: "Team not found." });
+
+            // Refuse (don't cascade-delete) squads that still hold players:
+            // releasing is explicit via DELETE /teams/:id/players/:pid, so a
+            // misclick can never silently wipe a roster.
+            const rosterCount = await AppDataSource.getRepository(PlayerTeamHistory).count({
+                where: { teamId },
+            });
+            if (rosterCount > 0) {
+                return res.status(409).json({
+                    message: `Squad still holds ${rosterCount} player(s). Release them first, then delete.`,
+                    rosterCount,
+                });
+            }
 
             // Guard: games referencing this team keep working after delete.
             // The home/away FKs are SET NULL, but we nullify explicitly first so the
